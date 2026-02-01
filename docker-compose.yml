@@ -5,6 +5,11 @@ services:
       - "3000:3000"
     volumes:
       - .:/app
-      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
+
+# Esto crea un volumen "nombrado" que Docker gestiona él solo
+# Así node_modules vive DENTRO del contenedor y no se sobreescribe
+volumes:
+  frontend_node_modules:
