@@ -8,6 +8,9 @@ import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
 import Divider from '@/components/ui/Divider';
 import GoogleIcon from '@/components/iconos/GoogleIcon';
+import Loader from '@/components/ui/Loader';
+import { motion , AnimatePresence} from 'framer-motion';
+
 
 export default function LoginPage() {
 
@@ -37,8 +40,6 @@ export default function LoginPage() {
     if (error) setError('');
   }
 
-  ///////////////SEPARADOR PA Q NO SEA UN LIO DE COSAS//////////////////////////////////////////////////////////////////////////////
-
   //Funcion Enviar formulario
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault(); //Evita que la página se recargue sola
@@ -52,8 +53,8 @@ export default function LoginPage() {
       //q lleve @ el gmail si no, no vale
       if (!formData.email.includes('@')) 
       {
-      setError('Por favor, introduce un email válido');
-      return;
+        setError('Por favor, introduce un email válido');
+        return;
       }
 
       setIsLoading(true); // Ponemos el spinner dando vueltas (el cargador)
@@ -83,9 +84,9 @@ export default function LoginPage() {
           {
             //Si todod fue bien
 
-            //guardamos el token para mas adelante
-            if (data.token) {
-              localStorage.setItem('authToken', data.token);
+            //buscamos el access_token y guardamos el token para mas adelante
+            if (data.access_token) {
+              localStorage.setItem('authToken', data.access_token);
             }
             
             //Nos vamos a la página principal
@@ -109,97 +110,109 @@ export default function LoginPage() {
         setIsLoading(false);
       }
   };
-  ///////////////SEPARADOR A PARTIR DE AQUI ENTENDER//////////////////////////////////////////////////////////////////////////////
-  
+
   // Google login
   const handleGoogleLogin = () => {
   window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`;
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//mirar y aprender Y ARREGLAR IR POCO A POCO DECIRLE A GEMINI Q NOS AYUDE A HACERLO BIEN HECHO DE POCO A POCO pa qno haya problemas 
-
   return (
-    // 2. USAMOS TAILWIND EN LUGAR DE INLINE STYLES
+    /* CONTENEDOR PRINCIPAL: Ocupa toda la pantalla, centra el contenido y pone fondo oscuro */
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gray-900">
       
-      {/* FONDO */}
+      {/* SECCIÓN DEL FONDO: Una imagen q llena toda la pantalla detrás de la tarjeta */}
       <div className="absolute inset-0 z-0">
         <Image
           src="/assets/loginRegister/background-travel.png" 
           alt="Background"
-          fill
-          className="object-cover brightness-[0.7]" 
-          priority
+          fill // Hace que la imagen se estire para llenar el div
+          className="object-cover brightness-[0.7]" // 'object-cover' para q no se deforme, 'brightness' para oscurecerla
+          priority //decimos q esta imagen tenga prioridad sobre el resto (pq es lo primero q se ve)
         />
       </div>
 
-      {/* TARJETA */}
-      <div className="relative z-10 w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
-        
-        {/* IZQUIERDA: IMAGEN */}
-        <div className="relative w-full md:w-1/2 min-h-[300px] md:min-h-full">
-          <Image
-            src="/assets/loginRegister/login-side.png"
-            alt="Travel"
-            fill
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-12">
-            <h2 className="text-white text-3xl font-bold leading-tight">
-              Tu viaje no se detiene,<br />
-              <span className="font-light text-white/80">nosotros tampoco</span>
-            </h2>
+      {/* TARJETA BLANCA (donde se encontrar el formulario + imagen*/}
+      {/* motion -> efecto chulo, de invisible a visible*/}
+      <motion.div 
+        initial={{ opacity: 0, y: 50, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]"
+      > 
+        {/* COLUMNA IZQUIERDA: Imagen decorativa con efecto de zoom al pasar el ratón (gracias a whileHover) */}
+        <div className="relative w-full md:w-1/2 min-h-[300px] md:min-h-full overflow-hidden">
+          <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.6 }} className="relative w-full h-full">
+              <Image
+                src="/assets/loginRegister/login-side.png"
+                alt="Travel"
+                fill
+                className="object-cover"
+              />
+          </motion.div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-12 pointer-events-none">
+            <motion.h2 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-white text-3xl font-bold leading-tight"
+            >
+                <span className="font-serif">Tu viaje no se detiene,<br/>
+                <span className="font-light text-white/80">nosotros tampoco</span></span>
+            </motion.h2>
           </div>
         </div>
 
-        {/* DERECHA: FORMULARIO */}
+        {/* COLUMNA DERECHA: El formulario de Login real */}
         <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
-          <div className="mb-10">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="mb-10"
+          >
             <h1 className="text-4xl font-bold text-gray-800 mb-3">Bienvenido</h1>
             <p className="text-gray-500 text-lg">Inicia sesión para continuar</p>
-          </div>
+          </motion.div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 border-l-4 border-red-500 text-sm">
-              {error}
-            </div>
-          )}
+          <AnimatePresence>
+              {/* MENSAJE DE ERROR: Solo aparece si el estado 'error' tiene texto */}
+            {error && (
+              <motion.div
+                  initial={{ opacity: 0, y: -10, height: 0 }} //aparece desde arriba
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -10, height: 0 }} //desaparece suavemente
+                  transition={{ duration: 0.3 }} 
+                  className="mb-6 p-4 bg-red-50 text-red-600 border-l-4 border-red-500 text-sm"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
+          {/* FORMULARIO: Donde el usuario escribe sus datos */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
             <InputField
               label="Email"
               name="email"
               type="email"
               id="email"
               value={formData.email}
-              onChange={handleInputChange}
+              onChange={handleInputChange}  // Función que guarda lo que se escribe
               placeholder="correo@ejemplo.com"
             />
-            <div className="space-y-1">
+            </motion.div>
+            {/* Input de Contraseña y enlace de Olvidar Contraseña */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 }}
+              className="space-y-1"
+            >
               <InputField
                 label="Contraseña"
                 name="password"
@@ -208,27 +221,45 @@ export default function LoginPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="••••••••"
-                showPasswordToggle
+                showPasswordToggle // Permite ver/ocultar la contraseña
               />
               <div className="text-right">
-                <button type="button" className="text-sm text-[#8d6e63] hover:underline font-medium">
+                <Link href="/auth/forgot-password" className="text-sm text-[#8d6e63] hover:underline font-medium">
                   ¿Olvidaste tu contraseña?
-                </button>
+                </Link>
               </div>
-            </div>
-
-            <Button type="submit" variant="primary" className="w-full py-4 text-lg">
-              {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
+            </motion.div>
+            {/* BOTÓN DE ENVIAR: Se desactiva si está cargando */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+            <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading} >
+              Iniciar Sesión
             </Button>
+            </motion.div>
+            {isLoading && ( 
+              <div className="mt-4 flex justify-center">
+                <Loader text="Iniciando sesión..." />
+              </div>
+            )}
+
           </form>
-
+            {/* SEPARADOR "OR"*/}
           <Divider text="OR" />
-
+            
+          <motion.div
+          whileTap={{ scale: 0.98 }}
+          >
+            {/* BOTÓN DE GOOGLE */}
           <Button variant="google" onClick={handleGoogleLogin}>
             <GoogleIcon />
             Google
           </Button>
-
+          </motion.div>
+            {/* ENLACE AL REGISTRO: Por si no tienes cuenta todavía */}
           <p className="mt-8 text-center text-gray-600">
             ¿No tienes cuenta?{' '}
             <Link href="/auth/register" className="text-[#8d6e63] font-bold hover:underline">
@@ -236,7 +267,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-      </div>
+      </motion.div>
     </main>
   );
 }

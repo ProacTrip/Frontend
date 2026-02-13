@@ -68,7 +68,7 @@ export default function InputField({label,type,placeholder,id,name,value,onChang
                        text-gray-500 hover:text-gray-700 transition-colors"
             aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
           >
-            {/* Si es true Contraseña visible → icono ojo abierto
+            {/* Si es true Contraseña visible - icono ojo abierto
             Si es false Contrase no visibile - icono ojo cerrado*/}
 
             {showPassword ? (<EyeOff size={20} /> ) : (<Eye size={20} />)}
