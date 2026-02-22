@@ -60,61 +60,77 @@ export default function LoginPage() {
       setIsLoading(true); // Ponemos el spinner dando vueltas (el cargador)
       setError(''); //nos aseguramos (aunq repitamos) q no esta el mensaje de error
 
-      //Vamos a intentar hacer login
       try {
-          // 3. Petición al Backend
+          // Petición al Backend
           // Login normal
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login`, {
-
-          method: 'POST',
-          headers: { //mandamos json al backend y le pasamos email y password
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password
-          })
-        });
-
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login`, 
+          {
+            method: 'POST',
+            headers: { //mandamos json al backend y le pasamos email y password
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password
+            })
+          });
 
           //convertimos la informacion q nos pase el backend en JS , await lo q hace es epserar a q termine
           const data = await response.json();
 
           if (response.ok) 
           {
-            //Si todod fue bien
+            //verificamos en consola por si acaso
+            console.log('Login exitoso :D');
 
-            //buscamos el access_token y guardamos el token para mas adelante
-            if (data.access_token) {
-              localStorage.setItem('authToken', data.access_token);
+            //Comprobamos si el servidor nos ha enviado el 'access_token'
+            if (data.access_token) 
+            {
+              //guardamos esa llave en el 'LocalStorage' del navegador con el nombre 'access_token'. 
+              //permite que el usuario siga logueado aunque refresque la página.
+              localStorage.setItem('access_token', data.access_token);
+              
+              if (data.expires_in) {
+                //creamos obejto con la fecha actual y lo sumamos junto a la fecha de expiracion
+                const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+                
+                //lo guardamos como texto "string" para q se pueda borrar
+                localStorage.setItem('token_expires_at', expiresAt.toISOString());
+              }
             }
-            
-            //Nos vamos a la página principal
-            router.push('/home');
+
+            //si el servidor nos envía también una llave de repuesto ('refresh_token'), la guardamos para pedir un nuevo token
+            if (data.refresh_token) 
+            {
+              localStorage.setItem('refreshToken', data.refresh_token);
+            }
+
+            //Ponemos q tarde un poco aposta para cargar nuestro Loader
+            setTimeout(() => {
+              //setIsLoading(false);
+              router.push('/home');
+            }, 800);
           } 
           else 
           {
-            //Error por contraseña incorrecta 
             setError(data.message || 'Email o contraseña incorrectos');
+            setIsLoading(false); // Solo apagamos el spinner si falla la contraseña
           }
-      }
+          
+      } 
       catch (err) 
       {
-        //Error servidor apagado
         console.error('Error en login:', err);
         setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setIsLoading(false); // Apagamos el spinner si se cae el servidor
       } 
-      finally 
-      {
-        //Pase lo que pase, quitamos el cargador
-        setIsLoading(false);
-      }
-  };
+    
+    };
 
-  // Google login
-  const handleGoogleLogin = () => {
-  window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`;
-  };
+      // Google login
+    const handleGoogleLogin = () => {
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`;
+    };
 
   return (
     /* CONTENEDOR PRINCIPAL: Ocupa toda la pantalla, centra el contenido y pone fondo oscuro */

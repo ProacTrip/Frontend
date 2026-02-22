@@ -58,7 +58,7 @@ export default function LandingPage() {
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <Image 
-                  src="/logo.ico" 
+                  src="/logoMostrar.png" 
                   alt="Logo" 
                   width={150} 
                   height={150}
