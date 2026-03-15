@@ -1,4 +1,3 @@
-// frontend/components/iconos/GoogleIcon.tsx
 import React from 'react';
 
 // Definimos la interfaz para las props (igual que en tu Divider)

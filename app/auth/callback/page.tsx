@@ -50,7 +50,7 @@ export default function GoogleCallbackPage() {
 
         // Redirigir al home después de 1 segundo
         setTimeout(() => {
-          window.location.href = '/home';
+          router.push('/home');
         }, 1000);
 
       } catch (err) {
@@ -126,6 +126,7 @@ export default function GoogleCallbackPage() {
 
 //ESTE CODIGO SOLO DURARA 1 HORA PARA INICIAR SESION POR GOOGLE
 //aparte hay errores en el backend q si ya se creo la cuenta o sale duplicate keys pues no deja entrar 
+//no lo tocaremos aun mucho hasta q el backend lo arregle adecuadamente
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

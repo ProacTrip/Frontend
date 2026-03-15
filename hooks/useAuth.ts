@@ -9,7 +9,6 @@ import { refreshAccessToken } from '@/app/lib/api';
 // Borra todos los datos de sesión del navegador (se usa cuando algo falla o el token caduca)
 function limpiarSesion() {
   localStorage.removeItem('access_token');
-  localStorage.removeItem('authToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('token_expires_at');
 }

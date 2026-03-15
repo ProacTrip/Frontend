@@ -11,6 +11,7 @@ import Divider from '@/components/ui/Divider';
 import GoogleIcon from '@/components/iconos/GoogleIcon';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getUserLocation } from '@/app/lib/utils/location';
 
 export default function RegisterPage() {
   const router = useRouter(); //para movernos entre rutas
@@ -58,21 +59,40 @@ export default function RegisterPage() {
     setIsLoading(true); // Encendemos el cargador
     setError(''); // Limpiamos errores previos
 
-    try {
+    try 
+    {
+      //obtenemos la ubicacion
+      let submitLocation;
+      const saved = localStorage.getItem('user_location');
+      
+      if (saved) 
+      {
+        submitLocation = JSON.parse(saved);
+      } 
+      else 
+      {
+        submitLocation = await getUserLocation();
+      }
+
       // Petición al backend
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          preferred_language: submitLocation.language,
+          preferred_currency: submitLocation.currency,
+          timezone: submitLocation.timezone,
+          location: submitLocation.location,
         })
       });
 
       //Convierte la respuesta del backend (que viene en formato JSON) en un objeto de JavaScript para poder usarlo.
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok) 
+      {
         setSuccess(true); // Mostramos el mensaje verde de éxito
         setFormData({ email: '', password: '', confirmPassword: '' }); // Limpiamos el formulario
         
@@ -80,13 +100,19 @@ export default function RegisterPage() {
         setTimeout(() => {
           router.push('/auth/login');
         }, 2000);
-      } else {
+      } 
+      else 
+      {
         setError(data.error || 'Error al crear la cuenta');
       }
-    } catch (err) {
+    } 
+    catch (err) 
+    {
       console.error('Error en registro:', err);
       setError('Error al conectar con el servidor. Intenta de nuevo.');
-    } finally {
+    } 
+    finally 
+    {
       setIsLoading(false);
     }
   };

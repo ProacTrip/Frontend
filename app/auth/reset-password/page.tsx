@@ -88,20 +88,20 @@ function ResetPasswordForm() {
     } 
     catch (err) 
     {
-      // 👆 Aquí entramos si hay fallo de red o backend apagado
+      //Aquí entramos si hay fallo de red o backend apagado
 
       console.error('Error en reset password:', err);
-      // 👆 Lo mostramos en consola para debug
+      //Lo mostramos en consola para debug
 
       setError('Error al conectar con el servidor. Intenta de nuevo.');
-      // 👆 Mensaje para el usuario
+      //Mensaje para el usuario
 
     } 
     finally 
     {
-      // 👆 Esto se ejecuta SIEMPRE (haya error o no)
+      //Esto se ejecuta SIEMPRE (haya error o no)
       setIsLoading(false);
-      // 👆 Quitamos el loader
+      //Quitamos el loader
     }
   };
 
@@ -295,7 +295,7 @@ export default function ResetPasswordPage() {
             {/* SUSPENSE PARA QUE useSearchParams funcione bien*/}
             <Suspense
                 fallback={
-                    // 👆 mientras carga ResetPasswordForm mostramos un loader
+                    // mientras carga ResetPasswordForm mostramos un loader
                     <div className="flex justify-center">
                         <Loader text="Cargando..." />
                     </div>

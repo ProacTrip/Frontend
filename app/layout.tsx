@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { LocationDetector } from "@/components/LocationDetector";
 
 //Configura la fuente principal (Geist Sans).
 const geistSans = Geist({
@@ -38,6 +39,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Componente que detecta ubicación automáticamente */}
+        <LocationDetector />
         {/* AQUÍ es donde Next.js "pega" el contenido de tu page.tsx actual */}
         {children}
       </body>
