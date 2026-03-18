@@ -80,7 +80,6 @@ export default function Navbar(){
     { href: '/home', label: 'Home' },
     { href: '/home/hoteles', label: 'Hoteles' },
     { href: '/home/vuelos', label: 'Vuelos' },
-    { href: '/home/ofertas', label: 'Ofertas' },
     { href: '/home/contactanos', label: 'Contáctanos' },
   ];
 
