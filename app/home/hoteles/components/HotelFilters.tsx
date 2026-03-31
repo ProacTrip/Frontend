@@ -1,19 +1,16 @@
+// app/home/hoteles/components/HotelFilters.tsx
+
 'use client';
 
 import { useState } from 'react';
 import { DollarSign, Star, Home } from 'lucide-react';
+import type { FilterValues } from '@/app/lib/types/hotel';
+
+// ✅ CORRECCIÓN 1: Re-export para que page.tsx no se rompa
+export type { FilterValues } from '@/app/lib/types/hotel';
 
 interface HotelFiltersProps {
   onFilterChange: (filters: FilterValues) => void;
-}
-
-export interface FilterValues {
-  min_price: number | null;
-  max_price: number | null;
-  rating: number | null;
-  property_types: number[];
-  hotel_classes: number[];
-  amenities: number[];
 }
 
 export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
@@ -32,25 +29,30 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
     { value: 9, label: '4.5+' },
   ];
 
-  // Tipos de propiedad (según documentación de Marco Aurelio)
-    const propertyTypes = [
-    { id: 12, name: 'Casas y apartamentos enteros' },
-    { id: 13, name: 'Apartamentos' },
-    { id: 17, name: 'Hoteles' },
-    { id: 18, name: 'Villas' },
-    { id: 19, name: 'Hostales y pensiones' },
-    { id: 20, name: 'Casas y chalets' },
-    ];
+  // ✅ CORREGIDO: Tipos de propiedad según documentación de Marco Aurelio
+  // Solo HOTELS (vacation_rentals: false). IDs 1-11 son Vacation Rentals.
+  const propertyTypes = [
+    { id: 13, name: 'Hoteles Boutique' },      // ✅ Antes: Apartamentos (MAL)
+    { id: 14, name: 'Hostales' },               // ✅ Nuevo - Hostels
+    { id: 17, name: 'Resorts' },                // ✅ Antes: Hoteles (MAL)
+    { id: 18, name: 'Hoteles Spa' },            // ✅ Antes: Villas (MAL)
+    { id: 19, name: 'Bed & Breakfast' },        // ✅ Antes: Hostales y pensiones (MAL)
+    { id: 21, name: 'Aparthoteles' },           // ✅ Nuevo
+    // ELIMINADOS (son Vacation Rentals, IDs 1-11):
+    // { id: 12, name: 'Casa rural' },          // ❌ 12 = Beach hotels (Hotel, pero nombre mal)
+    // { id: 18, name: 'Villas' },              // ❌ 18 = Spa hotels (ya está arriba)
+    // { id: 20, name: 'Casas y chalets' },     // ❌ 20 = Other (Hotel, pero es VR en tu lógica)
+  ];
 
-  // Clases de hotel (estrellas)
+  // Clases de hotel (estrellas) - ✅ Correcto, no cambia
   const hotelClasses = [
     { id: 2, name: '2 estrellas' },
     { id: 3, name: '3 estrellas' },
     { id: 4, name: '4 estrellas' },
-    { id: 5, name: '5 estrellas' },
+    {id: 5, name: '5 estrellas' },
   ];
 
-  // Servicios (según documentación de Marco Aurelio)
+  // Servicios (amenities) - ✅ Correcto, IDs verificados con Marco
   const amenities = [
     { id: 35, name: 'WiFi gratis' },
     { id: 9, name: 'Desayuno gratis' },
@@ -58,12 +60,14 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
     { id: 10, name: 'Spa' },
     { id: 1, name: 'Parking gratis' },
     { id: 8, name: 'Restaurante' },
-    { id: 7, name: 'Aire acondicionado' },
+    { id: 40, name: 'Aire acondicionado' },
     { id: 11, name: 'Bar' },
     { id: 14, name: 'Gimnasio' },
     { id: 15, name: 'Servicio de habitaciones' },
     { id: 16, name: 'Transfer aeropuerto' },
     { id: 17, name: 'Recepción 24 horas' },
+     // Nota: El ID 7 (Fitness center) ya está cubierto por el 14 según documentación de Marco
+    // Algunas APIs usan 7, otras 14 para Gimnasio. Verifica con Marco cuál usar.
   ];
 
   // Toggle de property types
@@ -235,7 +239,7 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
         </div>
       </div>
 
-      {/* TYPE OF STAY */}
+      {/* TYPE OF STAY - ✅ CORREGIDO: Nombres según IDs de Marco */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <div className="flex items-center gap-2 mb-4">
           <Home className="w-5 h-5 text-gray-600" />

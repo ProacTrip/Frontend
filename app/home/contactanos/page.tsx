@@ -35,7 +35,7 @@ export default function ContactanosPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-64px)] bg-gradient-to-br from-gray-50 bg-[#ffe884] to-red-50/30 overflow-hidden flex flex-col">
+    <div className="h-[calc(100vh-64px)] bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] overflow-hidden flex flex-col">
       
       <motion.div
         initial={{ opacity: 0, y: -20 }}

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, MapPin, Calendar, Users } from 'lucide-react';
+import { Search, MapPin, Calendar, Users, AlertCircle } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
+import GuestsDropdown from './GuestsDropdown';
 
 interface SearchFormProps {
   onSearch: (params: SearchParams) => void;
@@ -18,6 +20,24 @@ export interface SearchParams {
   rooms: number;
 }
 
+interface FormErrors {
+  query?: string;
+  dates?: string;
+  guests?: string;
+}
+
+const COUNTRIES = [
+  'Alemania', 'Argentina', 'Australia', 'Austria', 'Bélgica',
+  'Bolivia', 'Brasil', 'Canada', 'Chile', 'China', 'Colombia',
+  'Croacia', 'Dinamarca', 'Ecuador', 'Egipto', 'Emiratos Árabes',
+  'España', 'Estados Unidos', 'Finlandia', 'Francia', 'Grecia',
+  'Holanda', 'India', 'Indonesia', 'Irlanda', 'Italia', 'Japón',
+  'Marruecos', 'México', 'Noruega', 'Nueva Zelanda', 'Perú',
+  'Polonia', 'Portugal', 'Reino Unido', 'República Checa',
+  'Rumanía', 'Rusia', 'Sudáfrica', 'Suecia', 'Suiza',
+  'Tailandia', 'Turquía', 'Uruguay', 'Venezuela',
+];
+
 export default function SearchForm({ onSearch, isLoading = false }: SearchFormProps) {
   const [query, setQuery] = useState('');
   const [checkIn, setCheckIn] = useState('');
@@ -27,29 +47,57 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
   const [rooms, setRooms] = useState(1);
   const [childrenAges, setChildrenAges] = useState<number[]>([]);
   const [showGuestsDropdown, setShowGuestsDropdown] = useState(false);
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pets, setPets] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  // Actualizar edades de niños cuando cambia la cantidad
-  const handleChildrenChange = (newCount: number) => {
-    setChildren(newCount);
-    
-    if (newCount > children) {
-      const newAges = [...childrenAges];
-      for (let i = children; i < newCount; i++) {
-        newAges.push(5);
-      }
-      setChildrenAges(newAges);
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!query || query.trim().length === 0) {
+      newErrors.query = 'Por favor ingresa un destino';
+    }
+
+    if (!checkIn || !checkOut) {
+      newErrors.dates = 'Selecciona las fechas de entrada y salida';
     } else {
-      setChildrenAges(childrenAges.slice(0, newCount));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const checkInD = new Date(checkIn);
+      const checkOutD = new Date(checkOut);
+
+      if (checkInD < today) {
+        newErrors.dates = 'La fecha de entrada no puede ser anterior a hoy';
+      } else if (checkOutD <= checkInD) {
+        newErrors.dates = 'La fecha de salida debe ser posterior a la de entrada';
+      } else {
+        const diffDays = Math.ceil((checkOutD.getTime() - checkInD.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays > 30) {
+          newErrors.dates = 'La reserva no puede ser de más de 30 noches';
+        }
+      }
+    }
+
+    if (children > 0 && childrenAges.some(age => age === 0)) {
+      newErrors.guests = 'Selecciona la edad de todos los niños';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const clearError = (field: keyof FormErrors) => {
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!query || !checkIn || !checkOut) {
-      alert('Por favor completa todos los campos obligatorios');
-      return;
-    }
+    if (!validateForm()) return;
 
     onSearch({
       query,
@@ -62,247 +110,198 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
     });
   };
 
-  // Formatear fechas para mostrar
   const formatDateRange = () => {
-    if (!checkIn || !checkOut) return 'Añadir fechas';
-    
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short' 
+    if (!checkInDate || !checkOutDate) return 'Añadir fechas';
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
     };
-    
-    return `${start.toLocaleDateString('es-ES', options)} — ${end.toLocaleDateString('es-ES', options)}`;
+    return `${checkInDate.toLocaleDateString('es-ES', options)} — ${checkOutDate.toLocaleDateString('es-ES', options)}`;
   };
 
-  // Formatear resumen de huéspedes
   const formatGuestsSummary = () => {
     const parts = [];
     parts.push(`${adults} ${adults === 1 ? 'adulto' : 'adultos'}`);
     if (children > 0) parts.push(`${children} ${children === 1 ? 'niño' : 'niños'}`);
+    if (pets) parts.push('Mascotas');
     parts.push(`${rooms} ${rooms === 1 ? 'habitación' : 'habitaciones'}`);
     return parts.join(' · ');
   };
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg">
-      <div className="grid grid-cols-12 divide-x divide-gray-200">
-        
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-4">
+      <div className="grid grid-cols-12 gap-4 items-start">
+
         {/* DESTINO */}
-        <div className="col-span-3 p-4">
+        <div className="col-span-3">
           <label className="block text-xs font-medium text-gray-600 mb-2">
             ¿Adónde vas?
           </label>
           <div className="relative">
-            <MapPin className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ciudad o destino"
-              className="w-full pl-7 pr-2 py-1 text-sm border-0 focus:ring-0 outline-none placeholder:text-gray-400"
-              required
+              onChange={(e) => {
+                const value = e.target.value;
+                setQuery(value);
+                clearError('query');
+
+                if (value.trim().length >= 1) {
+                  const filtered = COUNTRIES.filter(c =>
+                    c.toLowerCase().startsWith(value.toLowerCase())
+                  );
+                  setSuggestions(filtered.slice(0, 3));
+                } else {
+                  setSuggestions([]);
+                }
+              }}
+              placeholder="Ciudad o país"
+              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none placeholder:text-gray-400 text-sm transition-colors ${
+                errors.query ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             />
+            {suggestions.length > 0 && (
+              <ul className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                {suggestions.map((country) => (
+                  <li
+                    key={country}
+                    onClick={() => {
+                      setQuery(country);
+                      setSuggestions([]);
+                      clearError('query');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    {country}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {errors.query && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+              <p className="text-xs text-red-500">{errors.query}</p>
+            </div>
+          )}
         </div>
 
         {/* FECHAS */}
-        <div className="col-span-4 p-4 relative">
+        <div className="col-span-3 relative">
           <label className="block text-xs font-medium text-gray-600 mb-2">
             Fechas
           </label>
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDatePicker(!showDatePicker);
+              setShowGuestsDropdown(false);
+              clearError('dates');
+            }}
+            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[#FF6B6B] transition-colors text-left bg-white ${
+              errors.dates ? 'border-red-400 bg-red-50' : 'border-gray-300'
+            }`}
+          >
             <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            <div className="flex items-center gap-2 flex-1">
-              <input
-                type="date"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                min={today}
-                className="flex-1 text-sm border-0 focus:ring-0 outline-none"
-                required
-              />
-              <span className="text-gray-400">—</span>
-              <input
-                type="date"
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                min={checkIn || today}
-                className="flex-1 text-sm border-0 focus:ring-0 outline-none"
-                required
-              />
+            <span className="text-sm text-gray-700 flex-1 truncate">
+              {checkInDate && checkOutDate ? formatDateRange() : 'Añadir fechas'}
+            </span>
+          </button>
+          {errors.dates && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+              <p className="text-xs text-red-500">{errors.dates}</p>
             </div>
-          </div>
-          {checkIn && checkOut && (
-            <p className="text-xs text-gray-500 mt-1 ml-7">
-              {formatDateRange()}
-            </p>
+          )}
+          {showDatePicker && (
+            <DateRangePicker
+              checkIn={checkInDate}
+              checkOut={checkOutDate}
+              onDateChange={(start, end) => {
+                setCheckInDate(start);
+                setCheckOutDate(end);
+                if (start) setCheckIn(start.toISOString().split('T')[0]);
+                if (end) setCheckOut(end.toISOString().split('T')[0]);
+                clearError('dates');
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
           )}
         </div>
 
         {/* HUÉSPEDES */}
-        <div className="col-span-4 p-4 relative">
+        <div className="col-span-4 relative">
           <label className="block text-xs font-medium text-gray-600 mb-2">
             Huéspedes
           </label>
           <button
             type="button"
-            onClick={() => setShowGuestsDropdown(!showGuestsDropdown)}
-            className="w-full flex items-center gap-2 text-left"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowGuestsDropdown(!showGuestsDropdown);
+              setShowDatePicker(false);
+            }}
+            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[#FF6B6B] transition-colors text-left bg-white ${
+              errors.guests ? 'border-red-400 bg-red-50' : 'border-gray-300'
+            }`}
           >
             <Users className="w-5 h-5 text-gray-400 flex-shrink-0" />
-            <span className="text-sm text-gray-700 flex-1">
+            <span className="text-sm text-gray-700 flex-1 truncate">
               {formatGuestsSummary()}
             </span>
-            <svg 
-              className={`w-4 h-4 text-gray-400 transition-transform ${showGuestsDropdown ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${showGuestsDropdown ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-
-          {/* Dropdown de huéspedes */}
-          {showGuestsDropdown && (
-            <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50">
-              
-              {/* Adults */}
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                <div>
-                  <p className="font-medium text-gray-700">Adultos</p>
-                  <p className="text-xs text-gray-500">18+ años</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAdults(Math.max(1, adults - 1))}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    disabled={adults <= 1}
-                  >
-                    −
-                  </button>
-                  <span className="w-8 text-center font-medium">{adults}</span>
-                  <button
-                    type="button"
-                    onClick={() => setAdults(adults + 1)}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Children */}
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                <div>
-                  <p className="font-medium text-gray-700">Niños</p>
-                  <p className="text-xs text-gray-500">0-17 años</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleChildrenChange(Math.max(0, children - 1))}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    disabled={children <= 0}
-                  >
-                    −
-                  </button>
-                  <span className="w-8 text-center font-medium">{children}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleChildrenChange(children + 1)}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Rooms */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="font-medium text-gray-700">Habitaciones</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRooms(Math.max(1, rooms - 1))}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    disabled={rooms <= 1}
-                  >
-                    −
-                  </button>
-                  <span className="w-8 text-center font-medium">{rooms}</span>
-                  <button
-                    type="button"
-                    onClick={() => setRooms(rooms + 1)}
-                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Edades de niños */}
-              {children > 0 && (
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm font-medium text-gray-700 mb-3">
-                    Edades de los niños
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {childrenAges.map((age, index) => (
-                      <select
-                        key={index}
-                        value={age}
-                        onChange={(e) => {
-                          const newAges = [...childrenAges];
-                          newAges[index] = parseInt(e.target.value);
-                          setChildrenAges(newAges);
-                        }}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none text-sm"
-                      >
-                        {Array.from({ length: 18 }, (_, i) => i).map((ageOption) => (
-                          <option key={ageOption} value={ageOption}>
-                            {ageOption} {ageOption === 1 ? 'año' : 'años'}
-                          </option>
-                        ))}
-                      </select>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShowGuestsDropdown(false)}
-                className="w-full mt-4 py-2 bg-[#FF6B6B] text-white rounded-md hover:bg-[#ff5252] transition-colors font-medium text-sm"
-              >
-                Listo
-              </button>
+          {errors.guests && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+              <p className="text-xs text-red-500">{errors.guests}</p>
             </div>
+          )}
+          {showGuestsDropdown && (
+            <GuestsDropdown
+              adults={adults}
+              children={children}
+              childrenAges={childrenAges}
+              rooms={rooms}
+              pets={pets}
+              onUpdate={(data) => {
+                setAdults(data.adults);
+                setChildren(data.children);
+                setChildrenAges(data.childrenAges);
+                setRooms(data.rooms);
+                setPets(data.pets);
+                clearError('guests');
+              }}
+              onClose={() => setShowGuestsDropdown(false)}
+            />
           )}
         </div>
 
         {/* BOTÓN BUSCAR */}
-        <div className="col-span-1 p-4 flex items-end">
+        <div className="col-span-2 pt-6">
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-[#FF6B6B] text-white py-3 px-4 rounded-lg hover:bg-[#ff5252] transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#ff5252] transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
                 <Search className="w-5 h-5" />
-                <span className="hidden xl:inline">Buscar</span>
+                <span>Buscar</span>
               </>
             )}
           </button>
