@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
-import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, ShoppingCart, HeartPlus } from 'lucide-react';
+import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus } from 'lucide-react';
 
 export default function Navbar(){
     const router = useRouter();
@@ -76,7 +76,6 @@ export default function Navbar(){
   };
 
   const navLinks = [
-    { href: '/home/plan', label: 'Plan ProacTrip' },
     { href: '/home', label: 'Home' },
     { href: '/home/hoteles', label: 'Hoteles' },
     { href: '/home/vuelos', label: 'Vuelos' },
@@ -117,7 +116,7 @@ export default function Navbar(){
                 <Loader text="" size="md" />
                 
               ) : isAuthenticated ? (
-                // Usuario logueado: mostrar icono de perfil + carrito + me gusta con dropdown
+                // Usuario logueado: mostrar icono de perfil + me gusta con dropdown
                 <div className="flex items-center gap-4 relative" ref={dropdownRef}>
                   {/*añadir a favoritos*/}
                   <Link 
@@ -125,14 +124,6 @@ export default function Navbar(){
                     className="relative text-white hover:text-red-800 transition-colors"
                   >
                     <HeartPlus className="w-6 h-6"/>
-                  </Link>
-
-                  {/*carrito*/}
-                  <Link 
-                    href="/home/carrito" 
-                    className="relative text-white hover:text-gray-200 transition-colors"
-                  >
-                    <ShoppingCart className="w-7 h-7" />
                   </Link>
 
                   {/*usuario*/}

@@ -132,7 +132,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
     }
 
     router.push(
-      `/home/hoteles/${hotel.id}/habitaciones?hotelName=${encodeURIComponent(hotel.name)}&checkIn=${checkInStr}&checkOut=${checkOutStr}&adults=${adults}&nights=${nights}&rooms=${rooms}`
+      `/home/hoteles/${hotel.id}/habitaciones?hotelName=${encodeURIComponent(hotel.name)}&checkIn=${checkInStr}&checkOut=${checkOutStr}&adults=${adults}&nights=${nights}&rooms=${rooms}&children=${searchParams?.children || 0}&infants=${(searchParams as any)?.infants_in_seat || 0}`
     );
   };
 

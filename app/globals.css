@@ -1,6 +1,5 @@
-/* === ESTO ES OBLIGATORIO PARA QUE TAILWIND FUNCIONE === */
-/* Sin estas 3 líneas, ninguna clase de Tailwind se genera */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+/* === ESTO ES OBLIGATORIO PARA QUE TAILWIND FUNCIONE === */
+/* Sin estas 3 líneas, ninguna clase de Tailwind se genera */

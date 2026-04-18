@@ -1541,3 +1541,165 @@ style: formatear componentes con Prettier
 **Última actualización:** Marzo 2026  
 **Versión:** 1.0.0  
 **Licencia:** Privado - Proyecto Académico
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ README - Actualización Sugerida
+Basándome en lo que me has pasado, el README necesita actualizarse. Aquí va el contenido nuevo que deberías usar:
+Markdown
+Copy
+Code
+Preview
+# ProacTrip Frontend - TFG 2025
+
+Sistema de gestión de viajes y reservas construido con Next.js 16, React 19 y TypeScript.
+
+## 🚀 Estado Actual del Desarrollo
+
+### Módulos Implementados
+
+#### ✅ Autenticación (100%)
+- Login con email/password
+- Registro con detección automática de ubicación
+- Google OAuth (con manejo de errores de cuenta duplicada)
+- Verificación de email
+- Recuperación de contraseña
+- Refresh automático de tokens (5 min antes de expirar)
+- Logout con limpieza de sesión
+
+#### ✅ Sistema de Hoteles (90% - MOCK)
+- Búsqueda con filtros avanzados (precio, rating, tipo, estrellas, amenities)
+- Paginación con infinite scroll
+- Detalle de hotel con galería de imágenes
+- Selección de habitaciones
+- Checkout unificado con formulario de pago
+- Confirmación de reserva con voucher descargable
+
+**Pendiente backend**: Conectar endpoints reales de búsqueda, detalle y reserva.
+
+#### 🚧 Vuelos (0% - Estructura lista)
+- Estructura de carpetas creada siguiendo el patrón de hoteles
+- Pendiente: Implementar componentes de búsqueda, filtros, listado y detalle
+
+#### 🚧 Perfil de Usuario (80%)
+- Visualización de datos personales
+- Edición de perfil (nombre, nacionalidad, teléfono, avatar)
+- Cambio de preferencias (idioma, moneda, timezone)
+- **Pendiente**: Reestructuración a `/account/*` cuando backend esté listo
+
+#### ❌ Carrito (Eliminado)
+- Según decisión del equipo, se eliminará del TFG
+
+#### ❌ Plan ProacTrip (Eliminado)
+- No se implementará por falta de tiempo
+
+### Bugs Conocidos del Backend (Marco Aurelio trabajando en ellos)
+
+1. **Google OAuth duplicate key**: Al registrar con Google si la cuenta ya existe, no maneja el error adecuadamente
+2. **Google OAuth sin refresh_token**: Algunos logins no devuelven refresh token (sesión de 1 hora máxima)
+3. **Current location 404**: Endpoint `/api/v1/user/current-location` no implementado
+4. **Verify email permite login**: Usuarios no verificados pueden iniciar sesión (debería bloquear)
+
+### Variables de Entorno
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+Scripts Disponibles
+bash
+Copy
+npm run dev          # Desarrollo con hot-reload
+npm run build        # Build de producción
+npm run start        # Servidor de producción
+npm run lint         # ESLint
+docker compose up -d # Desarrollo con Docker
+Estructura de Carpetas Actualizada
+plain
+Copy
+frontend/
+├── app/
+│   ├── auth/              # Login, register, OAuth, password reset
+│   ├── home/
+│   │   ├── checkout/      # Checkout unificado (hoteles, vuelos, etc)
+│   │   ├── confirmacion/  # Voucher de reserva
+│   │   ├── contactanos/   # Formulario de contacto
+│   │   ├── hoteles/       # Búsqueda, filtros, detalle, habitaciones
+│   │   ├── profile/       # Perfil de usuario (será account)
+│   │   └── vuelos/        # 🚧 Pendiente implementar
+│   ├── lib/
+│   │   ├── api.ts         # Cliente API con refresh automático
+│   │   ├── constants/     # Países, monedas, destinos
+│   │   ├── types/         # TypeScript interfaces
+│   │   └── utils/         # Transformadores, ubicación, checkout
+│   └── layout.tsx         # Layout raíz con providers
+├── components/
+│   ├── home/              # DestinationCard, NotificationsButton
+│   ├── layout/            # Navbar, CookieBanner
+│   └── ui/                # Button, InputField, Loader, Divider
+├── hooks/
+│   └── useAuth.ts         # Gestión de sesión y tokens
+└── public/                # Assets estáticos
+Tecnologías Clave
+Next.js 16.0.5 - App Router, Server Components
+React 19.2.0 - Concurrent Rendering
+TypeScript 5 - Type safety completo
+Tailwind CSS 3.3.3 - Utility-first CSS
+Framer Motion 12.31.0 - Animaciones declarativas
+Lucide React 0.563.0 - Iconos SVG
+Próximos Pasos
+Backend debe implementar:
+Endpoints de búsqueda de hoteles (/v1/search/hotels)
+Endpoint de detalle de hotel (/v1/search/hotel-details)
+Endpoint de reserva de hotel (/v1/bookings/hotels)
+Endpoint de ubicación actual (/v1/user/current-location)
+Fix de Google OAuth (duplicate keys, refresh token)
+Frontend pendiente:
+Implementar módulo de vuelos (similar a hoteles)
+Conectar mocks de hoteles a endpoints reales
+Reestructurar profile a account cuando backend esté listo
+Añadir tests unitarios (Jest + React Testing Library)
+Desarrollado por: Marcos Casas (Frontend)
+Backend: Marco Aurelio
+TFG: DAW 2025
+plain
+Copy
+
+---
+
+## 🎯 Prioridades de Corrección
+
+### URGENTE (Hacer hoy):
+1. ✅ Corregir `next.config.ts` (error de sintaxis)
+2. ✅ Corregir `GuestsDropdown.tsx` (validación de edades de niños)
+3. ✅ Corregir `checkout/page.tsx` (orden de funciones)
+4. ✅ Añadir `isMounted` check en `useAuth.ts`
+
+### ALTA (Esta semana):
+5. Implementar módulo de vuelos (estructura ya creada)
+6. Conectar hoteles a backend cuando Marco termine endpoints
+7. Añadir Error Boundary global
+8. Optimizar imágenes con `next/image`
+
+### MEDIA (Próximas semanas):
+9. Implementar SWR para caché
+10. Añadir Zod para validación de forms
+11. Mejorar accesibilidad (a11y)
+12. Tests unitarios

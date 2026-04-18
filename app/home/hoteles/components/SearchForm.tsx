@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Search, MapPin, Calendar, Users, AlertCircle } from 'lucide-react';
-import DateRangePicker from './DateRangePicker';
+import DateRangePicker from '../../../../components/DateRangePicker';
 import GuestsDropdown from './GuestsDropdown';
 
 interface SearchFormProps {

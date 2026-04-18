@@ -1,41 +1,47 @@
+// app/home/checkout/components/BookingSummary.tsx
 'use client';
 
-import { CheckCircle, MapPin, Calendar, Users, Moon, Tag } from 'lucide-react';
+import { CheckCircle, MapPin, Calendar, Users, Moon, Tag, Plane } from 'lucide-react';
 
-// ==================== TIPO DE DATO QUE LLEGA DEL localStorage ====================
-// Cada módulo (hoteles, vuelos, plan...) guarda esto antes de redirigir a /home/checkout
+// ==================== TIPO DE DATO UNIFICADO ====================
 export interface CheckoutData {
   type: 'hotel' | 'vuelo' | 'plan' | 'experiencia';
 
   // Identificadores
-  item_id: string;           // ID del hotel / vuelo / plan
-  item_name: string;         // Nombre para mostrar
+  item_id: string;
+  item_name: string;
 
-  // Fechas y huéspedes (común a todos)
-  check_in: string;          // "2026-06-01"
-  check_out: string;         // "2026-06-05"
+  // Fechas y huéspedes (común a todos - ahora opcionales para flexibilidad)
+  check_in?: string;          // Para hoteles: fecha entrada | Para vuelos: fecha salida
+  check_out?: string;         // Para hoteles: fecha salida | Para vuelos: fecha regreso (opcional)
   adults: number;
   children?: number;
-  nights: number;
+  infants?: number;
+  nights?: number;            // Opcional: vuelos no tienen noches
 
-  // Habitación (solo hoteles)
+  // Hotel específico (opcional)
   room_id?: string;
   room_name?: string;
-  rooms?: number;  
-
-  // Precio
-  price_per_unit: number;    // Precio por noche / por persona / etc.
-  total_price: number;       // Total sin impuestos
-  currency: string;          // "EUR"
-
-  // Política de cancelación
-  cancellation_policy: string;
-
-  // Imagen para mostrar en el resumen
-  image?: string;
-
-  // Hotel específico
+  rooms?: number;
   hotel_address?: string;
+
+  // Vuelo específico (nuevos campos opcionales)
+  departure?: string;         // Código IATA origen (MAD)
+  arrival?: string;           // Código IATA destino (LIM)
+  outbound_date?: string;     // Fecha salida
+  return_date?: string;       // Fecha regreso (si aplica)
+  airline?: string;           // Nombre aerolínea
+
+  // Precio (común)
+  price_per_unit: number;
+  total_price: number;
+  currency: string;
+
+  // Política (opcional para vuelos)
+  cancellation_policy?: string;
+
+  // Imagen (común)
+  image?: string;
 }
 
 interface BookingSummaryProps {
@@ -49,9 +55,9 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
   // Etiqueta de unidad según tipo
   const unitLabel = () => {
     switch (data.type) {
-      case 'hotel': return `${data.nights} noche${data.nights > 1 ? 's' : ''}`;
+      case 'hotel': return `${data.nights || 1} noche${(data.nights || 1) > 1 ? 's' : ''}`;
       case 'vuelo': return `${data.adults} pasajero${data.adults > 1 ? 's' : ''}`;
-      case 'plan': return `${data.nights} noche${data.nights > 1 ? 's' : ''} · paquete completo`;
+      case 'plan': return `${data.nights || 1} noche${(data.nights || 1) > 1 ? 's' : ''} · paquete completo`;
       case 'experiencia': return `${data.adults} persona${data.adults > 1 ? 's' : ''}`;
     }
   };
@@ -68,6 +74,10 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
   };
 
   const badge = typeBadge();
+  
+  // Determinar fechas a mostrar según tipo
+  const showCheckIn = data.check_in || data.outbound_date;
+  const showCheckOut = data.check_out || data.return_date;
 
   return (
     <div className="bg-white rounded-xl shadow-md p-6 sticky top-6">
@@ -104,11 +114,19 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
           </p>
         )}
 
-        {/* Dirección (hoteles) */}
-        {data.hotel_address && (
+        {/* Dirección (hoteles) o Ruta (vuelos) */}
+        {data.type === 'hotel' && data.hotel_address && (
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
             {data.hotel_address}
+          </p>
+        )}
+        
+        {data.type === 'vuelo' && data.departure && data.arrival && (
+          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+            <Plane className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            {data.departure} → {data.arrival}
+            {data.airline && ` · ${data.airline}`}
           </p>
         )}
       </div>
@@ -116,36 +134,43 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
       {/* Detalles de la reserva */}
       <div className="space-y-2.5 mb-5 pb-5 border-b border-gray-200">
 
-        {/* Fechas */}
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5 text-gray-500">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            Check-in
-          </span>
-          <span className="font-medium text-gray-900">{data.check_in}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5 text-gray-500">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            Check-out
-          </span>
-          <span className="font-medium text-gray-900">{data.check_out}</span>
-        </div>
+        {/* Fechas - Check-in/Salida */}
+        {showCheckIn && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1.5 text-gray-500">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              {data.type === 'vuelo' ? 'Salida' : 'Check-in'}
+            </span>
+            <span className="font-medium text-gray-900">{showCheckIn}</span>
+          </div>
+        )}
+        
+        {/* Fechas - Check-out/Regreso */}
+        {showCheckOut && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1.5 text-gray-500">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              {data.type === 'vuelo' ? 'Regreso' : 'Check-out'}
+            </span>
+            <span className="font-medium text-gray-900">{showCheckOut}</span>
+          </div>
+        )}
 
-        {/* Huéspedes */}
+        {/* Huéspedes/Pasajeros */}
         <div className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-1.5 text-gray-500">
             <Users className="w-4 h-4 text-gray-400" />
-            Huéspedes
+            {data.type === 'vuelo' ? 'Pasajeros' : 'Huéspedes'}
           </span>
           <span className="font-medium text-gray-900">
-            {data.adults} adulto{data.adults > 1 ? 's' : ''}
-            {data.children && data.children > 0 ? `, ${data.children} niño${data.children > 1 ? 's' : ''}` : ''}
-          </span>
+          {data.adults} adulto{data.adults > 1 ? 's' : ''}
+          {data.children && data.children > 0 ? `, ${data.children} niño${data.children > 1 ? 's' : ''}` : ''}
+          {data.infants && data.infants > 0 ? `, ${data.infants} bebé${data.infants > 1 ? 's' : ''}` : ''}
+        </span>
         </div>
 
-        {/* Noches */}
-        {data.nights > 0 && (
+        {/* Noches (solo hoteles/planes) */}
+        {data.nights && data.nights > 0 && data.type !== 'vuelo' && (
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-1.5 text-gray-500">
               <Moon className="w-4 h-4 text-gray-400" />
@@ -171,7 +196,7 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
       <div className="space-y-2 mb-5 pb-5 border-b border-gray-200 text-sm">
         <div className="flex justify-between text-gray-600">
           <span>
-            {data.type === 'hotel'
+            {data.type === 'hotel' && data.nights
               ? `${data.currency} ${data.price_per_unit} × ${data.nights} noche${data.nights > 1 ? 's' : ''}`
               : `Precio base`}
           </span>
@@ -188,10 +213,12 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
       </div>
 
       {/* Política de cancelación */}
-      <div className="flex items-start gap-2 text-sm">
-        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-        <span className="text-green-700">{data.cancellation_policy}</span>
-      </div>
+      {data.cancellation_policy && (
+        <div className="flex items-start gap-2 text-sm">
+          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+          <span className="text-green-700">{data.cancellation_policy}</span>
+        </div>
+      )}
     </div>
   );
 }
