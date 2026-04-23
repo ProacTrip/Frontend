@@ -112,3 +112,30 @@ export function formatLocationDisplay(data: UserLocationData): string {
   const languageName = languageNames[data.language] || data.language.toUpperCase();
   return `${location} - ${data.currency} - ${languageName}`;
 }
+
+/**
+ * Lee la ubicación guardada del usuario (del localStorage)
+ * y devuelve moneda, país e idioma para las APIs.
+ * Fallback: EUR / ES / es
+ */
+export function getUserPreferences() {
+  if (typeof window === 'undefined') {
+    return { currency: 'EUR', gl: 'ES', hl: 'es' };
+  }
+  
+  try {
+    const saved = localStorage.getItem('user_location');
+    if (saved) {
+      const data = JSON.parse(saved);
+      return {
+        currency: data.currency || 'EUR',
+        gl: data.location?.country || 'ES',
+        hl: data.language || 'es'
+      };
+    }
+  } catch (e) {
+    console.warn('[Location] Error leyendo preferencias:', e);
+  }
+  
+  return { currency: 'EUR', gl: 'ES', hl: 'es' };
+}

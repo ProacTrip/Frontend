@@ -12,6 +12,7 @@ import type {
   SearchParams,
   FilterValues
 } from '@/app/lib/types/hotel';
+import { getUserPreferences } from '@/app/lib/utils/location';
 
 // ==========================================
 // CONFIGURACIÓN
@@ -37,6 +38,8 @@ export async function searchHotels(
   // ✅ VERSIÓN REAL - Backend Marco Aurelio
   try {
     console.log('🔍 Llamando a POST /api/v1/search/hotels');
+    
+    const user = getUserPreferences();
 
     const response = await apiFetch('/api/v1/search/hotels', {
       method: 'POST',
@@ -47,9 +50,9 @@ export async function searchHotels(
         adults: params.adults || 2,
         children: params.children || 0,
         children_ages: params.children_ages || [],
-        gl: "ES",
-        hl: "es",
-        currency: "EUR",
+        gl: user.gl,
+        hl: user.hl,
+        currency: user.currency,
         min_price: filters.min_price,
         max_price: filters.max_price,
         rating: filters.rating,
@@ -98,6 +101,8 @@ export async function getHotelDetails(
 
   try {
     console.log('🏨 Llamando a POST /api/v1/search/hotel-details');
+    
+    const user = getUserPreferences();
 
     const response = await apiFetch('/api/v1/search/hotel-details', {
       method: 'POST',
@@ -108,9 +113,9 @@ export async function getHotelDetails(
         adults: params.adults || 2,
         children: params.children || 0,
         children_ages: params.children_ages || [],
-        gl: "ES",
-        hl: "es",
-        currency: "EUR",
+        gl: user.gl,
+        hl: user.hl,
+        currency: user.currency,
         vacation_rentals: false
       })
     });
@@ -144,6 +149,8 @@ export async function getHotelRooms(
 
   try {
     console.log('🏨 Llamando a POST /api/v1/search/hotel-rooms');
+    
+    const user = getUserPreferences();
 
     const response = await apiFetch('/api/v1/search/hotel-rooms', {
       method: 'POST',
@@ -154,9 +161,9 @@ export async function getHotelRooms(
         adults: params.adults || 2,
         children: params.children || 0,
         children_ages: params.children_ages || [],
-        gl: "ES",
-        hl: "es",
-        currency: "EUR"
+        gl: user.gl,
+        hl: user.hl,
+        currency: user.currency
       })
     });
 
@@ -341,6 +348,7 @@ async function getHotelDetailsMock(
   const transformed = adaptHotelDetails(mockBackendDetail, params);
   return { property: transformed };
 }
+
 async function getHotelRoomsMock(hotelId: string) {
   const basePrice = 80 + (hotelId.length * 15);
   

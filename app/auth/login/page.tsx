@@ -105,6 +105,11 @@ export default function LoginPage() {
               localStorage.setItem('refreshToken', data.refresh_token);
             }
 
+            if (data.role) {
+              localStorage.setItem('user_role', data.role);
+              console.log(`[Auth] Rol guardado: ${data.role}`);
+            }
+
             //Ponemos q tarde un poco aposta para cargar nuestro Loader
             setTimeout(() => {
               //setIsLoading(false);

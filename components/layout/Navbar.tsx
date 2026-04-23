@@ -6,6 +6,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
 import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus } from 'lucide-react';
+import CurrencySelector from '@/components/layout/CurrencySelector';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function Navbar(){
     const router = useRouter();
@@ -126,6 +128,11 @@ export default function Navbar(){
                     <HeartPlus className="w-6 h-6"/>
                   </Link>
 
+                  {/*Campana notificaciones*/}
+                  <div className="relative">
+                    <NotificationBell />
+                  </div>
+
                   {/*usuario*/}
                   <button
                   //setMenuAbierto(!menuAbierto = !false) = si el menu esta cerrado se abre (menuAbierto el menu empieza estando cerrado(osea false))
@@ -134,6 +141,8 @@ export default function Navbar(){
                   >
                     <User className="w-6 h-6" />
                   </button>
+
+                  <CurrencySelector />
 
                   {menuAbierto && (
                     <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">

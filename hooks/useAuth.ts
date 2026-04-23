@@ -16,6 +16,7 @@ function limpiarSesion() {
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<{ role: string } | null>(null);
 
   useEffect(() => {
 
@@ -47,6 +48,7 @@ export function useAuth() {
           if (!renovado) {
             limpiarSesion();
             setIsAuthenticated(false);
+            setUser(null);
           } else {
             // Renovado con éxito → programamos el siguiente ciclo
             programarRefresh();
@@ -64,6 +66,7 @@ export function useAuth() {
         if (!renovado) {
           limpiarSesion();
           setIsAuthenticated(false);
+          setUser(null)
         } else {
           // Renovado con éxito → programamos el siguiente ciclo
           programarRefresh();
@@ -82,6 +85,7 @@ export function useAuth() {
       if (!token) {
         setIsAuthenticated(false);
         setIsLoading(false);
+        setUser(null);
         return;
       }
 
@@ -91,6 +95,7 @@ export function useAuth() {
         limpiarSesion();
         setIsAuthenticated(false);
         setIsLoading(false);
+        setUser(null);
         return;
       }
 
@@ -101,6 +106,11 @@ export function useAuth() {
         setIsAuthenticated(true);
         setIsLoading(false);
         // Token válido → programamos el refresh automático para cuando corresponda
+
+        //Cargar rol del localStorage
+        const savedRole = localStorage.getItem('user_role');
+        setUser(savedRole ? { role: savedRole } : { role: 'user' });
+
         programarRefresh();
         return;
       }
@@ -114,6 +124,11 @@ export function useAuth() {
         // Renovación exitosa → el usuario sigue logueado sin enterarse
         console.log('[Auth] Token renovado, sesión recuperada.');
         setIsAuthenticated(true);
+
+        //Recargar rol después de renovación
+        const savedRole = localStorage.getItem('user_role');
+        setUser(savedRole ? { role: savedRole } : { role: 'user' });
+
         // Programamos el refresh automático para el nuevo token
         programarRefresh();
       } else {
@@ -121,6 +136,7 @@ export function useAuth() {
         console.log('[Auth] No se pudo renovar el token, cerrando sesión.');
         limpiarSesion();
         setIsAuthenticated(false);
+        setUser(null);
       }
 
       setIsLoading(false);
@@ -138,5 +154,5 @@ export function useAuth() {
 
   }, []); // [] = solo se ejecuta una vez al montar el componente
 
-  return { isAuthenticated, isLoading };
+  return { isAuthenticated, isLoading, user };
 }

@@ -19,6 +19,7 @@ import {
   MOCK_OUTBOUND_TOKEN, 
   MOCK_BOOKING_TOKEN 
 } from '@/app/lib/constants/flights';
+import { getUserPreferences } from '@/app/lib/utils/location';
 
 // Flag para activar/desactivar mocks
 const USE_FLIGHT_MOCKS = process.env.NEXT_PUBLIC_USE_FLIGHT_MOCKS !== 'false';
@@ -48,13 +49,15 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
     throw new Error(FLIGHT_ERROR_MESSAGES.AIRLINE_FILTER_CONFLICT);
   }
 
+  const user = getUserPreferences();
+
   // 2. Construcción del cuerpo de la petición
   const apiBody: FlightSearchRequest = {
     ...request,
     outbound_date: formatDate(request.outbound_date),
     return_date: formatDate(request.return_date),
-    hl: request.hl || SEARCH_CONFIG.DEFAULT_LOCALE,
-    gl: request.gl || SEARCH_CONFIG.DEFAULT_MARKET,
+    hl: request.hl || user.hl,
+    gl: request.gl || user.gl,
     include_airlines: request.include_airlines || [],
     exclude_airlines: request.exclude_airlines || [],
     legs: request.legs || [],
@@ -122,10 +125,12 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
 export async function getFlightDetails(request: FlightDetailsRequest): Promise<FlightDetailsResponse> {
   if (!request.booking_token) throw new Error('Se requiere booking_token');
 
+  const user = getUserPreferences();
+
   const apiBody: FlightDetailsRequest = {
     ...request,
-    hl: request.hl || SEARCH_CONFIG.DEFAULT_LOCALE,
-    gl: request.gl || SEARCH_CONFIG.DEFAULT_MARKET,
+    hl: request.hl || user.hl,
+    gl: request.gl || user.gl,
   };
 
   if (USE_FLIGHT_MOCKS) {

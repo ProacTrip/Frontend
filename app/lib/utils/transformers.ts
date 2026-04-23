@@ -236,8 +236,8 @@ export function adaptHotelDetails(
       : backend.price_range 
         ? {
             ...base.price,
-            amount: (backend.price_range.min + backend.price_range.max) / 2,
-            currency: currencyToSymbol(backend.price_range.currency),
+            amount: ((backend.price_range.min || 0) + (backend.price_range.max || 0)) / 2,
+            currency: currencyToSymbol(backend.price_range.currency || 'EUR'),
           }
         : base.price,
   };

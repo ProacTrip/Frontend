@@ -27,6 +27,7 @@ function clearSession(): void {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('token_expires_at');
+  localStorage.removeItem('user_role');
 }
 
 // ==========================================
@@ -44,6 +45,7 @@ export async function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) {
     return refreshPromise;
   }
+  
 
   refreshPromise = (async (): Promise<boolean> => {
     try {
@@ -87,6 +89,10 @@ export async function refreshAccessToken(): Promise<boolean> {
         //El backend devuelve un nuevo refresh token con cada renovación.
         //Lo actualizamos para que el siguiente refresh también funcione.
         localStorage.setItem('refreshToken', data.refresh_token);
+      }
+
+      if (data.role) {
+        localStorage.setItem('user_role', data.role);
       }
 
       console.log('[Auth] Token renovado correctamente.');
@@ -181,6 +187,7 @@ export interface UserProfile {
   travel_preferences: Record<string, any> | null;
   created_at: string;
   updated_at: string;
+  role?: string;
 }
 
 /**

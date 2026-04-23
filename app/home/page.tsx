@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { DESTINATIONS } from '@/app/lib/constants/destinations';
 import DestinationCard from '@/components/home/DestinationCard';
-import NotificationsButton from '@/components/home/NotificationsButton';
 
 export default function HomePage() {
   const [currentIndex, setCurrentIndex] = useState(1); // Controla qué destino estamos viendo ahora (1 a 7)
@@ -53,9 +52,6 @@ export default function HomePage() {
 
   return (
     <div className="relative w-full h-[calc(100vh-64px)] overflow-hidden">
-      
-      {/* Botón de notificaciones flotante */}
-      <NotificationsButton />
       
       {/* FONDO COMPLETO */}
       <AnimatePresence mode="sync">
