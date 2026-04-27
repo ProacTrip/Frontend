@@ -1,31 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { NextResponse } from 'next/server';
+import { proxyFetch } from '@/app/lib/proxy';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    
-    const response = await apiFetch('/v1/search/hotels', {
+    const res = await proxyFetch(req, '/v1/search/hotels', {
       method: 'POST',
-      body: JSON.stringify(body)
+      body: await req.json(),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error buscando hoteles' }, 
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-    
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Error proxy hotels:', error);
-    return NextResponse.json(
-      { message: 'Error interno' }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

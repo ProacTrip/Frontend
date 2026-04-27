@@ -1,58 +1,45 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Loader from '@/components/ui/Loader';
 import { motion } from 'framer-motion';
+import { useAuthContext } from '@/contexts/AuthContext';
 
+/**
+ * OAuth callback page (cookie-based auth v2).
+ * El backend ya estableció las cookies vía Set-Cookie durante el callback de Google.
+ * Esta página solo verifica que la sesión quedó activa y redirige.
+ */
 export default function GoogleCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { refreshUser } = useAuthContext();
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
 
   useEffect(() => {
     const processCallback = async () => {
-      const token = searchParams.get('token');
-
-      // Validación del token
-      if (!token) {
-        setError('No se recibió el token de autenticación de Google');
-        setStatus('error');
-        setTimeout(() => router.push('/auth/login'), 3000);
-        return;
-      }
-
-      console.log('✅ Token de Google recibido');
-
       try {
-        // Guardar access_token
-        localStorage.setItem('access_token', token);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/current-user`, {
+          credentials: 'include',
+        });
 
-        // Calcular expiración (1 hora)
-        const expiresAt = new Date();
-        expiresAt.setSeconds(expiresAt.getSeconds() + 3600);
-        localStorage.setItem('token_expires_at', expiresAt.toISOString());
-
-        console.log('💾 Token guardado correctamente');
-        
-        // ⚠️ IMPORTANTE: No tenemos refresh_token por el bug del backend
-        // Cuando Aurelio lo arregle, el código ya está preparado para recibirlo
-        const refreshToken = searchParams.get('refresh_token');
-        if (refreshToken) {
-          localStorage.setItem('refreshToken', refreshToken);
-          console.log('✅ Refresh token guardado');
-        } else {
-          console.warn('⚠️ Login con Google sin refresh_token (bug del backend)');
+        if (!response.ok) {
+          setError('No se pudo verificar la sesión con Google');
+          setStatus('error');
+          setTimeout(() => router.push('/auth/login'), 3000);
+          return;
         }
 
-        setStatus('success');
+        const data = await response.json();
+        console.log('✅ Google login exitoso:', data.user.email);
 
-        // Redirigir al home después de 1 segundo
+        await refreshUser();
+
+        setStatus('success');
         setTimeout(() => {
           router.push('/home');
         }, 1000);
-
       } catch (err) {
         console.error('❌ Error procesando callback:', err);
         setError('Error al procesar la autenticación');
@@ -62,9 +49,8 @@ export default function GoogleCallbackPage() {
     };
 
     processCallback();
-  }, [searchParams, router]);
+  }, [router, refreshUser]);
 
-  // Estado de error
   if (status === 'error') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -84,7 +70,6 @@ export default function GoogleCallbackPage() {
     );
   }
 
-  // Estado de éxito
   if (status === 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -103,7 +88,6 @@ export default function GoogleCallbackPage() {
     );
   }
 
-  // Estado de procesando
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <motion.div
@@ -120,17 +104,3 @@ export default function GoogleCallbackPage() {
     </div>
   );
 }
-
-
-
-
-//ESTE CODIGO SOLO DURARA 1 HORA PARA INICIAR SESION POR GOOGLE
-//aparte hay errores en el backend q si ya se creo la cuenta o sale duplicate keys pues no deja entrar 
-//no lo tocaremos aun mucho hasta q el backend lo arregle adecuadamente
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////

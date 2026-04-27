@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { LocationDetector } from "@/components/LocationDetector";
+import { Providers } from "./providers";
 
 //Configura la fuente principal (Geist Sans).
 const geistSans = Geist({
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 //COMPONENTE PRINCIPAL DEL LAYOUT
-// "children" representa la página que estás visitando (Login, Home, Register, etc.)
+// Providers es client component que wrappea AuthContext (necesario en Next.js 16 server layout)
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,10 +39,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Componente que detecta ubicación automáticamente */}
-        <LocationDetector />
-        {/* AQUÍ es donde Next.js "pega" el contenido de tu page.tsx actual */}
-        {children}
+        {/* AuthProvider + cualquier provider futuro */}
+        <Providers>
+          {/* AQUÍ es donde Next.js "pega" el contenido de tu page.tsx actual */}
+          {children}
+        </Providers>
       </body>
     </html>
   );

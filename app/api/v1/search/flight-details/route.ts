@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
     if (!body.booking_token) {
       return NextResponse.json(
@@ -12,22 +12,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await apiFetch('/v1/search/flight-details', {
+    const res = await proxyFetch(req, '/v1/search/flight-details', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: errorData.message || 'Error al obtener detalles' },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Error interno' },

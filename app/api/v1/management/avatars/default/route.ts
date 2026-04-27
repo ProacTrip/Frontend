@@ -1,75 +1,34 @@
 // app/api/v1/management/avatars/default/route.ts
-//Utilidad: Proxy: listar avatares + generar URL para subir nuevos
+// Proxy: listar avatares (GET) + generar URL subida (POST)
 
-// Proxy: Listar avatares (GET) + Generar URL subida (POST)
+import { NextResponse } from 'next/server';
+import { proxyFetch } from '@/app/lib/proxy';
 
-import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
-
-/**
- * GET /api/v1/management/avatars/default
- * Proxy para: GET /v1/management/avatars/default
- */
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const ttl = searchParams.get('ttl_minutes');
-
     const query = ttl ? `?ttl_minutes=${ttl}` : '';
 
-    const response = await apiFetch(`/v1/management/avatars/default${query}`, {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error obteniendo avatares' },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-
+    const res = await proxyFetch(req, `/v1/management/avatars/default${query}`);
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Error proxy listAvatars:', error);
-    return NextResponse.json(
-      { message: 'Error interno' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }
 
-/**
- * POST /api/v1/management/avatars/default
- * Proxy para: POST /v1/management/avatars/default
- */
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-
-    const response = await apiFetch('/v1/management/avatars/default', {
+    const res = await proxyFetch(req, '/v1/management/avatars/default', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: await req.json(),
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error generando URL de subida' },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error('Error proxy uploadAvatar:', error);
-    return NextResponse.json(
-      { message: 'Error interno' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

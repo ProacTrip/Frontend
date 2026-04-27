@@ -3,26 +3,26 @@
 import { apiFetch } from './auth';
 
 // Imports absolutos para consistencia
-import type { 
-  FlightSearchRequest, 
-  FlightSearchResponse, 
-  FlightDetailsRequest, 
+import type {
+  FlightSearchRequest,
+  FlightSearchResponse,
+  FlightDetailsRequest,
   FlightDetailsResponse,
   FlightOffer,
   FlightLeg,
   AirportEndpoint,
-  AirportInfo 
+  AirportInfo
 } from '@/app/lib/types/flight';
-import { 
-  SEARCH_CONFIG, 
-  FLIGHT_ERROR_MESSAGES, 
-  MOCK_OUTBOUND_TOKEN, 
-  MOCK_BOOKING_TOKEN 
+import {
+  SEARCH_CONFIG,
+  FLIGHT_ERROR_MESSAGES,
+  MOCK_OUTBOUND_TOKEN,
+  MOCK_BOOKING_TOKEN
 } from '@/app/lib/constants/flights';
 import { getUserPreferences } from '@/app/lib/utils/location';
 
 // Flag para activar/desactivar mocks
-const USE_FLIGHT_MOCKS = process.env.NEXT_PUBLIC_USE_FLIGHT_MOCKS !== 'false';
+const USE_FLIGHT_MOCKS = process.env.NEXT_PUBLIC_USE_FLIGHT_MOCKS === 'true';
 
 // ==========================================
 // HELPERS
@@ -43,7 +43,7 @@ function formatDate(date: Date | string | undefined): string | undefined {
  * ✈️ BUSCAR VUELOS
  */
 export async function searchFlights(request: FlightSearchRequest): Promise<FlightSearchResponse> {
-  
+
   // 1. Validación de negocio
   if (request.include_airlines?.length && request.exclude_airlines?.length) {
     throw new Error(FLIGHT_ERROR_MESSAGES.AIRLINE_FILTER_CONFLICT);
@@ -74,7 +74,7 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const response = await apiFetch('/api/v1/search/flights', {
+    const response = await apiFetch('/v1/search/flights', {
       method: 'POST',
       body: JSON.stringify(apiBody),
       signal: controller.signal,
@@ -84,27 +84,28 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
+      const detail = errorData?.detail || errorData?.error || errorData?.message;
 
       if (response.status === 422 && request.outbound_selection_token) {
         throw new Error(FLIGHT_ERROR_MESSAGES.TOKEN_EXPIRED);
       }
       if (response.status === 400) {
-        throw new Error(`${FLIGHT_ERROR_MESSAGES.API_ERROR}: ${errorData?.message || 'Parámetros inválidos'}`);
+        throw new Error(detail || `${FLIGHT_ERROR_MESSAGES.API_ERROR}: Parámetros inválidos`);
       }
       if (response.status === 503) {
         throw new Error('Servicio no disponible. Intenta más tarde.');
       }
-      
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+
+      throw new Error(detail || `Error ${response.status}: ${response.statusText}`);
     }
 
     const data: FlightSearchResponse = await response.json();
 
     if (data.results_state === 'empty') {
-      return { 
-        ...data, 
-        best_flights: [], 
-        other_flights: [] 
+      return {
+        ...data,
+        best_flights: [],
+        other_flights: []
       };
     }
 
@@ -122,15 +123,31 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
 /**
  * ✈️ DETALLES DE VUELO
  */
-export async function getFlightDetails(request: FlightDetailsRequest): Promise<FlightDetailsResponse> {
-  if (!request.booking_token) throw new Error('Se requiere booking_token');
+export async function getFlightDetails(
+  bookingToken: string,
+  adults?: number,
+  currency?: string,
+  routeParams?: {
+    departure: string;
+    arrival: string;
+    outboundDate: string;
+    returnDate?: string;
+  }
+): Promise<FlightDetailsResponse> {
+  if (!bookingToken) throw new Error('Se requiere booking_token');
 
   const user = getUserPreferences();
 
   const apiBody: FlightDetailsRequest = {
-    ...request,
-    hl: request.hl || user.hl,
-    gl: request.gl || user.gl,
+    booking_token: bookingToken,
+    adults: adults || 1,
+    hl: user.hl,
+    gl: user.gl,
+    currency: currency || 'EUR',
+    departure: routeParams?.departure,
+    arrival: routeParams?.arrival,
+    outbound_date: routeParams?.outboundDate,
+    return_date: routeParams?.returnDate,
   };
 
   if (USE_FLIGHT_MOCKS) {
@@ -151,8 +168,10 @@ export async function getFlightDetails(request: FlightDetailsRequest): Promise<F
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      const detail = errorData?.detail || errorData?.error || errorData?.message;
       if (response.status === 404) throw new Error(FLIGHT_ERROR_MESSAGES.TOKEN_EXPIRED);
-      throw new Error(FLIGHT_ERROR_MESSAGES.API_ERROR);
+      throw new Error(detail || FLIGHT_ERROR_MESSAGES.API_ERROR);
     }
 
     return await response.json();
@@ -200,9 +219,9 @@ function mockSearchFlights(request: FlightSearchRequest): FlightSearchResponse {
       results_state: 'matching',
       best_flights: [],
       other_flights: [
-        createMockFlightOffer(MOCK_OUTBOUND_TOKEN, 'IB 125', 'MAD', 'LIM', 720),
-        createMockFlightOffer(MOCK_OUTBOUND_TOKEN + '2', 'UX 5021', 'MAD', 'LIM', 750),
-        createMockFlightOffer(MOCK_OUTBOUND_TOKEN + '3', 'LA 2465', 'BCN', 'LIM', 810),
+        createMockFlightOffer(MOCK_OUTBOUND_TOKEN, 'IB 125', 'MAD', 'LIM', 720, 'round_trip', true),
+        createMockFlightOffer(MOCK_OUTBOUND_TOKEN + '2', 'UX 5021', 'MAD', 'LIM', 750, 'round_trip', true),
+        createMockFlightOffer(MOCK_OUTBOUND_TOKEN + '3', 'LA 2465', 'BCN', 'LIM', 810, 'round_trip', true),
       ],
       airports: [
         createMockAirport('MAD', 'Madrid', 'departure'),
@@ -273,18 +292,57 @@ function mockFlightDetails(): FlightDetailsResponse {
         }
       }
     },
-    booking: {
-      booking_type: 'together',
-      provider: 'Iberia',
-      airline: true,
-      provider_logo_urls: ['https://www.gstatic.com/flights/airline_logos/70px/IB.png'],
-      marketed_as: ['IB 125', 'IB 126'],
-      price: { amount: 890, currency: 'EUR' },
-      option_title: 'Turista Básica',
-      extensions: ['Maleta de mano incluida', 'Asignación de asiento', 'Cambios no permitidos'],
-      baggage: ['1 free carry-on'],
-      booking_url: '#'
-    },
+    booking_options: [{
+      trip_type: 'round_trip',
+      separate_tickets: false,
+      together: {
+        book_with: 'Iberia',
+        airline: true,
+        airline_logos: ['https://www.gstatic.com/flights/airline_logos/70px/IB.png'],
+        marketed_as: ['IB 125', 'IB 126'],
+        price: 890,
+        option_title: 'Turista Basica',
+        baggage_prices: ['1 free carry-on'],
+        booking_phone: '',
+        booking_request: {
+          url: 'https://www.iberia.com',
+          post_data: ''
+        }
+      }
+    }, {
+      trip_type: 'round_trip',
+      separate_tickets: true,
+      departing: {
+        book_with: 'Iberia',
+        airline: true,
+        airline_logos: ['https://www.gstatic.com/flights/airline_logos/70px/IB.png'],
+        marketed_as: ['IB 125'],
+        price: 450,
+        option_title: 'Turista Basica',
+        baggage_prices: ['1 free carry-on'],
+        booking_phone: '',
+      },
+      returning: {
+        book_with: 'Iberia',
+        airline: true,
+        airline_logos: ['https://www.gstatic.com/flights/airline_logos/70px/IB.png'],
+        marketed_as: ['IB 126'],
+        price: 440,
+        option_title: 'Turista Basica',
+        baggage_prices: ['1 free carry-on'],
+        booking_phone: '',
+      },
+      together: {
+        book_with: '',
+        airline: false,
+        airline_logos: [],
+        marketed_as: [],
+        price: 0,
+        option_title: '',
+        baggage_prices: [],
+        booking_phone: '',
+      }
+    }],
     from_cache: false,
     cached_at: null,
   };
@@ -292,8 +350,8 @@ function mockFlightDetails(): FlightDetailsResponse {
 
 // Helper para crear aeropuertos (CORREGIDO: Tipos estrictos)
 function createMockAirport(
-  code: string, 
-  city: string, 
+  code: string,
+  city: string,
   role: 'departure' | 'arrival' | 'connection' // ✅ CORREGIDO: Tipado estricto
 ): AirportInfo {
   return {
@@ -345,31 +403,30 @@ function createMockEndpoint(code: string, datetime: string, terminal?: string): 
     country: code === 'LIM' ? 'Perú' : (code === 'MIA' ? 'USA' : 'España'),
     country_code: code === 'LIM' ? 'PE' : (code === 'MIA' ? 'US' : 'ES'),
     datetime: datetime,
-    terminal: terminal || (code === 'MAD' ? '4' : code === 'CDG' ? '2' : undefined) 
+    terminal: terminal || (code === 'MAD' ? '4' : code === 'CDG' ? '2' : undefined)
   };
 }
 
 // Helper para crear oferta completa
-function createMockFlightOffer(token: string, flightNum: string, origin: string, 
-  dest: string, duration: number, trip_type: 'round_trip' | 'one_way' = 'round_trip'): FlightOffer 
-  {
-    const leg = createMockLeg(flightNum, origin, dest, '2026-03-20 13:10', '2026-03-20 19:10', duration);
-    const randomPrice = Math.floor(400 + Math.random() * 300); 
+function createMockFlightOffer(token: string, flightNum: string, origin: string,
+  dest: string, duration: number, trip_type: 'round_trip' | 'one_way' = 'round_trip',
+  isOutboundPhase?: boolean): FlightOffer {
+  const leg = createMockLeg(flightNum, origin, dest, '2026-03-20 13:10', '2026-03-20 19:10', duration);
 
-    return {
-      booking_token: token,
-      legs: [leg],
-      layovers: [],
-      total_duration_minutes: duration,
-      price: { amount: Math.floor(400 + Math.random() * 300), currency: 'EUR' },
-      carbon_emissions: {
-        this_flight_grams: 1146000,
-        typical_route_grams: 1242000,
-        difference_percent: -8
-      },
-      type: trip_type === 'one_way' ? 'One way' : 'Round trip',
-      airline_logo_url: leg.airline_logo_url,
-      also_sold_by: ['LATAM'],
-      operated_by: null
-    };
-  }
+  return {
+    ...(isOutboundPhase ? { departure_token: token } : { booking_token: token }),
+    legs: [leg],
+    layovers: [],
+    total_duration_minutes: duration,
+    price: { amount: Math.floor(400 + Math.random() * 300), currency: 'EUR' },
+    carbon_emissions: {
+      this_flight_grams: 1146000,
+      typical_route_grams: 1242000,
+      difference_percent: -8
+    },
+    type: trip_type === 'one_way' ? 'One way' : 'Round trip',
+    airline_logo_url: leg.airline_logo_url,
+    also_sold_by: ['LATAM'],
+    operated_by: null
+  };
+}

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Loader from '@/components/ui/Loader';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function VerifyEmailPage() {
   const router = useRouter(); // Nos permite redirigir a otras paginas
@@ -13,6 +14,10 @@ export default function VerifyEmailPage() {
   //searchParams coge el token y se lo guarda
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+
+  const { refreshUser } = useAuthContext();
+  const refreshUserRef = useRef(refreshUser);
+  refreshUserRef.current = refreshUser;
 
   //status se encarga de decir q pantalla se va a mostrar si la de loading, success o error
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -29,26 +34,31 @@ export default function VerifyEmailPage() {
     //llamamos al backend
     const verifyEmail = async () => {
       try {
-        // Petición GET al backend enviando el token
+        // Petición POST al backend enviando el token en el cuerpo
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/verify-email?token=${token}`
+          `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/verify-email`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ token }),
+          }
         );
 
         const data = await response.json();
 
         if (response.ok) {
-            // CASO DE EXITO
           setStatus('success');
-          setMessage(data.message || 'Email verificado exitosamente');
+          setMessage('Email verificado exitosamente. Redirigiendo...');
           
-          // Redirigir al login después de 3 segundos
+          await refreshUserRef.current();
+
           setTimeout(() => {
-            router.push('/auth/login');
+            router.push('/home');
           }, 3000);
         } else {
-            // CASO DE ERROR
           setStatus('error');
-          setMessage(data.error || 'Token inválido o expirado');
+          setMessage(data.detail || data.title || 'Token inválido o expirado');
         }
       } catch (err) {
         // ERROR DE RED: Si se va internet o el servidor está apagado
@@ -112,15 +122,14 @@ export default function VerifyEmailPage() {
                 <p className="text-gray-600">{message}</p>
                 
                 <p className="text-sm text-gray-500">
-                Redirigiendo al login en 3 segundos...
+                 Redirigiendo al home en 3 segundos...
                 </p>
 
-                {/* Botón manual por si la redirección automática falla */}
                 <Link 
-                href="/auth/login"
+                href="/home"
                 className="inline-block mt-4 px-6 py-3 bg-[#8d6e63] text-white rounded-lg hover:bg-[#795548] transition-colors"
                 >
-                Ir al Login
+                 Ir al Home
                 </Link>
             </motion.div>
             )}
@@ -160,7 +169,7 @@ export default function VerifyEmailPage() {
                 </div>
             </motion.div>
             )}
-        </motion.div>
+      </motion.div>
     </main>
   );
 }

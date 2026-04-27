@@ -11,7 +11,7 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function Navbar(){
     const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, logout } = useAuth();
 
   //para ver si el menu desplegable (PC/movil) esta abierto
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -42,37 +42,16 @@ export default function Navbar(){
     // El array vacío significa que este efecto solo se configura una vez al inicio
   }, []);
   
-//Manejamos el cierre de sesión
+  // Manejamos el cierre de sesión — cookie-based: el backend lee las cookies automáticamente, sin body
   const handleLogout = async () => {
-    // Si ya está cerrando sesión, ignoramos clics adicionales
     if (isLoggingOut) return;
-
-    // Si no, cambiamos el estado para mostrar el spinner de carga
     setIsLoggingOut(true);
-
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (refreshToken) {
-        // Avisamos al backend de que este token ya no es válido, para que nadie más pueda usarlo
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken })
-        });
-      }
-    } 
-    catch (err) 
-    {
+      await logout();
+    } catch (err) {
       console.error('Error en logout:', err);
-    } 
-    finally 
-    {
-      //LIMPIEZA LOCAL(Se ejecuta siempre, falle o no el backend)
-      //Borramos todas las "llaves" del usuario del navegador.
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('token_expires_at');
+    } finally {
+      setIsLoggingOut(false);
       router.push('/auth/login');
     }
   };
@@ -246,7 +225,11 @@ export default function Navbar(){
 
               <hr className="my-4 border-white/20" />
 
-              {isAuthenticated ? (
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader text="" size="sm" />
+                </div>
+              ) : isAuthenticated ? (
                 <>
                   <Link
                     href="/home/profile"

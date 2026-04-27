@@ -32,7 +32,7 @@ El frontend sigue la estructura de **App Router** de Next.js con separación cla
 
 La aplicación utiliza **Client Components** (`'use client'`) para interactividad y **Server Components** cuando es posible para optimizar el bundle size y mejorar el rendimiento inicial.
 
-Para autenticación, los tokens **PASETO v4** se almacenan en `localStorage` y se envían en cada request mediante el header `Authorization: Bearer <token>`. El cliente API (`/app/lib/api.ts`) maneja automáticamente la renovación de tokens (5 minutos antes de expirar) y redirección en caso de sesión expirada.
+La autenticación usa cookies HttpOnly (PASETO v4) enviadas automáticamente con `credentials: 'include'`. El backend establece y limpia las cookies mediante headers `Set-Cookie`.
 
 ### Path Aliases
 
@@ -76,9 +76,9 @@ frontend/
 │   ├── lib/                   # Código compartido
 │   │   ├── constants/        # Constantes (países, monedas, avatares, destinos)
 │   │   ├── types/            # TypeScript types e interfaces
-│   │   ├── utils/            # Utilidades (detección de ubicación)
+│   │   ├── utils/            # Utilidades
 │   │   └── api.ts            # Cliente API con refresh automático de tokens
-│   ├── layout.tsx            # Layout raíz con providers y LocationDetector
+│   ├── layout.tsx            # Layout raíz con providers
 │   ├── page.tsx              # Splash screen de bienvenida
 │   └── globals.css           # Estilos globales y configuración de Tailwind
 ├── components/                # Componentes React reutilizables
@@ -94,8 +94,7 @@ frontend/
 │   │   ├── InputField.tsx    # Input de texto con validación
 │   │   ├── Loader.tsx        # Indicador de carga animado
 │   │   └── Divider.tsx       # Separador visual
-│   ├── LocationDetector.tsx   # Detector de ubicación (usuarios anónimos)
-│   └── LoginLocationDetector.tsx  # Detector de ubicación (usuarios autenticados)
+
 ├── hooks/                     # React hooks personalizados
 │   └── useAuth.ts            # Hook de autenticación y gestión de sesión
 ├── public/                    # Assets estáticos
@@ -321,107 +320,6 @@ POST   /api/v1/user/current-location   - Guardar ubicación actual (pendiente en
 }
 ```
 
-## 🌍 Sistema de Detección de Ubicación
-
-ProacTrip implementa un sistema de detección de ubicación en dos capas usando la API externa **ipapi.co**:
-
-### API Externa Utilizada
-
-- **Proveedor**: ipapi.co
-- **Endpoint**: `https://ipapi.co/json/`
-- **Método**: GET (sin API key requerida)
-- **Límite**: 1000 requests/día (plan gratuito)
-- **Documentación**: https://ipapi.co/api/
-
-**Ventajas de usar API externa:**
-- ✅ Datos más precisos que APIs nativas del navegador
-- ✅ Incluye ciudad, región, país, coordenadas
-- ✅ No requiere permisos de geolocalización del usuario
-- ✅ Funciona en cualquier dispositivo/navegador
-
-### 1. LocationDetector (Usuarios Anónimos)
-
-**Componente:** `/components/LocationDetector.tsx`  
-**Ubicación:** Layout raíz (`/app/layout.tsx`)  
-**Función:** Detecta la ubicación del usuario mediante `ipapi.co` y la guarda en `localStorage`
-
-**Flujo de detección:**
-
-1. Llama a `https://ipapi.co/json/` (timeout: 3 segundos)
-2. Si tiene éxito → guarda datos completos en `localStorage`
-3. Si falla → usa **fallback** con APIs nativas del navegador:
-   - `Intl.DateTimeFormat().resolvedOptions().timeZone` → timezone
-   - `navigator.language` → idioma
-   - Mapeo manual `timezone → moneda` usando `/app/lib/constants/currencies.ts`
-
-**Datos detectados y guardados:**
-```javascript
-localStorage.setItem('user_location', JSON.stringify({
-  timezone: "Europe/Madrid",
-  currency: "EUR",
-  language: "es",
-  location: {
-    city: "Madrid",
-    region: "Madrid",
-    country: "ES",
-    country_name: "Spain",
-    latitude: 40.4165,
-    longitude: -3.7026,
-    postal: "28001"
-  }
-}));
-```
-
-**Uso:** Estos datos se utilizan para **prellenar el formulario de registro** con valores sensatos (idioma, moneda, zona horaria, ubicación).
-
-### 2. LoginLocationDetector (Usuarios Autenticados)
-
-**Componente:** `/components/LoginLocationDetector.tsx`  
-**Ubicación:** Layout de home (`/app/home/layout.tsx`)  
-**Función:** Detecta la ubicación actual y **la envía al backend** para recomendaciones personalizadas
-
-**Flujo:**
-
-1. Usuario hace login y llega a `/home`
-2. `LoginLocationDetector` detecta ubicación (API externa)
-3. Envía **solo la ubicación** al backend:
-```typescript
-POST /api/v1/user/current-location
-{
-  "location": {
-    "city": "Madrid",
-    "region": "Madrid",
-    "country": "ES",
-    "country_name": "Spain",
-    "latitude": 40.4165,
-    "longitude": -3.7026,
-    "postal": "28001"
-  }
-}
-```
-
-**Diferencia clave con LocationDetector:**
-- LocationDetector: Guarda en `localStorage` (NO envía al backend)
-- LoginLocationDetector: Envía al backend (para recomendaciones en tiempo real)
-
-**Uso futuro (cuando backend lo implemente):**
-- Recomendar hoteles/vuelos cerca de la ubicación actual
-- Mostrar ofertas relevantes a la zona
-- Ajustar búsquedas por proximidad
-
-### 3. Cambio Permanente de Preferencias (Perfil)
-
-**Página:** `/app/home/profile/page.tsx`  
-**Endpoint:** `PUT /api/v1/user/profile`  
-**Función:** Cambio manual de preferencias que se guarda en el backend
-
-Campos editables:
-- `preferred_language` (ej: "es", "en", "fr")
-- `preferred_currency` (ej: "EUR", "USD", "GBP")
-- `timezone` (ej: "Europe/Madrid")
-
-Estos cambios son **permanentes** y afectan a todas las futuras sesiones del usuario.
-
 ## 📱 Páginas Principales
 
 ### Autenticación
@@ -436,7 +334,6 @@ Estos cambios son **permanentes** y afectan a todas las futuras sesiones del usu
 
 **`/auth/register`**
 - Registro de nuevos usuarios
-- Prellenado automático de idioma/moneda/zona horaria usando `LocationDetector`
 - Envía ubicación completa al backend (ciudad, país, coordenadas)
 - Validación de contraseña con requisitos visuales
 - Confirmación de contraseña
@@ -694,7 +591,7 @@ getCurrencyFromTimezone('America/New_York')  // 'USD'
 getCurrencyFromTimezone('Asia/Tokyo')  // 'JPY'
 ```
 
-Este mapeo se usa en el **fallback** de `LocationDetector` cuando la API externa falla.
+Este mapeo se usa como fallback cuando la API de geolocalización externa no está disponible.
 
 ### `/app/lib/constants/avatars.ts`
 
@@ -1111,16 +1008,6 @@ curl http://localhost:8080/api/v1/health
 cd ../backend
 go run main.go
 ```
-
----
-
-### localStorage no persiste entre recargas
-
-**Síntoma:** LocationDetector detecta ubicación cada vez que recargas la página.
-
-**Causa:** Navegación privada/incógnito borra localStorage al cerrar la pestaña.
-
-**Solución:** Usa el navegador en modo normal (no incógnito) para desarrollo.
 
 ---
 

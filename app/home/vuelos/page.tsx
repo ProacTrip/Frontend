@@ -117,10 +117,6 @@ export default function FlightsPage(): React.ReactElement {
     }));
   }, [searchState.results]);
 
-  const handleApplyFilters = useCallback((): void => {
-    setAppliedFilters(tempFilters);
-  }, [tempFilters]);
-
   const handleApplySort = useCallback((): void => {
     setAppliedSort(sortCriteria);
   }, [sortCriteria]);
@@ -153,6 +149,27 @@ export default function FlightsPage(): React.ReactElement {
     }
   }, []);
 
+  const handleApplyFilters = useCallback((): void => {
+    setAppliedFilters(tempFilters);
+    
+    if (searchState.request) {
+      const filteredRequest: FlightSearchRequest = {
+        ...searchState.request,
+        stops: tempFilters.stops,
+        sort_by: tempFilters.sort_by,
+        emissions_filter: tempFilters.emissions_filter,
+        bags: tempFilters.bags,
+        max_price: tempFilters.max_price,
+        max_duration_minutes: tempFilters.max_duration_minutes,
+        include_airlines: tempFilters.include_airlines,
+        exclude_airlines: tempFilters.exclude_airlines,
+        exclude_connections: tempFilters.exclude_connections,
+        layover_duration: tempFilters.layover_duration,
+      };
+      handleSearch(filteredRequest, searchState.phase === 'return_selection');
+    }
+  }, [tempFilters, searchState.request, searchState.phase, handleSearch]);
+
   const handleSelectOutbound = useCallback((offer: FlightOfferUI): void => {
     if (!searchState.request) return;
     setSelectedOutbound(offer);
@@ -179,11 +196,17 @@ export default function FlightsPage(): React.ReactElement {
     if (offer.offerId && !offer.isOutboundPhase) {
       setIsLoadingDetails(true);
       try {
-        const details: FlightDetailsResponse = await getFlightDetails({
-          booking_token: offer.offerId,
-          adults: searchState.request?.adults || 1,
-          currency: 'EUR'
-        });
+        const details: FlightDetailsResponse = await getFlightDetails(
+          offer.offerId,
+          searchState.request?.adults || 1,
+          'EUR',
+          searchState.request ? {
+            departure: searchState.request.departure || '',
+            arrival: searchState.request.arrival || '',
+            outboundDate: searchState.request.outbound_date || '',
+            returnDate: searchState.request.return_date,
+          } : undefined
+        );
         setFlightDetails(details);
       } catch (e: unknown) {
         console.error('Error cargando detalles:', e);
@@ -296,6 +319,12 @@ export default function FlightsPage(): React.ReactElement {
       sort_by: 'top',
       emissions_filter: false,
       bags: 0,
+      max_price: null,
+      max_duration_minutes: null,
+      include_airlines: undefined,
+      exclude_airlines: undefined,
+      exclude_connections: undefined,
+      layover_duration: undefined,
     };
     
     setTempFilters(resetFilters);
@@ -383,6 +412,12 @@ export default function FlightsPage(): React.ReactElement {
                         sort_by: 'top',
                         emissions_filter: false,
                         bags: 0,
+                        max_price: null,
+                        max_duration_minutes: null,
+                        include_airlines: undefined,
+                        exclude_airlines: undefined,
+                        exclude_connections: undefined,
+                        layover_duration: undefined,
                       };
                       setTempFilters(reset);
                       setAppliedFilters(reset);

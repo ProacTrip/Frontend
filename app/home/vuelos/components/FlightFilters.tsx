@@ -12,9 +12,13 @@ import {
   CreditCard,
   ChevronDown,
   RotateCcw,
-  ArrowUpDown
+  ArrowUpDown,
+  Ban,
+  Timer,
+  Link
 } from 'lucide-react';
 import { COMMON_AIRLINES, SORT_OPTIONS } from '@/app/lib/constants/flights';
+import type { LayoverDurationFilter } from '@/app/lib/types/flight';
 
 // ==========================================
 // INTERFACES
@@ -24,10 +28,13 @@ export interface FlightFiltersState {
   max_price?: number | null;
   stops?: 'any' | 'nonstop' | 'max_1' | 'max_2';
   include_airlines?: string[];
+  exclude_airlines?: string[];
   max_duration_minutes?: number | null;
   bags?: number;
   emissions_filter?: boolean;
-  sort_by?: string; // Añadido según Guía Marco Aurelio
+  sort_by?: string;
+  exclude_connections?: string[];
+  layover_duration?: LayoverDurationFilter;
 }
 
 interface FlightFiltersProps {
@@ -57,6 +64,12 @@ const STOPS_OPTIONS = [
 
 const DEFAULT_MAX_DURATION = 1440; // 24 horas en minutos
 
+const AIRLINE_ALLIANCES: Record<string, string[]> = {
+  'Star Alliance': ['A3', 'AC', 'AV', 'CA', 'ET', 'LH', 'LO', 'LX', 'MS', 'NH', 'OS', 'OZ', 'SA', 'SN', 'SQ', 'TG', 'TK', 'TP', 'UA', 'ZH'],
+  'SkyTeam': ['AF', 'AM', 'AZ', 'CI', 'CZ', 'DL', 'GA', 'KE', 'KL', 'ME', 'MU', 'OK', 'RO', 'SU', 'SV', 'UX', 'VN'],
+  'OneWorld': ['AA', 'AY', 'BA', 'CX', 'IB', 'JL', 'LA', 'MH', 'QF', 'QR', 'RJ'],
+};
+
 // ==========================================
 // COMPONENTE
 // ==========================================
@@ -73,6 +86,15 @@ export default function FlightFilters({
 
   const [localPrice, setLocalPrice] = useState<string>(
     filters.max_price?.toString() || ''
+  );
+  const [localExcludeConnections, setLocalExcludeConnections] = useState<string>(
+    (filters.exclude_connections || []).join(', ')
+  );
+  const [localLayoverMin, setLocalLayoverMin] = useState<string>(
+    filters.layover_duration?.min_minutes?.toString() || '30'
+  );
+  const [localLayoverMax, setLocalLayoverMax] = useState<string>(
+    filters.layover_duration?.max_minutes?.toString() || '180'
   );
 
   // Fallback a globales si la búsqueda no devolvió aerolíneas específicas
@@ -97,7 +119,10 @@ export default function FlightFilters({
       max_price: null,
       max_duration_minutes: null,
       include_airlines: undefined,
-      sort_by: 'top', // Reset ordenamiento a defecto
+      exclude_airlines: undefined,
+      exclude_connections: undefined,
+      layover_duration: undefined,
+      sort_by: 'top',
     });
   }, [onChange]);
 
@@ -105,10 +130,13 @@ export default function FlightFilters({
     filters.max_price,
     filters.stops && filters.stops !== 'any',
     filters.include_airlines && filters.include_airlines.length > 0,
+    filters.exclude_airlines && filters.exclude_airlines.length > 0,
     filters.max_duration_minutes,
     filters.bags && filters.bags > 0,
     filters.emissions_filter,
     filters.sort_by && filters.sort_by !== 'top',
+    filters.exclude_connections && filters.exclude_connections.length > 0,
+    filters.layover_duration,
   ].filter(Boolean).length;
 
   const toggleAirline = (code: string) => {
@@ -127,6 +155,42 @@ export default function FlightFilters({
     } else {
       updateFilter('max_price', null);
       setLocalPrice('');
+    }
+  };
+
+  const toggleExcludeAirline = (code: string) => {
+    const current = filters.exclude_airlines || [];
+    const updated = current.includes(code)
+      ? current.filter(c => c !== code)
+      : [...current, code];
+    
+    updateFilter('exclude_airlines', updated.length > 0 ? updated : undefined);
+  };
+
+  const applyAlliance = (alliance: string) => {
+    const codes = AIRLINE_ALLIANCES[alliance] || [];
+    const current = filters.include_airlines || [];
+    const existingSet = new Set(current);
+    codes.forEach(c => existingSet.add(c));
+    updateFilter('include_airlines', Array.from(existingSet));
+  };
+
+  const commitExcludeConnections = () => {
+    const codes = localExcludeConnections
+      .split(',')
+      .map(c => c.trim().toUpperCase())
+      .filter(c => c.length === 3);
+    updateFilter('exclude_connections', codes.length > 0 ? codes : undefined);
+    setLocalExcludeConnections(codes.join(', '));
+  };
+
+  const commitLayoverDuration = () => {
+    const min = parseInt(localLayoverMin);
+    const max = parseInt(localLayoverMax);
+    if (!isNaN(min) && !isNaN(max) && min >= 0 && max > min) {
+      updateFilter('layover_duration', { min_minutes: min, max_minutes: max });
+    } else {
+      updateFilter('layover_duration', undefined);
     }
   };
 
@@ -384,6 +448,153 @@ export default function FlightFilters({
                 <p className="text-xs text-gray-500">Emisiones inferiores a la media</p>
               </div>
             </label>
+          </div>
+
+          {/* 7. Alianzas */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Link className="w-4 h-4 text-indigo-500" />
+              Alianzas de aerolineas
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(AIRLINE_ALLIANCES).map((alliance) => (
+                <button
+                  key={alliance}
+                  type="button"
+                  onClick={() => applyAlliance(alliance)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
+                >
+                  {alliance}
+                </button>
+              ))}
+            </div>
+            {(filters.include_airlines?.length || 0) > 0 && (
+              <p className="text-xs text-gray-500">
+                {filters.include_airlines?.length} aerolinea{filters.include_airlines?.length !== 1 ? 's' : ''} seleccionada{filters.include_airlines?.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {/* 8. Excluir Aerolineas */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Ban className="w-4 h-4 text-red-500" />
+              Excluir aerolineas
+            </label>
+            <div className="space-y-2 max-h-36 overflow-y-auto pr-2">
+              {airlinesToShow.map((airline) => (
+                <label
+                  key={`excl-${airline.code}`}
+                  className="flex items-center gap-3 p-2 hover:bg-red-50 rounded-lg cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={(filters.exclude_airlines || []).includes(airline.code)}
+                    onChange={() => toggleExcludeAirline(airline.code)}
+                    className="w-4 h-4 text-red-600 rounded focus:ring-red-500 border-gray-300"
+                  />
+                  {airline.logoUrl && (
+                    <img 
+                      src={airline.logoUrl} 
+                      alt="" 
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                    />
+                  )}
+                  <span className="text-sm text-gray-700 flex-1 truncate">{airline.name}</span>
+                  <span className="text-xs text-gray-400 font-mono shrink-0">{airline.code}</span>
+                </label>
+              ))}
+            </div>
+            {(filters.exclude_airlines?.length || 0) > 0 && (
+              <button
+                onClick={() => updateFilter('exclude_airlines', undefined)}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Limpiar ({filters.exclude_airlines?.length})
+              </button>
+            )}
+          </div>
+
+          {/* 9. Duracion de Escala */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Timer className="w-4 h-4 text-amber-500" />
+              Duracion de escala
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Min (min)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1440"
+                  value={localLayoverMin}
+                  onChange={(e) => setLocalLayoverMin(e.target.value)}
+                  onBlur={commitLayoverDuration}
+                  onKeyDown={(e) => e.key === 'Enter' && commitLayoverDuration()}
+                  placeholder="30"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Max (min)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1440"
+                  value={localLayoverMax}
+                  onChange={(e) => setLocalLayoverMax(e.target.value)}
+                  onBlur={commitLayoverDuration}
+                  onKeyDown={(e) => e.key === 'Enter' && commitLayoverDuration()}
+                  placeholder="180"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                />
+              </div>
+            </div>
+            {filters.layover_duration && (
+              <button
+                onClick={() => {
+                  updateFilter('layover_duration', undefined);
+                  setLocalLayoverMin('30');
+                  setLocalLayoverMax('180');
+                }}
+                className="text-xs text-amber-600 hover:underline"
+              >
+                Quitar filtro de escala
+              </button>
+            )}
+          </div>
+
+          {/* 10. Excluir Conexiones */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Ban className="w-4 h-4 text-gray-400" />
+              Excluir aeropuertos de conexion
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={localExcludeConnections}
+                onChange={(e) => setLocalExcludeConnections(e.target.value)}
+                onBlur={commitExcludeConnections}
+                onKeyDown={(e) => e.key === 'Enter' && commitExcludeConnections()}
+                placeholder="Ej: CDG, FRA, LHR"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+              />
+            </div>
+            <p className="text-xs text-gray-400">Codigos IATA separados por coma</p>
+            {(filters.exclude_connections?.length || 0) > 0 && (
+              <button
+                onClick={() => {
+                  updateFilter('exclude_connections', undefined);
+                  setLocalExcludeConnections('');
+                }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Limpiar ({filters.exclude_connections?.length})
+              </button>
+            )}
           </div>
 
         </div>

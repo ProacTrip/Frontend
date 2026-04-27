@@ -39,20 +39,18 @@ export default function ForgotPasswordPage()
         try 
         {
             // Llamada a la API de recuperación de contraseña
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/forgot-password`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/forgot-password`, {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email }) //pasamos el objeto texto a json
             });
 
-            //ver respuesta backend
-            if (response.ok) 
-            {
-                setSuccess(true); //ocultamos formulario y mostramos mensaje solucionado
-            } 
-            else 
-            {
-                setError('Error al procesar la solicitud. Intenta de nuevo.');
+            if (response.ok) {
+                setSuccess(true);
+            } else {
+                const data = await response.json().catch(() => ({}));
+                setError(data.detail || data.title || 'Error al procesar la solicitud. Intenta de nuevo.');
             }
         } 
         catch (err) 

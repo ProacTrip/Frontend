@@ -117,7 +117,7 @@ export interface FlightSearchResponse {
 
 export interface FlightOffer {
   // Tokens (¡uno u otro según la fase!)
-  outbound_selection_token?: string;    // Fase outbound_selection
+  departure_token?: string;             // Fase outbound_selection
   booking_token?: string;               // Fase return_selection o complete
   
   // Estructura real: legs (vuelos) + layovers (escalas)
@@ -205,24 +205,62 @@ export interface AirportInfo {
 export interface FlightDetailsRequest {
   booking_token: string;
   adults?: number;
+  departure?: string;
+  arrival?: string;
+  outbound_date?: string;
+  return_date?: string;
   gl?: string;
   hl?: string;
   currency?: string;
 }
 
 export interface FlightDetailsResponse {
-  itinerary: {
-    trip_type: 'round_trip' | 'one_way';
-    outbound: ItinerarySegment;
-    return?: ItinerarySegment | null;  // null en one_way
-  };
-  booking: BookingInfo;
+  itinerary: FlightItinerary;
+  booking_options: BookingOption[];
   from_cache: boolean;
   cached_at: string | null;
 }
 
+export interface FlightItinerary {
+  trip_type: string;
+  outbound: ItinerarySegment;
+  return?: ItinerarySegment;
+}
+
+export interface BookingOption {
+  trip_type: string;
+  separate_tickets: boolean;
+  together: BookingDetail;
+  departing?: BookingDetail;
+  returning?: BookingDetail;
+}
+
+export interface BookingDetail {
+  book_with: string;
+  airline: boolean;
+  airline_logos: string[];
+  marketed_as: string[];
+  price: number;
+  local_prices?: LocalPrice[];
+  option_title: string;
+  baggage_prices: string[];
+  booking_request?: BookingRequest;
+  booking_phone: string;
+  estimated_service_fee?: number;
+}
+
+export interface LocalPrice {
+  currency: string;
+  price: number;
+}
+
+export interface BookingRequest {
+  url: string;
+  post_data: string;
+}
+
 export interface ItinerarySegment {
-  legs: FlightLeg[];            // Misma estructura que arriba
+  legs: FlightLeg[];
   layovers: Layover[];
   total_duration_minutes: number;
   carbon_emissions?: {
@@ -232,30 +270,14 @@ export interface ItinerarySegment {
   };
 }
 
-export interface BookingInfo {
-  booking_type: 'together' | 'separately';
-  provider: string;             // "Iberia"
-  airline: boolean;             // true si es aerolínea directa
-  provider_logo_urls: string[];
-  marketed_as: string[];        // ["IB 125", "IB 126"]
-  price: {
-    amount: number;
-    currency: string;
-  };
-  option_title: string | null;  // "Turista Básica"
-  extensions: string[];         // ["No refunds", "Seat selection for a fee"]
-  baggage: string[];            // ["1 free carry-on"]
-  booking_url: string;          // URL para reserva
-}
-
 // ==========================================
 // 4. DOMINIO FRONTEND (CamelCase - Post Transformer)
 // ==========================================
 
 export interface FlightOfferUI {
   id: string;                   // Generado o booking_token
-  offerId: string;              // booking_token o outbound_selection_token
-  isOutboundPhase: boolean;     // true si tiene outbound_selection_token
+  offerId: string;              // booking_token o departure_token
+  isOutboundPhase: boolean;     // true si tiene departure_token
   
   // Segmentos normalizados
   segments: SegmentUI[];

@@ -29,8 +29,8 @@ export function transformFlightOffer(apiOffer: FlightOffer, isRecommended: boole
   const firstLeg = apiOffer.legs[0];
 
   // 1. Token y Fase
-  const token = apiOffer.booking_token || apiOffer.outbound_selection_token || '';
-  const isOutboundPhase = !!apiOffer.outbound_selection_token;
+  const token = apiOffer.booking_token || apiOffer.departure_token || '';
+  const isOutboundPhase = !!apiOffer.departure_token;
 
   // 2. Escalas (Layovers)
   const layovers: LayoverUI[] = (apiOffer.layovers || []).map(layover => ({

@@ -22,18 +22,23 @@ export async function listUserNotifications(params: UserNotificationListParams =
   if (params.status) query.set('status', params.status);
 
   const queryString = query.toString();
-  const url = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications'; 
+  const url = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
 
-  const response = await apiFetch(url, {
-    method: 'GET',
-  });
+  try {
+    const response = await apiFetch(url, {
+      method: 'GET',
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    if (!response.ok) {
+      console.warn('Notifications endpoint returned', response.status);
+      return { notifications: [], total: 0 };
+    }
+
+    return response.json();
+  } catch (err) {
+    console.warn('Notifications endpoint unavailable:', err);
+    return { notifications: [], total: 0 };
   }
-
-  return response.json();
 }
 
 /**

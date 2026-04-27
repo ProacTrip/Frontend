@@ -60,9 +60,10 @@ function ResetPasswordForm() {
     //peticion al backend para cambiar contraseña
     try 
     {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/reset-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           token: token,
           new_password: formData.newPassword
@@ -72,17 +73,13 @@ function ResetPasswordForm() {
       //Convierte la respuesta del backend (que viene en formato JSON) en un objeto de JavaScript para poder usarlo.
       const data = await response.json();
 
-      if (response.ok) 
-        {
+      if (response.ok) {
             setSuccess(true);
             setTimeout(() => {
             router.push('/auth/login');
-            // 👆 Redirigimos a la página login
             }, 3000);
-        } 
-        else 
-        {
-            setError(data.error || 'Token inválido o expirado. Solicita un nuevo link.');
+        } else {
+            setError(data.detail || data.title || 'Token inválido o expirado. Solicita un nuevo link.');
         }
 
     } 

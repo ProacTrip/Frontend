@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Plane, Calendar, MapPin, Search, ArrowRightLeft, ChevronDown, AlertCircle } from 'lucide-react';
+import { Plane, Calendar, MapPin, Search, ArrowRightLeft, ChevronDown, AlertCircle, Clock } from 'lucide-react';
 
 import PassengersDropdown, { PassengerCounts } from './PassengersDropdown';
 import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
@@ -24,6 +24,8 @@ interface FlightSearchFormState {
   travelClass: TravelClass;
   outboundTimeRange: TimeRange;
   returnTimeRange: TimeRange;
+  emissionsFilter: boolean;
+  maxDurationMinutes: number | null;
 }
 
 const getLocalISOString = (date: Date): string => {
@@ -47,6 +49,8 @@ const DEFAULT_STATE: FlightSearchFormState = {
   travelClass: 'economy',
   outboundTimeRange: { start: 0, end: 23 },
   returnTimeRange: { start: 0, end: 23 },
+  emissionsFilter: false,
+  maxDurationMinutes: null,
 };
 
 export default function FlightSearchForm({ 
@@ -160,6 +164,12 @@ export default function FlightSearchForm({
             departure_from: formState.returnTimeRange.start,
             departure_to: formState.returnTimeRange.end,
           },
+        },
+        ...(formState.emissionsFilter) && {
+          emissions_filter: true,
+        },
+        ...(formState.maxDurationMinutes) && {
+          max_duration_minutes: formState.maxDurationMinutes,
         },
       };
 
@@ -371,11 +381,10 @@ export default function FlightSearchForm({
 
       {/* Filtros Avanzados */}
       <div className="border-t border-gray-100 pt-4">
-        <details className="group">
+        <details className="group" open>
           <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-600 hover:text-[#c54141] list-none">
-            <span className="transition-transform group-open:rotate-90">▶</span>
-            <span>Filtros de horario</span>
-            <span className="text-xs text-gray-400 group-open:hidden">(Abrir)</span>
+            <span className="transition-transform group-open:rotate-90 mr-1">▶</span>
+            <span>Filtros avanzados</span>
           </summary>
           
           <div className="mt-4 space-y-4 pl-6">
@@ -392,6 +401,48 @@ export default function FlightSearchForm({
                 onChange={(range) => updateField('returnTimeRange', range)}
               />
             )}
+
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Clock className="w-4 h-4 text-gray-400" />
+                Duracion maxima
+              </label>
+              <input
+                type="range"
+                min="60"
+                max="1440"
+                step="30"
+                value={formState.maxDurationMinutes || 1440}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  updateField('maxDurationMinutes', val < 1440 ? val : null);
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#c54141]"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>1h</span>
+                <span className="font-medium text-[#c54141]">
+                  {formState.maxDurationMinutes 
+                    ? `${Math.floor(formState.maxDurationMinutes / 60)}h ${formState.maxDurationMinutes % 60}m`
+                    : 'Sin limite'
+                  }
+                </span>
+                <span>24h</span>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+              <input
+                type="checkbox"
+                checked={formState.emissionsFilter}
+                onChange={(e) => updateField('emissionsFilter', e.target.checked)}
+                className="w-4 h-4 text-green-600 rounded focus:ring-green-500 border-gray-300"
+              />
+              <div className="text-sm">
+                <span className="font-medium text-gray-900">Solo vuelos eco-friendly</span>
+                <p className="text-xs text-gray-500">Emisiones inferiores a la media</p>
+              </div>
+            </label>
           </div>
         </details>
       </div>

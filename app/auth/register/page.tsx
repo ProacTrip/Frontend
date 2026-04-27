@@ -11,31 +11,28 @@ import Divider from '@/components/ui/Divider';
 import GoogleIcon from '@/components/iconos/GoogleIcon';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserLocation } from '@/app/lib/utils/location';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/app/lib/utils/errors';
+import type { RegisterResponse, AuthError } from '@/app/lib/types/auth';
 
 export default function RegisterPage() {
-  const router = useRouter(); //para movernos entre rutas
+  const router = useRouter();
+  const { refreshUser } = useAuthContext();
 
-  //estados para ver contraseñas,emails,loading,error,etc,etc
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Función q se activa cada vez que escribes en un input
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    // Actualiza el objeto formData manteniendo lo que ya había (...previo)
     setFormData(previo => ({ ...previo, [name]: value }));
-    // Si el usuario empieza a escribir de nuevo, borramos el mensaje de error
     if (error) setError('');
   };
 
-  // Función principal: Se activa al darle al botón "Crear Cuenta"
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Evita q la página se refresque
+    e.preventDefault();
 
-    // VALIDACIONES
     if (!formData.email || !formData.password || !formData.confirmPassword) {
       setError('Por favor, completa todos los campos');
       return;
@@ -56,75 +53,60 @@ export default function RegisterPage() {
       return;
     }
 
-    setIsLoading(true); // Encendemos el cargador
-    setError(''); // Limpiamos errores previos
+    setIsLoading(true);
+    setError('');
 
-    try 
-    {
-      //obtenemos la ubicacion
-      let submitLocation;
-      const saved = localStorage.getItem('user_location');
-      
-      if (saved) 
-      {
-        submitLocation = JSON.parse(saved);
-      } 
-      else 
-      {
-        submitLocation = await getUserLocation();
-      }
-
-      // Petición al backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           email: formData.email,
-          password: formData.password,
-          preferred_language: submitLocation.language,
-          preferred_currency: submitLocation.currency,
-          timezone: submitLocation.timezone,
-          location: submitLocation.location,
+          password: formData.password
         })
       });
 
-      //Convierte la respuesta del backend (que viene en formato JSON) en un objeto de JavaScript para poder usarlo.
       const data = await response.json();
 
-      if (response.ok) 
-      {
-        setSuccess(true); // Mostramos el mensaje verde de éxito
-        setFormData({ email: '', password: '', confirmPassword: '' }); // Limpiamos el formulario
-        
-        // Tarda 2 segundos para q el usuario lea el mensaje y lo mandamos al login
+      if (response.ok) {
+        const registerData = data as RegisterResponse;
+
+        // El backend ya setea cookies, refrescamos el contexto
+        await refreshUser();
+
+        setSuccess(true);
+        setFormData({ email: '', password: '', confirmPassword: '' });
+
         setTimeout(() => {
-          router.push('/auth/login');
+          router.push('/home');
         }, 2000);
-      } 
-      else 
-      {
-        setError(data.error || 'Error al crear la cuenta');
+      } else {
+        const errData = data as AuthError;
+        const { message } = getErrorMessage(errData, response.status);
+        setError(message);
       }
-    } 
-    catch (err) 
-    {
+    }
+    catch (err) {
       console.error('Error en registro:', err);
       setError('Error al conectar con el servidor. Intenta de nuevo.');
-    } 
-    finally 
-    {
+    }
+    finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`;
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/google`;
   };
 
   return (
     /* CONTENEDOR PRINCIPAL: Fondo oscuro y centrado total */
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gray-900">
-      
+
       {/* IMAGEN DE FONDO (Igual que en Login para coherencia) */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -151,24 +133,24 @@ export default function RegisterPage() {
             transition={{ duration: 0.6 }}
             className="relative w-full h-full"
           >
-              <Image
-                src="/assets/loginRegister/login-side.png"
-                alt="Travel"
-                fill
-                sizes="50vw"
-                className="object-cover"
-              />
+            <Image
+              src="/assets/loginRegister/login-side.png"
+              alt="Travel"
+              fill
+              sizes="50vw"
+              className="object-cover"
+            />
           </motion.div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-12 pointer-events-none">
-              <motion.h2
-                initial={{ x: -20, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="text-white text-3xl font-bold leading-tight"
-              >
-                  Comienza tu aventura,<br />
-                  <span className="font-light text-white/80">regístrate hoy</span>
-              </motion.h2>
+            <motion.h2
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-white text-3xl font-bold leading-tight"
+            >
+              Comienza tu aventura,<br />
+              <span className="font-light text-white/80">regístrate hoy</span>
+            </motion.h2>
           </div>
         </div>
 
@@ -206,7 +188,7 @@ export default function RegisterPage() {
                 transition={{ duration: 0.3 }}
                 className="mb-6 p-4 bg-green-50 text-green-600 border-l-4 border-green-500 text-sm"
               >
-                ¡Cuenta creada! Revisa tu email para verificarla. Redirigiendo al login...
+                ¡Cuenta creada! Ya puedes empezar a usar ProacTrip. Redirigiendo al home...
               </motion.div>
             )}
           </AnimatePresence>
@@ -217,7 +199,7 @@ export default function RegisterPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
             >
-               {/* Input Email */}
+              {/* Input Email */}
               <InputField
                 label="Email"
                 name="email"
@@ -297,12 +279,12 @@ export default function RegisterPage() {
             </Button>
           </motion.div>
 
-            {/* Enlace para volver si ya tienes cuenta */}
+          {/* Enlace para volver si ya tienes cuenta */}
           <p className="mt-8 text-center text-gray-600">
-              ¿Ya tienes cuenta?{' '}
-              <Link href="/auth/login" className="text-[#8d6e63] font-bold hover:underline">
-                Inicia sesión
-              </Link>
+            ¿Ya tienes cuenta?{' '}
+            <Link href="/auth/login" className="text-[#8d6e63] font-bold hover:underline">
+              Inicia sesión
+            </Link>
           </p>
         </div>
       </motion.div>
