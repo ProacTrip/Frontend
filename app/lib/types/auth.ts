@@ -65,6 +65,21 @@ export interface LogoutResponse {
   message: string;
 }
 
+export interface LogoutAllResponse {
+  message: string;
+}
+
+export interface RateLimitError {
+  type: string;
+  title: string;
+  status: 429;
+  detail: string;
+  instance: string;
+  trace_id: string;
+  /** Seconds until the rate limit resets (from Retry-After header) */
+  retry_after?: number;
+}
+
 export interface AuthError {
   type: string;
   title: string;

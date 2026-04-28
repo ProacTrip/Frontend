@@ -6,7 +6,7 @@ import SearchForm, { SearchParams } from './components/SearchForm';
 import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
-import { searchHotels } from '@/app/lib/api';
+import { searchHotels, RateLimitError } from '@/app/lib/api';
 
 export default function HotelesPage() {
   const router = useRouter();
@@ -66,7 +66,10 @@ export default function HotelesPage() {
       
     } catch (error) {
       console.error('❌ Error en la búsqueda:', error);
-      alert('Error al buscar hoteles. Por favor intenta de nuevo.');
+      const msg = error instanceof RateLimitError
+        ? error.message
+        : 'Error al buscar hoteles. Por favor intenta de nuevo.';
+      alert(msg);
       setDisplayedHotels([]);
       setHasMore(false);
     } finally {
@@ -104,6 +107,9 @@ export default function HotelesPage() {
       
     } catch (error) {
       console.error('❌ Error cargando más hoteles:', error);
+      if (error instanceof RateLimitError) {
+        alert(error.message);
+      }
     } finally {
       setIsSearching(false);
     }

@@ -5,19 +5,20 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
-import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus } from 'lucide-react';
+import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, ShieldAlert } from 'lucide-react';
 import CurrencySelector from '@/components/layout/CurrencySelector';
 import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function Navbar(){
     const router = useRouter();
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout, logoutAll } = useAuth();
 
   //para ver si el menu desplegable (PC/movil) esta abierto
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [menuAbiertoMovil, setMenuAbiertoMovil] = useState(false);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   // Referencia al elemento DOM del menu desplegable para detectar clics fuera de él
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,19 @@ export default function Navbar(){
       console.error('Error en logout:', err);
     } finally {
       setIsLoggingOut(false);
+      router.push('/auth/login');
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    if (isLoggingOutAll) return;
+    setIsLoggingOutAll(true);
+    try {
+      await logoutAll();
+    } catch (err) {
+      console.error('Error en logout all:', err);
+    } finally {
+      setIsLoggingOutAll(false);
       router.push('/auth/login');
     }
   };
@@ -172,6 +186,23 @@ export default function Navbar(){
                           </span>
                         </div>
                       </button>
+
+                      <button
+                        onClick={handleLogoutAll}
+                        disabled={isLoggingOutAll}
+                        className="w-full text-left px-4 py-3 text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          {isLoggingOutAll ? (
+                            <div className="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <ShieldAlert className="w-5 h-5" />
+                          )}
+                          <span className="font-medium">
+                            {isLoggingOutAll ? 'Cerrando...' : 'Cerrar todas las sesiones'}
+                          </span>
+                        </div>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -277,6 +308,21 @@ export default function Navbar(){
                         <LogOut className="w-5 h-5" />
                       )}
                       {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleLogoutAll}
+                    disabled={isLoggingOutAll}
+                    className="w-full text-left py-2 text-orange-400 hover:text-orange-200 transition-colors font-medium disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isLoggingOutAll ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <ShieldAlert className="w-5 h-5" />
+                      )}
+                      {isLoggingOutAll ? 'Cerrando...' : 'Cerrar todas las sesiones'}
                     </div>
                   </button>
                 </>

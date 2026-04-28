@@ -2,13 +2,15 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Plane, Calendar, MapPin, Search, ArrowRightLeft, ChevronDown, AlertCircle, Clock } from 'lucide-react';
+import { Plane, Calendar, MapPin, Search, ArrowRightLeft, ChevronDown, AlertCircle, Clock, TimerOff } from 'lucide-react';
 
 import PassengersDropdown, { PassengerCounts } from './PassengersDropdown';
 import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
 import MultiCityLegs from './MultiCityLegs';
 import { TripType, TravelClass, FlightSearchRequest, FlightSearchResponse, MultiCityLeg } from '@/app/lib/types/flight';
 import { searchFlights } from '@/app/lib/api/flights';
+import { RateLimitError } from '@/app/lib/api/auth';
+import { formatRateLimitError } from '@/app/lib/utils/errors';
 
 interface FlightSearchFormProps {
   initialValues?: Partial<FlightSearchFormState>;
@@ -69,6 +71,8 @@ export default function FlightSearchForm({
   const [isPassengersOpen, setIsPassengersOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [mounted, setMounted] = useState(false);
   
   const passengerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +80,23 @@ export default function FlightSearchForm({
   useEffect(() => {
     setMounted(true); 
   }, []);
+
+  useEffect(() => {
+    if (rateLimitCountdown <= 0) {
+      setIsRateLimited(false);
+      return;
+    }
+    const timer = setInterval(() => {
+      setRateLimitCountdown(prev => {
+        if (prev <= 1) {
+          setIsRateLimited(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -271,7 +292,15 @@ export default function FlightSearchForm({
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al buscar vuelos');
+      if (err instanceof RateLimitError) {
+        setError(err.message);
+        setIsRateLimited(true);
+        if (err.retryAfter > 0) {
+          setRateLimitCountdown(err.retryAfter);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : 'Error al buscar vuelos');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -291,9 +320,22 @@ export default function FlightSearchForm({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${
+          isRateLimited
+            ? 'bg-amber-50 border border-amber-200 text-amber-700'
+            : 'bg-red-50 border border-red-200 text-red-700'
+        }`}>
+          {isRateLimited ? (
+            <TimerOff className="w-4 h-4 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          )}
           <span>{error}</span>
+          {isRateLimited && rateLimitCountdown > 0 && (
+            <span className="ml-auto font-mono font-bold text-amber-800 whitespace-nowrap">
+              {Math.floor(rateLimitCountdown / 60)}:{String(rateLimitCountdown % 60).padStart(2, '0')}
+            </span>
+          )}
         </div>
       )}
 
@@ -545,7 +587,7 @@ export default function FlightSearchForm({
 
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || isRateLimited}
         className="w-full py-3.5 bg-[#c54141] text-white font-bold rounded-lg hover:bg-[#a03535] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
       >
         {isLoading ? (

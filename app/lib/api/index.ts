@@ -4,7 +4,7 @@
 // ==========================================
 // 1. AUTENTICACIÓN
 // ==========================================
-export { refreshAccessToken, apiFetch, getUserProfile } from './auth';
+export { apiFetch, getUserProfile, logoutUser, logoutAllSessions, RateLimitError } from './auth';
 export type { UserProfile } from './auth';
 
 // ==========================================

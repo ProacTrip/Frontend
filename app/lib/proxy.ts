@@ -13,9 +13,9 @@ interface ProxyOptions {
 }
 
 /**
- * Forwards a client request to the backend, preserving auth cookies.
- * Cookie-based auth: the browser sends __Secure-access_token + __Secure-refresh_token
- * via Cookie header → we forward it to the backend.
+ * Forwards a client request to the backend, preserving all cookies.
+ * The browser sends auth cookies (PASETO tokens) via the Cookie header
+ * — we forward them as-is to the backend.
  */
 export async function proxyFetch(
   clientReq: Request,

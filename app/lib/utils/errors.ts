@@ -1,4 +1,4 @@
-import type { AuthError } from '@/app/lib/types/auth';
+import type { AuthError, RateLimitError as RateLimitErrorType } from '@/app/lib/types/auth';
 
 const ERROR_MAP: Record<string, string> = {
   email_not_verified: 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
@@ -16,8 +16,14 @@ const ERROR_MAP: Record<string, string> = {
 };
 
 export function parseApiError(response: Response): Promise<string> {
-  return response.json().then((data: AuthError) => {
+  return response.json().then((data: AuthError | RateLimitErrorType) => {
     const type = (data.type || '').toLowerCase();
+
+    if (response.status === 429) {
+      const rd = data as RateLimitErrorType;
+      if (rd.detail) return rd.detail;
+      return 'Demasiadas peticiones. Intenta más tarde.';
+    }
 
     if (type && type in ERROR_MAP) {
       const base = ERROR_MAP[type];
@@ -37,8 +43,14 @@ export function parseApiError(response: Response): Promise<string> {
   });
 }
 
-export function getErrorMessage(data: AuthError, status?: number): { message: string; action: 'verify_email' | 'none' } {
+export function getErrorMessage(data: AuthError | RateLimitErrorType, status?: number): { message: string; action: 'verify_email' | 'none' } {
   const type = (data.type || '').toLowerCase();
+
+  if (status === 429) {
+    const rd = data as RateLimitErrorType;
+    const detail = rd.detail || 'Demasiadas peticiones. Intenta más tarde.';
+    return { message: detail, action: 'none' };
+  }
 
   if (type && type in ERROR_MAP) {
     const base = ERROR_MAP[type];
@@ -53,4 +65,11 @@ export function getErrorMessage(data: AuthError, status?: number): { message: st
     message: status ? `Error ${status}: ${data.title || 'Error del servidor'}` : 'Error del servidor. Intenta de nuevo.',
     action: 'none',
   };
+}
+
+export function formatRateLimitError(retryAfterSeconds: number): string {
+  if (retryAfterSeconds <= 0) return 'Demasiadas peticiones. Intenta más tarde.';
+  if (retryAfterSeconds < 60) return `Demasiadas peticiones. Intenta en ${retryAfterSeconds} segundos.`;
+  const minutes = Math.ceil(retryAfterSeconds / 60);
+  return `Demasiadas peticiones. Intenta en ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}.`;
 }

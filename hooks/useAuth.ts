@@ -5,6 +5,6 @@
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export function useAuth() {
-  const { user, isLoading, isAuthenticated, error, logout, refreshUser } = useAuthContext();
-  return { isAuthenticated, isLoading, user, error, logout, refreshUser };
+  const { user, isLoading, isAuthenticated, error, logout, logoutAll, refreshUser } = useAuthContext();
+  return { isAuthenticated, isLoading, user, error, logout, logoutAll, refreshUser };
 }

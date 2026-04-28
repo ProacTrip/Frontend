@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AuthUser } from '@/app/lib/types/auth';
+import { logoutUser, logoutAllSessions } from '@/app/lib/api/auth';
 
 interface AuthState {
   user: AuthUser | null;
@@ -17,6 +18,7 @@ interface AuthState {
   isAuthenticated: boolean;
   error: string | null;
   logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -59,10 +61,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await fetch(`${API_URL}/v1/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await logoutUser();
+    } catch {
+      // Ignorar errores de red, el backend limpia las cookies igual con Clear-Site-Data
+    } finally {
+      setUser(null);
+      router.push('/auth/login');
+    }
+  }, [router]);
+
+  const logoutAll = useCallback(async () => {
+    try {
+      await logoutAllSessions();
     } catch {
       // Ignorar errores de red, el backend limpia las cookies igual con Clear-Site-Data
     } finally {
@@ -122,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         error,
         logout,
+        logoutAll,
         refreshUser,
       }}
     >
