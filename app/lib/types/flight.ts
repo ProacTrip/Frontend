@@ -11,6 +11,17 @@ export interface LayoverDurationFilter {
   max_minutes: number;
 }
 
+// Tipo para un tramo individual en búsquedas multi-destino (estado del formulario frontend)
+export interface MultiCityLeg {
+  departure: string;
+  arrival: string;
+  date: string;               // YYYY-MM-DD
+  times?: {
+    start: number;            // departure_from (0-23)
+    end: number;              // departure_to (0-23)
+  };
+}
+
 export interface FlightSearchRequest {
   trip_type: 'round_trip' | 'one_way' | 'multi_city';
   
@@ -75,6 +86,10 @@ export interface FlightSearchRequest {
   exclude_connections?: string[];
   max_duration_minutes?: number | null;
   
+  // Paginación (cursor-based)
+  cursor?: string | null;
+  limit?: number;
+  
   // Token crítico para fase 2 de round_trip
   outbound_selection_token?: string | null;
 }
@@ -92,6 +107,14 @@ export interface FlightSearchResponse {
   best_flights: FlightOffer[];
   other_flights: FlightOffer[];
   
+  // Metadatos de paginación
+  meta?: {
+    next_cursor: string | null;
+    prev_cursor: string | null;
+    has_next: boolean;
+    limit: number;
+  };
+
   // Metadatos
   airports: AirportInfo[];
   price_insights?: {

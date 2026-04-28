@@ -15,6 +15,9 @@ interface FlightListProps {
   onSelect: (offer: FlightOfferUI) => void;
   onShowDetails?: (offer: FlightOfferUI) => void;
   showAuthError?: boolean; // NUEVA PROP
+  hasNext?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
 export default function FlightList({
@@ -25,7 +28,10 @@ export default function FlightList({
   onRetry,
   onSelect,
   onShowDetails,
-  showAuthError = false
+  showAuthError = false,
+  hasNext = false,
+  onLoadMore,
+  isLoadingMore = false,
 }: FlightListProps) {
 
   if (error) {
@@ -109,6 +115,25 @@ export default function FlightList({
           </React.Fragment>
         );
       })}
+
+      {hasNext && (
+        <div className="flex justify-center pt-2 pb-8">
+          <button
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="px-6 py-3 bg-white border-2 border-[#c54141] text-[#c54141] font-medium rounded-lg hover:bg-[#fff5f5] transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Cargando...
+              </>
+            ) : (
+              'Cargar más resultados'
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

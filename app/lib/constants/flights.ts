@@ -93,20 +93,20 @@ export const COMMON_AIRPORTS = [
 // 7. AEROLÍNEAS COMUNES
 // ==========================================
 export const COMMON_AIRLINES = [
-  { code: 'IB', name: 'Iberia', logoUrl: '/airlines/ib.png' },
-  { code: 'FR', name: 'Ryanair', logoUrl: '/airlines/fr.png' },
-  { code: 'UX', name: 'Air Europa', logoUrl: '/airlines/ux.png' },
-  { code: 'VY', name: 'Vueling', logoUrl: '/airlines/vy.png' },
-  { code: 'BA', name: 'British Airways', logoUrl: '/airlines/ba.png' },
-  { code: 'AF', name: 'Air France', logoUrl: '/airlines/af.png' },
-  { code: 'LH', name: 'Lufthansa', logoUrl: '/airlines/lh.png' },
-  { code: 'KL', name: 'KLM', logoUrl: '/airlines/kl.png' },
-  { code: 'TP', name: 'TAP Portugal', logoUrl: '/airlines/tp.png' },
-  { code: 'AZ', name: 'ITA Airways', logoUrl: '/airlines/az.png' },
-  { code: 'UA', name: 'United Airlines', logoUrl: '/airlines/ua.png' },
-  { code: 'AA', name: 'American Airlines', logoUrl: '/airlines/aa.png' },
-  { code: 'LA', name: 'LATAM', logoUrl: '/airlines/la.png' },
-  { code: 'AV', name: 'Avianca', logoUrl: '/airlines/av.png' },
+  { code: 'IB', name: 'Iberia', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/IB.png' },
+  { code: 'FR', name: 'Ryanair', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/FR.png' },
+  { code: 'UX', name: 'Air Europa', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/UX.png' },
+  { code: 'VY', name: 'Vueling', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/VY.png' },
+  { code: 'BA', name: 'British Airways', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/BA.png' },
+  { code: 'AF', name: 'Air France', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/AF.png' },
+  { code: 'LH', name: 'Lufthansa', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/LH.png' },
+  { code: 'KL', name: 'KLM', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/KL.png' },
+  { code: 'TP', name: 'TAP Portugal', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/TP.png' },
+  { code: 'AZ', name: 'ITA Airways', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/AZ.png' },
+  { code: 'UA', name: 'United Airlines', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/UA.png' },
+  { code: 'AA', name: 'American Airlines', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/AA.png' },
+  { code: 'LA', name: 'LATAM', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/LA.png' },
+  { code: 'AV', name: 'Avianca', logoUrl: 'https://www.gstatic.com/flights/airline_logos/70px/AV.png' },
 ] as const;
 
 // ==========================================
@@ -124,6 +124,7 @@ export const SEARCH_CONFIG = {
   DEFAULT_SORT_BY: 'top' as SortOption,
   DEFAULT_STOPS: 'any' as StopOption,
   RESULTS_PER_PAGE: 10,
+  MAX_RESULTS_PER_PAGE: 100,
 } as const;
 
 // ==========================================

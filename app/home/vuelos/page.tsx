@@ -20,6 +20,7 @@ import type {
   FlightDetailsResponse 
 } from '@/app/lib/types/flight';
 import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
+import { SEARCH_CONFIG } from '@/app/lib/constants/flights';
 
 type SearchPhase = 'initial' | 'outbound_selection' | 'return_selection' | 'complete';
 
@@ -44,6 +45,10 @@ export default function FlightsPage(): React.ReactElement {
     error: null,
     request: null,
   });
+
+  const [allOffers, setAllOffers] = useState<FlightOfferUI[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [selectedOutbound, setSelectedOutbound] = useState<FlightOfferUI | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<FlightOfferUI | null>(null);
@@ -72,12 +77,12 @@ export default function FlightsPage(): React.ReactElement {
   const [showAuthError, setShowAuthError] = useState<boolean>(false);
 
   const filteredResults = useMemo((): FlightOfferUI[] => {
-    if (!searchState.results.length) return [];
-    return searchState.results.filter((offer: FlightOfferUI) => {
+    if (!allOffers.length) return [];
+    return allOffers.filter((offer: FlightOfferUI) => {
       if (appliedFilters.max_price && offer.price.total > appliedFilters.max_price) return false;
       return true;
     });
-  }, [searchState.results, appliedFilters]);
+  }, [allOffers, appliedFilters]);
 
   const sortedResults = useMemo((): FlightOfferUI[] => {
     if (!filteredResults.length || appliedSort === 'none') return filteredResults;
@@ -108,18 +113,14 @@ export default function FlightsPage(): React.ReactElement {
   }, [filteredResults, appliedSort]);
 
   const availableAirlines = useMemo((): Array<{code: string; name: string; logoUrl?: string}> => {
-    if (!searchState.results.length) return [];
-    const uniqueCodes = Array.from(new Set(searchState.results.map((r: FlightOfferUI) => r.airline.code)));
+    if (!allOffers.length) return [];
+    const uniqueCodes = Array.from(new Set(allOffers.map((r: FlightOfferUI) => r.airline.code)));
     return uniqueCodes.map((code: string) => ({
       code,
-      name: searchState.results.find((r: FlightOfferUI) => r.airline.code === code)?.airline.name || code,
-      logoUrl: searchState.results.find((r: FlightOfferUI) => r.airline.code === code)?.airline.logoUrl
+      name: allOffers.find((r: FlightOfferUI) => r.airline.code === code)?.airline.name || code,
+      logoUrl: allOffers.find((r: FlightOfferUI) => r.airline.code === code)?.airline.logoUrl
     }));
-  }, [searchState.results]);
-
-  const handleApplySort = useCallback((): void => {
-    setAppliedSort(sortCriteria);
-  }, [sortCriteria]);
+  }, [allOffers]);
 
   const handleSearch = useCallback(async (request: FlightSearchRequest, isReturnPhase: boolean = false): Promise<void> => {
     setSearchState((prev: SearchState) => ({ 
@@ -128,8 +129,10 @@ export default function FlightsPage(): React.ReactElement {
       error: null,
       request: request,
       phase: isReturnPhase ? 'return_selection' : 
-             request.trip_type === 'one_way' ? 'complete' : 'outbound_selection'
+             request.trip_type === 'one_way' || request.trip_type === 'multi_city' ? 'complete' : 'outbound_selection'
     }));
+    setAllOffers([]);
+    setNextCursor(null);
 
     try {
       const response: FlightSearchResponse = await searchFlights(request);
@@ -140,6 +143,8 @@ export default function FlightsPage(): React.ReactElement {
         results: offers,
         isLoading: false,
       }));
+      setAllOffers(offers);
+      setNextCursor(response.meta?.next_cursor ?? null);
     } catch (err: unknown) {
       setSearchState((prev: SearchState) => ({
         ...prev,
@@ -148,6 +153,32 @@ export default function FlightsPage(): React.ReactElement {
       }));
     }
   }, []);
+
+  const handleApplySort = useCallback((): void => {
+    setAppliedSort(sortCriteria);
+  }, [sortCriteria]);
+
+  const handleLoadMore = useCallback(async (): Promise<void> => {
+    if (!searchState.request || !nextCursor || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const pageRequest: FlightSearchRequest = {
+        ...searchState.request,
+        cursor: nextCursor,
+        limit: SEARCH_CONFIG.RESULTS_PER_PAGE,
+      };
+      const response: FlightSearchResponse = await searchFlights(pageRequest);
+      const newOffers: FlightOfferUI[] = transformFlightSearchResponse(response);
+      
+      setAllOffers((prev: FlightOfferUI[]) => [...prev, ...newOffers]);
+      setNextCursor(response.meta?.next_cursor ?? null);
+    } catch (err: unknown) {
+      console.error('Error loading more results:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [searchState.request, nextCursor, isLoadingMore]);
 
   const handleApplyFilters = useCallback((): void => {
     setAppliedFilters(tempFilters);
@@ -308,6 +339,9 @@ export default function FlightsPage(): React.ReactElement {
       error: null,
       request: null,
     });
+    setAllOffers([]);
+    setNextCursor(null);
+    setIsLoadingMore(false);
     setSelectedOutbound(null);
     setSelectedReturn(null);
     setFlightDetails(null);
@@ -458,8 +492,10 @@ export default function FlightsPage(): React.ReactElement {
             <FlightSearchForm 
               onSearch={(response: FlightSearchResponse, request: FlightSearchRequest): void => {
                 const offers: FlightOfferUI[] = transformFlightSearchResponse(response);
+                setAllOffers(offers);
+                setNextCursor(response.meta?.next_cursor ?? null);
                 setSearchState({
-                  phase: request.trip_type === 'one_way' ? 'complete' : 'outbound_selection',
+                  phase: request.trip_type === 'one_way' || request.trip_type === 'multi_city' ? 'complete' : 'outbound_selection',
                   results: offers,
                   isLoading: false,
                   error: null,
@@ -498,9 +534,11 @@ export default function FlightsPage(): React.ReactElement {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                   <div>
                     <h3 className="text-base md:text-lg font-semibold text-gray-900">
-                      {searchState.phase === 'return_selection' 
-                        ? 'Selecciona tu vuelo de vuelta'
-                        : `${sortedResults.length} vuelos encontrados`
+                      {searchState.phase === 'outbound_selection'
+                        ? 'Selecciona tu vuelo de ida'
+                        : searchState.phase === 'return_selection' 
+                          ? 'Selecciona tu vuelo de vuelta'
+                          : `${sortedResults.length} vuelos encontrados`
                       }
                     </h3>
                     {searchState.request && (
@@ -524,6 +562,9 @@ export default function FlightsPage(): React.ReactElement {
                   }}
                   onSelect={searchState.phase === 'outbound_selection' ? handleSelectOutbound : handleSelectFlight}
                   onShowDetails={handleShowDetails}
+                  hasNext={nextCursor !== null}
+                  onLoadMore={handleLoadMore}
+                  isLoadingMore={isLoadingMore}
                 />
               </>
             ) : null}

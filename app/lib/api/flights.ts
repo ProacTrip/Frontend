@@ -58,9 +58,16 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
     return_date: formatDate(request.return_date),
     hl: request.hl || user.hl,
     gl: request.gl || user.gl,
-    include_airlines: request.include_airlines || [],
-    exclude_airlines: request.exclude_airlines || [],
+    // Solo incluir filtros de aerolíneas si tienen valores reales.
+    // NO forzar a [] — eso enviaba "include_airlines":[] junto a
+    // "exclude_airlines":["IB"], lo que confundía al backend, que
+    // silenciosamente ignoraba el filtro de exclusión.
+    ...(request.include_airlines?.length ? { include_airlines: request.include_airlines } : {}),
+    ...(request.exclude_airlines?.length ? { exclude_airlines: request.exclude_airlines } : {}),
     legs: request.legs || [],
+    // Paginación: forward cursor/limit to API (undefined si no presente)
+    cursor: request.cursor ?? null,
+    limit: request.limit ?? undefined,
   };
 
   // 3. MODO MOCK

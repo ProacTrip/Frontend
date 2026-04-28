@@ -1,7 +1,7 @@
 // app/home/vuelos/components/FlightFilters.tsx
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Filter, 
   X, 
@@ -97,6 +97,15 @@ export default function FlightFilters({
     filters.layover_duration?.max_minutes?.toString() || '180'
   );
 
+  // Toast para auto-clear de aerolíneas (T17)
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
   // Fallback a globales si la búsqueda no devolvió aerolíneas específicas
   const airlinesToShow = availableAirlines.length > 0 ? availableAirlines : COMMON_AIRLINES;
 
@@ -141,11 +150,25 @@ export default function FlightFilters({
 
   const toggleAirline = (code: string) => {
     const current = filters.include_airlines || [];
-    const updated = current.includes(code)
-      ? current.filter(c => c !== code)
-      : [...current, code];
+    const isAdding = !current.includes(code);
+    const updated = isAdding
+      ? [...current, code]
+      : current.filter(c => c !== code);
     
-    updateFilter('include_airlines', updated.length > 0 ? updated : undefined);
+    // Atomic state update: both include_airlines and exclude_airlines in one onChange call
+    const next: FlightFiltersState = {
+      ...filters,
+      include_airlines: updated.length > 0 ? updated : undefined,
+    };
+
+    // T15: If we just added to include and exclude has entries, clear exclude
+    if (isAdding && filters.exclude_airlines?.length) {
+      next.exclude_airlines = undefined;
+      // T17: Show toast notification
+      setToastMessage('Se han limpiado las aerolíneas excluidas');
+    }
+
+    onChange(next);
   };
 
   const commitPrice = () => {
@@ -160,11 +183,25 @@ export default function FlightFilters({
 
   const toggleExcludeAirline = (code: string) => {
     const current = filters.exclude_airlines || [];
-    const updated = current.includes(code)
-      ? current.filter(c => c !== code)
-      : [...current, code];
+    const isAdding = !current.includes(code);
+    const updated = isAdding
+      ? [...current, code]
+      : current.filter(c => c !== code);
     
-    updateFilter('exclude_airlines', updated.length > 0 ? updated : undefined);
+    // Atomic state update: both exclude_airlines and include_airlines in one onChange call
+    const next: FlightFiltersState = {
+      ...filters,
+      exclude_airlines: updated.length > 0 ? updated : undefined,
+    };
+
+    // T15: If we just added to exclude and include has entries, clear include
+    if (isAdding && filters.include_airlines?.length) {
+      next.include_airlines = undefined;
+      // T17: Show toast notification
+      setToastMessage('Se han limpiado las aerolíneas incluidas');
+    }
+
+    onChange(next);
   };
 
   const applyAlliance = (alliance: string) => {
@@ -172,7 +209,20 @@ export default function FlightFilters({
     const current = filters.include_airlines || [];
     const existingSet = new Set(current);
     codes.forEach(c => existingSet.add(c));
-    updateFilter('include_airlines', Array.from(existingSet));
+
+    // T16: After adding alliance codes to include, clear exclude if present
+    const next: FlightFiltersState = {
+      ...filters,
+      include_airlines: Array.from(existingSet),
+    };
+
+    if (filters.exclude_airlines?.length) {
+      next.exclude_airlines = undefined;
+      // T17: Show toast notification
+      setToastMessage('Se han limpiado las aerolíneas excluidas');
+    }
+
+    onChange(next);
   };
 
   const commitExcludeConnections = () => {
@@ -195,6 +245,7 @@ export default function FlightFilters({
   };
 
   return (
+    <>
     <div className={`bg-white rounded-xl border border-gray-200 shadow-sm transition-all ${
       isOpen ? 'p-5' : 'p-4'
     }`}>
@@ -600,5 +651,12 @@ export default function FlightFilters({
         </div>
       )}
     </div>
+    {/* T17: Toast notification — auto-clear de aerolíneas */}
+    {toastMessage && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-amber-50 border border-amber-300 text-amber-800 text-sm font-medium rounded-lg shadow-lg transition-opacity duration-300">
+        {toastMessage}
+      </div>
+    )}
+    </>
   );
 }
