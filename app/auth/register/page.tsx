@@ -17,7 +17,7 @@ import type { RegisterResponse, AuthError } from '@/app/lib/types/auth';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { refreshUser } = useAuthContext();
+  const { setUser, setContext, refreshUser } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -75,8 +75,23 @@ export default function RegisterPage() {
       if (response.ok) {
         const registerData = data as RegisterResponse;
 
-        // El backend ya setea cookies, refrescamos el contexto
-        await refreshUser();
+        if (data.user) {
+          setUser(data.user);
+        }
+        if (data.context) {
+          setContext(data.context);
+          localStorage.setItem('user_context', JSON.stringify(data.context));
+          localStorage.setItem('user_location', JSON.stringify({
+            currency: data.context.location.currency,
+            gl: data.context.location.country_code,
+            hl: data.context.location.language,
+            timezone: data.context.location.timezone,
+            country: data.context.location.country,
+            city: data.context.location.city,
+          }));
+        } else {
+          await refreshUser();
+        }
 
         setSuccess(true);
         setFormData({ email: '', password: '', confirmPassword: '' });

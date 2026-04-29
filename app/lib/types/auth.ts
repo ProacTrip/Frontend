@@ -1,32 +1,6 @@
-// ==========================================
-// Auth response types (RFC 7807 + Cookie-based auth v2)
-// ==========================================
+import type { ContextResponse } from '@/app/lib/api/context';
 
-export interface LocationData {
-  country: string;
-  country_code?: string;
-  country_name?: string;
-  city: string;
-  state?: string;
-  timezone: string;
-  currency: string;
-  language: string;
-  latitude?: string;
-  longitude?: string;
-}
-
-export interface WeatherData {
-  temp?: number;
-  temperature_c?: number;
-  feels_like?: number;
-  description?: string;
-  condition?: string;
-  icon?: string;
-  icon_url?: string;
-  humidity?: number;
-  humidity_percent?: number;
-  wind_speed?: number;
-}
+export type { ContextResponse, LocationData, WeatherData } from '@/app/lib/api/context';
 
 export interface AuthUser {
   email: string;
@@ -36,10 +10,7 @@ export interface AuthUser {
 
 export interface LoginSuccessResponse {
   user: AuthUser;
-  context: {
-    location: LocationData;
-    weather: WeatherData;
-  };
+  context: ContextResponse;
 }
 
 export interface LoginMfaResponse {
@@ -55,10 +26,7 @@ export interface RegisterResponse {
 
 export interface VerifyEmailResponse {
   user: AuthUser;
-  context: {
-    location: LocationData;
-    weather: WeatherData;
-  };
+  context: ContextResponse;
 }
 
 export interface LogoutResponse {
@@ -87,14 +55,6 @@ export interface AuthError {
   detail: string;
   instance: string;
   trace_id: string;
-}
-
-export interface CurrentUserResponse {
-  user: AuthUser;
-  context?: {
-    location: LocationData;
-    weather: WeatherData;
-  };
 }
 
 export interface ResendVerificationResponse {

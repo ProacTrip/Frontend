@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -8,22 +8,23 @@ import { motion } from 'framer-motion';
 import Loader from '@/components/ui/Loader';
 import { useAuthContext } from '@/contexts/AuthContext';
 
-export default function VerifyEmailPage() {
-  const router = useRouter(); // Nos permite redirigir a otras paginas
+function VerifyEmailContent() {
+  const router = useRouter();
 
-  //searchParams coge el token y se lo guarda
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const { refreshUser } = useAuthContext();
+  const { setUser, setContext, refreshUser } = useAuthContext();
   const refreshUserRef = useRef(refreshUser);
   refreshUserRef.current = refreshUser;
+  const setUserRef = useRef(setUser);
+  setUserRef.current = setUser;
+  const setContextRef = useRef(setContext);
+  setContextRef.current = setContext;
 
-  //status se encarga de decir q pantalla se va a mostrar si la de loading, success o error
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
-  //se carga automaticamente, y vemos si hay token o no
   useEffect(() => {
     if (!token) {
       setStatus('error');
@@ -31,10 +32,8 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    //llamamos al backend
     const verifyEmail = async () => {
       try {
-        // Petición POST al backend enviando el token en el cuerpo
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/verify-email`,
           {
@@ -51,7 +50,23 @@ export default function VerifyEmailPage() {
           setStatus('success');
           setMessage('Email verificado exitosamente. Redirigiendo...');
           
-          await refreshUserRef.current();
+          if (data.user) {
+            setUserRef.current(data.user);
+          }
+          if (data.context) {
+            setContextRef.current(data.context);
+            localStorage.setItem('user_context', JSON.stringify(data.context));
+            localStorage.setItem('user_location', JSON.stringify({
+              currency: data.context.location.currency,
+              gl: data.context.location.country_code,
+              hl: data.context.location.language,
+              timezone: data.context.location.timezone,
+              country: data.context.location.country,
+              city: data.context.location.city,
+            }));
+          } else {
+            await refreshUserRef.current();
+          }
 
           setTimeout(() => {
             router.push('/home');
@@ -61,22 +76,18 @@ export default function VerifyEmailPage() {
           setMessage(data.detail || data.title || 'Token inválido o expirado');
         }
       } catch (err) {
-        // ERROR DE RED: Si se va internet o el servidor está apagado
         console.error('Error verificando email:', err);
         setStatus('error');
         setMessage('Error al verificar el email. Intenta de nuevo.');
       }
     };
 
-    // Ejecutamos la función que acabamos de definir
     verifyEmail();
   }, [token, router]);
 
   return (
-    // CONTENEDOR PRINCIPAL: Centrado y fondo oscuro
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gray-900">
       
-      {/* IMAGEN DE FONDO: La misma q en Login/Register para mantener el estilo */}
       <div className="absolute inset-0 z-0">
         <Image
           src="/assets/loginRegister/background-travel.png"
@@ -88,88 +99,64 @@ export default function VerifyEmailPage() {
         />
       </div>
 
-      {/* LA TARJETA CENTRAL: Pequeña y centrada (max-w-md) */}
       <motion.div
         initial={{ opacity: 0, y: 50, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 md:p-12 text-center"
       >
-            {/* ESCENARIO 1: CARGANDO (solo se ve si status es loading) */}
-            {status === 'loading' && (
-            <div className="space-y-6">
-                <div className="flex justify-center">
-                <Loader text="Verificando tu email..." />
-                </div>
-            </div>
-            )}
-            {/* ESCENARIO 2: ÉXITO (solo se ve si status es success) */}
-            {status === 'success' && (
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="space-y-6"
-            >
-                {/* Círculo verde con un Check (Icono SVG) */}
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                </div>
-                
-                <h1 className="text-3xl font-bold text-gray-800">¡Email Verificado!</h1>
-                
-                <p className="text-gray-600">{message}</p>
-                
-                <p className="text-sm text-gray-500">
-                 Redirigiendo al home en 3 segundos...
-                </p>
+        {status === 'loading' && (
+          <>
+            <div className="text-6xl mb-6">📧</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Verificando tu email</h2>
+            <Loader text="Verificando..." />
+            <p className="text-gray-500 text-sm mt-4">Esto tomará solo un momento...</p>
+          </>
+        )}
 
-                <Link 
-                href="/home"
-                className="inline-block mt-4 px-6 py-3 bg-[#8d6e63] text-white rounded-lg hover:bg-[#795548] transition-colors"
-                >
-                 Ir al Home
-                </Link>
-            </motion.div>
-            )}
-            {/* ESCENARIO 3: ERROR (si el token expiro o es falso */}
-            {status === 'error' && (
+        {status === 'success' && (
+          <>
+            <div className="text-6xl mb-6">✅</div>
+            <h2 className="text-2xl font-bold text-green-600 mb-4">¡Email verificado!</h2>
+            <p className="text-gray-600 mb-6">{message}</p>
             <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="space-y-6"
-            >
-                {/* Círculo rojo con una X (Icono SVG) */}
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                </div>
-                
-                <h1 className="text-3xl font-bold text-gray-800">Error de Verificación</h1>
-                
-                <p className="text-gray-600">{message}</p>
+              initial={{ width: 0 }}
+              animate={{ width: '100%' }}
+              transition={{ duration: 2.8 }}
+              className="h-1 bg-green-500 rounded-full mx-auto"
+            />
+          </>
+        )}
 
-                <div className="space-y-3">
-                <Link 
-                    href="/auth/login"
-                    className="inline-block w-full px-6 py-3 bg-[#8d6e63] text-white rounded-lg hover:bg-[#795548] transition-colors"
-                >
-                    Volver al Login
-                </Link>
-                
-                {/* Si el usuario pulsa aquí, irá a una página para pedir otro email */}
-                <p className="text-sm text-gray-500">
-                    ¿Necesitas un nuevo link?{' '}
-                    <Link href="/auth/resend-verification" className="text-[#8d6e63] font-bold hover:underline">
-                    Reenviar email
-                    </Link>
-                </p>
-                </div>
-            </motion.div>
-            )}
+        {status === 'error' && (
+          <>
+            <div className="text-6xl mb-6">❌</div>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Error de verificación</h2>
+            <p className="text-gray-600 mb-6">{message}</p>
+            <Link href="/auth/login">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="w-full bg-gray-900 text-white py-3 px-6 rounded-xl font-semibold hover:bg-gray-800 transition-colors"
+              >
+                Ir al inicio de sesión
+              </motion.button>
+            </Link>
+          </>
+        )}
       </motion.div>
     </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader text="Verificando..." />
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

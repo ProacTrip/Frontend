@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, MapPin, Star, Wifi, Coffee, Waves, Car, Dumbbell, UtensilsCrossed, ShieldCheck, Leaf } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, MapPin, Star, Wifi, Coffee, Waves, Car, Dumbbell, UtensilsCrossed, ShieldCheck, Leaf, Building2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getHotelDetails } from '@/app/lib/api';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
@@ -71,6 +71,8 @@ interface HotelDetailModalProps {
 
 export default function HotelDetailModal({ hotel, searchParams, onClose }: HotelDetailModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [galleryError, setGalleryError] = useState(false);
+  const [thumbErrors, setThumbErrors] = useState<Set<number>>(new Set());
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
@@ -115,8 +117,14 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
   }, []);
 
   const images = hotelDetails?.images || hotel.images || [];
-  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % images.length);
-  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    setGalleryError(false);
+  };
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    setGalleryError(false);
+  };
 
   // ==================== RESERVAR ====================
   const handleReserve = () => {
@@ -217,15 +225,21 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
               <div className="col-span-8 space-y-6">
 
                 {/* Galería */}
-                {displayData.images.length > 0 && (
-                  <div className="relative">
-                    <div className="relative h-96 rounded-lg overflow-hidden">
-                      <img 
-                        src={displayData.images[currentImageIndex]} 
-                        alt={`${hotel.name} - ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-hotel.jpg'; }}
-                      />
+                  {displayData.images.length > 0 && (
+                    <div className="relative">
+                      <div className="relative h-96 rounded-lg overflow-hidden">
+                        {!galleryError ? (
+                          <img 
+                            src={displayData.images[currentImageIndex]} 
+                            alt={`${hotel.name} - ${currentImageIndex + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={() => setGalleryError(true)}
+                          />
+                        ) : (
+                          <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-full h-full flex items-center justify-center">
+                            <Building2 className="w-16 h-16 text-white/50" />
+                          </div>
+                        )}
                       {displayData.images.length > 1 && (
                         <>
                           <button 
@@ -256,13 +270,19 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                           className={`flex-shrink-0 w-20 h-20 rounded overflow-hidden border-2 transition-all ${
                             idx === currentImageIndex ? 'border-[#FF6B6B]' : 'border-transparent opacity-60 hover:opacity-100'
                           }`}
-                        >
-                          <img 
-                            src={img} 
-                            alt="" 
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-hotel.jpg'; }}
-                          />
+                          >
+                            {thumbErrors.has(idx) ? (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                                <Building2 className="w-4 h-4 text-white/50" />
+                              </div>
+                            ) : (
+                              <img 
+                                src={img} 
+                                alt="" 
+                                className="w-full h-full object-cover"
+                                onError={() => setThumbErrors(prev => new Set(prev).add(idx))}
+                              />
+                            )}
                         </button>
                       ))}
                       {displayData.images.length > 6 && (

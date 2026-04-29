@@ -90,7 +90,7 @@ export default function ProfilePage() {
         avatar_url: selectedAvatar, // Guardar el emoji como avatar
       };
 
-      const response = await apiFetch('/api/v1/user/profile', {
+      const response = await apiFetch('/v1/user/profile', {
         method: 'PUT',
         body: JSON.stringify(dataToSend),
       });

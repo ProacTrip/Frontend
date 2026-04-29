@@ -17,7 +17,7 @@ import type { LoginSuccessResponse, LoginMfaResponse, AuthError } from '@/app/li
 
 export default function LoginPage() {
   const router = useRouter();
-  const { refreshUser } = useAuthContext();
+  const { setUser, setContext, refreshUser } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -74,8 +74,23 @@ export default function LoginPage() {
 
         console.log('Login exitoso :D');
 
-        // Refrescamos el contexto de auth para que el Navbar se actualice
-        await refreshUser();
+        const loginData = data as LoginSuccessResponse;
+        setUser(loginData.user);
+
+        if (loginData.context) {
+          setContext(loginData.context);
+          localStorage.setItem('user_context', JSON.stringify(loginData.context));
+          localStorage.setItem('user_location', JSON.stringify({
+            currency: loginData.context.location.currency,
+            gl: loginData.context.location.country_code,
+            hl: loginData.context.location.language,
+            timezone: loginData.context.location.timezone,
+            country: loginData.context.location.country,
+            city: loginData.context.location.city,
+          }));
+        } else {
+          await refreshUser();
+        }
 
         setTimeout(() => {
           router.push('/home');

@@ -166,7 +166,7 @@ export async function getFlightDetails(
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await apiFetch('/api/v1/search/flight-details', {
+    const response = await apiFetch('/v1/search/flight-details', {
       method: 'POST',
       body: JSON.stringify(apiBody),
       signal: controller.signal,

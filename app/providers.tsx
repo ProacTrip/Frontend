@@ -1,6 +1,7 @@
 'use client';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ContextInitializer } from '@/components/ContextInitializer';
 
 /**
  * Client wrapper que provee AuthContext a toda la app.
@@ -8,5 +9,10 @@ import { AuthProvider } from '@/contexts/AuthContext';
  * y AuthProvider usa hooks (client-only).
  */
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <ContextInitializer />
+      {children}
+    </AuthProvider>
+  );
 }

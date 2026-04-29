@@ -118,7 +118,7 @@ export async function logoutAllSessions(): Promise<void> {
  */
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    const response = await apiFetch('/api/v1/user/profile', {
+    const response = await apiFetch('/v1/user/profile', {
       method: 'GET',
     });
 

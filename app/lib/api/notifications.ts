@@ -22,7 +22,7 @@ export async function listUserNotifications(params: UserNotificationListParams =
   if (params.status) query.set('status', params.status);
 
   const queryString = query.toString();
-  const url = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
+  const url = queryString ? `/v1/notifications?${queryString}` : '/v1/notifications';
 
   try {
     const response = await apiFetch(url, {
@@ -45,7 +45,7 @@ export async function listUserNotifications(params: UserNotificationListParams =
  * 👁️ Marcar una notificación como leída
  */
 export async function markNotificationRead(data: MarkReadRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/api/v1/notifications/read', {
+  const response = await apiFetch('/v1/notifications/read', {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -62,7 +62,7 @@ export async function markNotificationRead(data: MarkReadRequest): Promise<{ mes
  * 👁️ Marcar todas las notificaciones como leídas
  */
 export async function markAllNotificationsRead(): Promise<{ message: string }> {
-  const response = await apiFetch('/api/v1/notifications/read-all', {
+  const response = await apiFetch('/v1/notifications/read-all', {
     method: 'PUT',
   });
 

@@ -1,19 +1,18 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import RoomCard from './components/RoomCard';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
 import { getHotelRooms } from '@/app/lib/api';
 
-export default function HabitacionesPage() {
+function HabitacionesContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const hotelId = params.hotelId as string;
 
-  // Recuperar datos de búsqueda de la URL
   const hotelName = searchParams.get('hotelName') || 'Hotel';
   const checkIn = searchParams.get('checkIn') || '';
   const checkOut = searchParams.get('checkOut') || '';
@@ -21,14 +20,12 @@ export default function HabitacionesPage() {
   const nights = searchParams.get('nights') || '1';
   const rooms = Number(searchParams.get('rooms') || '1');
   
-  // ✅ FIX: Leer children e infants de la URL (no hardcodear a 0)
   const childrenParam = searchParams.get('children') || '0';
   const infantsParam = searchParams.get('infants') || '0';
 
   const [hotelRooms, setHotelRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==================== CARGAR HABITACIONES ====================
   useEffect(() => {
     async function loadRooms() {
       if (!checkIn || !checkOut) {
@@ -37,7 +34,6 @@ export default function HabitacionesPage() {
       }
 
       try {
-        console.log('🏨 Cargando habitaciones...');
         const roomsData = await getHotelRooms(hotelId, {
           check_in_date: checkIn,
           check_out_date: checkOut,
@@ -47,9 +43,7 @@ export default function HabitacionesPage() {
 
         if (roomsData && Array.isArray(roomsData) && roomsData.length > 0) {
           setHotelRooms(roomsData);
-          console.log(`✅ ${roomsData.length} habitaciones cargadas`);
         } else {
-          console.log('🚧 Backend devolvió vacío, usando fallback mock');
           const mockData = await getHotelRoomsMock(hotelId);
           setHotelRooms(mockData);
         }
@@ -79,8 +73,8 @@ export default function HabitacionesPage() {
       check_in: checkIn,
       check_out: checkOut,
       adults: Number(adults),
-      children: Number(childrenParam),     // ✅ FIX: Valor real de la URL
-      infants: Number(infantsParam),        // ✅ FIX: Añadido bebés
+      children: Number(childrenParam),
+      infants: Number(infantsParam),
       nights: Number(nights),
       rooms,
       room_id: room.id,
@@ -181,6 +175,18 @@ export default function HabitacionesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function HabitacionesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#FF6B6B] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <HabitacionesContent />
+    </Suspense>
   );
 }
 

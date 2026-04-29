@@ -2,8 +2,8 @@
 
 'use client';
 
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Heart, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Heart, MapPin, Building2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
 
@@ -16,7 +16,12 @@ interface HotelCardProps {
 export default function HotelCard({ hotel, isFavorite = false, onToggleFavorite }: HotelCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHoveringImage, setIsHoveringImage] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setImageError(false);
+  }, [currentImageIndex]);
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,16 +57,19 @@ export default function HotelCard({ hotel, isFavorite = false, onToggleFavorite 
           onMouseLeave={() => setIsHoveringImage(false)}
         >
           <div className="relative w-full h-48 rounded-lg overflow-hidden">
-            {/* ✅ CORRECCIÓN 4: loading="lazy" para rendimiento */}
-            <img 
-              src={hotel.images[currentImageIndex] || '/placeholder-hotel.jpg'} 
-              alt={hotel.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/placeholder-hotel.jpg';
-              }}
-            />
+            {hotel.images.length > 0 && !imageError ? (
+              <img 
+                src={hotel.images[currentImageIndex]} 
+                alt={hotel.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-full h-full flex items-center justify-center">
+                <Building2 className="w-12 h-12 text-white/50" />
+              </div>
+            )}
 
             {/* Botón favorito - ✅ CORRECCIÓN 6: z-30 explícito */}
             <button

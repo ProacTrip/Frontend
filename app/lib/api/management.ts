@@ -2,7 +2,6 @@
 //Utilidad: Funciones para llamar al backend de Marco (bloquear, listar, etc.)
 
 // API del panel de administración (Management + Audit)
-// Conecta con los proxies /api/v1/management/*
 
 import { apiFetch } from './auth';
 import type {
@@ -38,7 +37,7 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
   if (params.limit) query.set('limit', String(params.limit));
   if (params.offset) query.set('offset', String(params.offset));
 
-  const response = await apiFetch(`/api/v1/management/users?${query.toString()}`, {
+  const response = await apiFetch(`/v1/management/users?${query.toString()}`, {
     method: 'GET',
   });
 
@@ -54,7 +53,7 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
  * 🔍 Ver detalle de un usuario
  */
 export async function getUserDetail(userId: string): Promise<UserAdminDetail> {
-  const response = await apiFetch(`/api/v1/management/users/${userId}`, {
+  const response = await apiFetch(`/v1/management/users/${userId}`, {
     method: 'GET',
   });
 
@@ -76,7 +75,7 @@ export async function getUserDetail(userId: string): Promise<UserAdminDetail> {
  * 🎭 Listar roles del sistema
  */
 export async function listRoles(): Promise<RoleListResponse> {
-  const response = await apiFetch('/api/v1/management/roles', {
+  const response = await apiFetch('/v1/management/roles', {
     method: 'GET',
   });
 
@@ -94,7 +93,7 @@ export async function listRoles(): Promise<RoleListResponse> {
 export async function assignRole(userId: string, roleId: string): Promise<{ message: string }> {
   const body: AssignRoleRequest = { user_id: userId, role_id: roleId };
 
-  const response = await apiFetch(`/api/v1/management/users/${userId}/role`, {
+  const response = await apiFetch(`/v1/management/users/${userId}/role`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -117,7 +116,7 @@ export async function assignRole(userId: string, roleId: string): Promise<{ mess
 export async function blockUser(userId: string, days: number, reason: string): Promise<BlockUserResponse> {
   const body: BlockUserRequest = { user_id: userId, days, reason };
 
-  const response = await apiFetch(`/api/v1/management/users/${userId}/block`, {
+  const response = await apiFetch(`/v1/management/users/${userId}/block`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -136,7 +135,7 @@ export async function blockUser(userId: string, days: number, reason: string): P
 export async function unblockUser(userId: string): Promise<{ message: string }> {
   const body: UnblockUserRequest = { user_id: userId };
 
-  const response = await apiFetch(`/api/v1/management/users/${userId}/unblock`, {
+  const response = await apiFetch(`/v1/management/users/${userId}/unblock`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -157,7 +156,7 @@ export async function unblockUser(userId: string): Promise<{ message: string }> 
  * 📜 Listar todos los permisos del sistema
  */
 export async function listPermissions(): Promise<PermissionListResponse> {
-  const response = await apiFetch('/api/v1/management/permissions', {
+  const response = await apiFetch('/v1/management/permissions', {
     method: 'GET',
   });
 
@@ -175,7 +174,7 @@ export async function listPermissions(): Promise<PermissionListResponse> {
 export async function grantPermission(userId: string, data: Omit<GrantPermissionRequest, 'user_id'>): Promise<{ message: string }> {
   const body: GrantPermissionRequest = { user_id: userId, ...data };
 
-  const response = await apiFetch(`/api/v1/management/users/${userId}/permissions`, {
+  const response = await apiFetch(`/v1/management/users/${userId}/permissions`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -192,7 +191,7 @@ export async function grantPermission(userId: string, data: Omit<GrantPermission
  * ➖ Revocar permiso override específico
  */
 export async function revokePermission(userId: string, permissionId: string): Promise<{ message: string }> {
-  const response = await apiFetch(`/api/v1/management/users/${userId}/permissions/${permissionId}`, {
+  const response = await apiFetch(`/v1/management/users/${userId}/permissions/${permissionId}`, {
     method: 'DELETE',
   });
 
@@ -212,7 +211,7 @@ export async function revokePermission(userId: string, permissionId: string): Pr
  * 🖼️ Listar avatares por defecto
  */
 export async function listAvatars(): Promise<AvatarListResponse> {
-  const response = await apiFetch('/api/v1/management/avatars/default', {
+  const response = await apiFetch('/v1/management/avatars/default', {
     method: 'GET',
   });
 
@@ -228,7 +227,7 @@ export async function listAvatars(): Promise<AvatarListResponse> {
  * ⬆️ Generar URL para subir avatar (presigned URL)
  */
 export async function uploadAvatar(data: UploadAvatarRequest): Promise<UploadAvatarResponse> {
-  const response = await apiFetch('/api/v1/management/avatars/default', {
+  const response = await apiFetch('/v1/management/avatars/default', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -261,7 +260,7 @@ export async function queryAuditLogs(params: AuditLogListParams = {}): Promise<A
   if (params.date_from) query.set('date_from', params.date_from);
   if (params.date_to) query.set('date_to', params.date_to);
 
-  const response = await apiFetch(`/api/v1/management/audit-logs?${query.toString()}`, {
+  const response = await apiFetch(`/v1/management/audit-logs?${query.toString()}`, {
     method: 'GET',
   });
 

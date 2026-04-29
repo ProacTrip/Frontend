@@ -11,61 +11,52 @@ import {
 import { useRouter } from 'next/navigation';
 import type { AuthUser } from '@/app/lib/types/auth';
 import { logoutUser, logoutAllSessions } from '@/app/lib/api/auth';
+import { getContext, type ContextResponse } from '@/app/lib/api/context';
+import { getStoredContext } from '@/app/lib/utils/location';
 
-interface AuthState {
+export interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  context: ContextResponse | null;
+  setUser: (user: AuthUser | null) => void;
+  setContext: (context: ContextResponse | null) => void;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState | undefined>(undefined);
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [context, setContext] = useState<ContextResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const fetchCurrentUser = useCallback(async () => {
+  const refreshUser = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/v1/auth/current-user`, {
-        credentials: 'include',
-      });
-
-      console.log('[Auth] fetchCurrentUser status:', response.status);
-
-      if (!response.ok) {
-        console.log('[Auth] fetchCurrentUser FAILED, status:', response.status);
-        setUser(null);
-        return;
+      const ctx = await getContext();
+      if (ctx) {
+        setContext(ctx);
       }
-
-      const data = await response.json();
-      console.log('[Auth] fetchCurrentUser data:', data);
-      setUser(data.user);
-    } catch (err) {
-      console.log('[Auth] fetchCurrentUser network error:', err);
+    } catch {
       setUser(null);
+      setContext(null);
     }
   }, []);
-
-  const refreshUser = useCallback(async () => {
-    await fetchCurrentUser();
-  }, [fetchCurrentUser]);
 
   const logout = useCallback(async () => {
     try {
       await logoutUser();
     } catch {
-      // Ignorar errores de red, el backend limpia las cookies igual con Clear-Site-Data
     } finally {
       setUser(null);
+      setContext(null);
+      localStorage.removeItem('user_context');
+      localStorage.removeItem('user_location');
       router.push('/auth/login');
     }
   }, [router]);
@@ -74,9 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutAllSessions();
     } catch {
-      // Ignorar errores de red, el backend limpia las cookies igual con Clear-Site-Data
     } finally {
       setUser(null);
+      setContext(null);
+      localStorage.removeItem('user_context');
+      localStorage.removeItem('user_location');
       router.push('/auth/login');
     }
   }, [router]);
@@ -84,31 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function checkAuth() {
+    async function restoreAuth() {
       try {
-        const response = await fetch(`${API_URL}/v1/auth/current-user`, {
-          credentials: 'include',
-        });
-
-        if (cancelled) return;
-
-        console.log('[Auth] checkAuth status:', response.status);
-
-        if (!response.ok) {
-          setUser(null);
-          setError(null);
-          return;
+        const storedContext = getStoredContext();
+        if (storedContext) {
+          const ctx = await getContext();
+          if (!cancelled && ctx) {
+            setContext(ctx);
+          }
         }
-
-        const data = await response.json();
-        if (!cancelled) {
-          setUser(data.user);
-          setError(null);
-        }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setUser(null);
-          console.log('[Auth] checkAuth network error:', err);
+          setContext(null);
         }
       } finally {
         if (!cancelled) {
@@ -117,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    checkAuth();
+    restoreAuth();
 
     return () => {
       cancelled = true;
@@ -131,6 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         error,
+        context,
+        setUser,
+        setContext,
         logout,
         logoutAll,
         refreshUser,
@@ -141,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuthContext(): AuthState {
+export function useAuthContext(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) {
     throw new Error('useAuthContext debe usarse dentro de <AuthProvider>');

@@ -22,7 +22,7 @@ export async function listTemplates(activeOnly: boolean = true): Promise<Notific
   const query = new URLSearchParams();
   query.set('active_only', String(activeOnly));
 
-  const response = await apiFetch(`/api/v1/notifications/templates?${query.toString()}`, {
+  const response = await apiFetch(`/v1/notifications/templates?${query.toString()}`, {
     method: 'GET',
   });
 
@@ -38,7 +38,7 @@ export async function listTemplates(activeOnly: boolean = true): Promise<Notific
  * ➕ Crear nueva plantilla
  */
 export async function createTemplate(data: CreateTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/api/v1/notifications/templates', {
+  const response = await apiFetch('/v1/notifications/templates', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -55,7 +55,7 @@ export async function createTemplate(data: CreateTemplateRequest): Promise<{ mes
  * ✏️ Actualizar plantilla existente
  */
 export async function updateTemplate(data: UpdateTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/api/v1/notifications/templates', {
+  const response = await apiFetch('/v1/notifications/templates', {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -72,7 +72,7 @@ export async function updateTemplate(data: UpdateTemplateRequest): Promise<{ mes
  * 🔄 Activar / Desactivar plantilla
  */
 export async function toggleTemplate(data: ToggleTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/api/v1/notifications/templates/toggle', {
+  const response = await apiFetch('/v1/notifications/templates/toggle', {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -93,7 +93,7 @@ export async function toggleTemplate(data: ToggleTemplateRequest): Promise<{ mes
  * 📨 Enviar notificación a un usuario específico
  */
 export async function sendNotification(data: SendNotificationRequest): Promise<SendNotificationResponse> {
-  const response = await apiFetch('/api/v1/notifications/send', {
+  const response = await apiFetch('/v1/notifications/send', {
     method: 'POST',
     body: JSON.stringify(data),
   });

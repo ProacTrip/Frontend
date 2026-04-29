@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 mt-1">
-          Bienvenido, <span className="font-medium text-gray-700">{user?.role || 'admin'}</span>
+          Bienvenido, <span className="font-medium text-gray-700">{user?.role_name || 'admin'}</span>
         </p>
       </div>
 

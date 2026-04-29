@@ -5,36 +5,34 @@ import { useRouter } from 'next/navigation';
 import Loader from '@/components/ui/Loader';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { fetchAndStoreContext } from '@/app/lib/utils/location';
 
 /**
  * OAuth callback page (cookie-based auth v2).
  * El backend ya estableció las cookies vía Set-Cookie durante el callback de Google.
- * Esta página solo verifica que la sesión quedó activa y redirige.
+ * La sesión se valida por presencia de cookies auth.
  */
 export default function GoogleCallbackPage() {
   const router = useRouter();
-  const { refreshUser } = useAuthContext();
+  const { setContext } = useAuthContext();
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
 
   useEffect(() => {
     const processCallback = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/current-user`, {
-          credentials: 'include',
-        });
+        const hasAccess = document.cookie.includes('__Secure-access_token');
+        const hasRefresh = document.cookie.includes('__Secure-refresh_token');
 
-        if (!response.ok) {
+        if (!hasAccess && !hasRefresh) {
           setError('No se pudo verificar la sesión con Google');
           setStatus('error');
           setTimeout(() => router.push('/auth/login'), 3000);
           return;
         }
 
-        const data = await response.json();
-        console.log('✅ Google login exitoso:', data.user.email);
-
-        await refreshUser();
+        const userContext = await fetchAndStoreContext();
+        if (setContext) setContext(userContext);
 
         setStatus('success');
         setTimeout(() => {
@@ -49,7 +47,7 @@ export default function GoogleCallbackPage() {
     };
 
     processCallback();
-  }, [router, refreshUser]);
+  }, [router, setContext]);
 
   if (status === 'error') {
     return (

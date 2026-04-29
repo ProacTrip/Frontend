@@ -1,22 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SearchForm, { SearchParams } from './components/SearchForm';
 import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
 import { searchHotels, RateLimitError } from '@/app/lib/api';
+import { getStoredContext } from '@/app/lib/utils/location';
+import type { ContextResponse } from '@/app/lib/api/context';
 
-export default function HotelesPage() {
+function HotelesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedHotelId = searchParams.get('hotel');
 
   const [isSearching, setIsSearching] = useState(false);
   const [displayedHotels, setDisplayedHotels] = useState<any[]>([]);
+  const [locationContext, setLocationContext] = useState<ContextResponse | null>(null);
+
+  useEffect(() => {
+    const ctx = getStoredContext();
+    if (ctx) {
+      setLocationContext(ctx);
+    }
+  }, []);
   
-  // 🔧 PAGINACIÓN CON BACKEND
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -31,7 +40,6 @@ export default function HotelesPage() {
     amenities: [],
   });
 
-  // Encontrar hotel seleccionado para el modal
   const selectedHotel = selectedHotelId 
     ? displayedHotels.find(h => h.id === selectedHotelId) 
     : null;
@@ -40,29 +48,19 @@ export default function HotelesPage() {
     router.push('/home/hoteles', { scroll: false });
   };
 
-  // ==================== BÚSQUEDA INICIAL ====================
   const handleSearch = async (params: SearchParams, customFilters?: FilterValues) => {
-    // Usar filtros personalizados si se pasan, sino usar los del estado
     const activeFilters = customFilters || filters;
-
-    console.log('🔍 Iniciando búsqueda de hoteles');
-    console.log('📤 Parámetros:', params);
-    console.log('🎛️ Filtros:', filters);
 
     setIsSearching(true);
     setHasSearched(true);
     setLastSearchParams(params);
     
     try {
-      // ✅ Llamar a searchHotels() (ahora usa MOCK en api.ts, listo para backend real)
       const response = await searchHotels(params, activeFilters);
       
-      // Actualizar estado con los resultados
       setDisplayedHotels(response.properties);
       setNextToken(response.pagination.next_token);
       setHasMore(response.pagination.has_more);
-      
-      console.log(`✅ Búsqueda completada: ${response.properties.length} hoteles encontrados`);
       
     } catch (error) {
       console.error('❌ Error en la búsqueda:', error);
@@ -77,16 +75,12 @@ export default function HotelesPage() {
     }
   };
 
-  // ==================== CARGAR MÁS RESULTADOS (INFINITE SCROLL) ====================
   const handleLoadMore = async () => {
     if (isSearching || !hasMore || !nextToken || !lastSearchParams) return;
-    
-    console.log('📄 Cargando siguiente página con token:', nextToken);
     
     setIsSearching(true);
     
     try {
-      // ✅ Llamar a searchHotels() con page_token
       const response = await searchHotels(
         {
           ...lastSearchParams,
@@ -95,15 +89,10 @@ export default function HotelesPage() {
         filters
       );
       
-      // Añadir nuevos hoteles a los existentes
       setDisplayedHotels((prev) => [...prev, ...response.properties]);
       
-      // Actualizar paginación
       setNextToken(response.pagination.next_token);
       setHasMore(response.pagination.has_more);
-      
-      console.log(`✅ Página cargada: ${response.properties.length} hoteles más`);
-      console.log(`📊 Total hoteles mostrados: ${displayedHotels.length + response.properties.length}`);
       
     } catch (error) {
       console.error('❌ Error cargando más hoteles:', error);
@@ -115,21 +104,14 @@ export default function HotelesPage() {
     }
   };
 
-  // ==================== APLICAR FILTROS ====================
   const handleFilterChange = (newFilters: FilterValues) => {
-    console.log('🎛️ Filtros actualizados:', newFilters);
     setFilters(newFilters);
     
-    // ✅ Re-buscar automáticamente con nuevos filtros
     if (hasSearched && lastSearchParams) {
-      console.log('🔄 Re-buscando con nuevos filtros...');
-      
-      // Resetear paginación al cambiar filtros
       setDisplayedHotels([]);
       setNextToken(null);
       setHasMore(false);
       
-      // Pasar newFilters directamente para evitar race condition
       handleSearch(lastSearchParams, newFilters);
     }
   };
@@ -138,13 +120,10 @@ export default function HotelesPage() {
     <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3]">
       <div className="max-w-[1600px] mx-auto p-6">
         
-        {/* GRID DE 2 COLUMNAS */}
         <div className="grid grid-cols-12 gap-6">
           
-          {/* ==================== COLUMNA IZQUIERDA (3 cols) ==================== */}
           <div className="col-span-3 space-y-6">
             
-            {/* Logo */}
             <div className="border-4 border-[#FF6B6B] rounded-2xl p-4 bg-white shadow-lg">
               <img 
                 src="/logoMostrar.png" 
@@ -153,23 +132,26 @@ export default function HotelesPage() {
               />
             </div>
 
-            {/* Filtros */}
             <HotelFilters onFilterChange={handleFilterChange} />
           </div>
 
-          {/* ==================== COLUMNA DERECHA (9 cols) ==================== */}
           <div className="col-span-9 space-y-2">
             
-            {/* Título */}
             <div className="mb-4">
               <h2 className="text-3xl font-bold text-gray-900">Buscar Hoteles</h2>
               <p className="text-gray-600 mt-2">Encuentra los mejores hoteles al mejor precio</p>
+              {locationContext && (
+                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                  <span>📍</span>
+                  {locationContext.location.city}
+                  {locationContext.location.country && `, ${locationContext.location.country}`}
+                  {locationContext.location.currency && ` · Moneda: ${locationContext.location.currency}`}
+                </p>
+              )}
             </div>
 
-            {/* Formulario de búsqueda */}
             <SearchForm onSearch={handleSearch} isLoading={isSearching && !hasSearched} />
 
-            {/* RESULTADOS (PEGADOS al formulario con space-y-2) */}
             {hasSearched ? (
               displayedHotels.length > 0 ? (
                 <HotelsList
@@ -194,7 +176,6 @@ export default function HotelesPage() {
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                 <div className="grid grid-cols-2 min-h-[320px]">
             
-                  {/* COLUMNA IZQUIERDA - Texto */}
                   <div className="flex flex-col justify-center px-12 py-10">
                     <p className="text-xs font-semibold text-[#FF6B6B] uppercase tracking-widest mb-3">
                       ProacTrip Hoteles
@@ -219,7 +200,6 @@ export default function HotelesPage() {
                     </div>
                   </div>
             
-                  {/* COLUMNA DERECHA - Imagen decorativa */}
                   <div className="relative bg-gradient-to-br from-[#fff0e6] to-[#ffd4b3] flex items-center justify-center">
                     <div className="text-center px-8">
                       <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-4">
@@ -241,7 +221,6 @@ export default function HotelesPage() {
 
       </div>
 
-      {/* Modal de detalle */}
       {selectedHotel && (
         <HotelDetailModal
           hotel={selectedHotel}
@@ -250,5 +229,20 @@ export default function HotelesPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function HotelesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#FF6B6B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <HotelesContent />
+    </Suspense>
   );
 }

@@ -91,7 +91,7 @@ export function extractCityFromAddress(address: string | null | undefined): stri
 
 function adaptImages(backendImages: { thumbnail: string; original: string }[] | null | undefined): string[] {
   if (!backendImages?.length) {
-    return ['/placeholder-hotel.jpg'];
+    return [];
   }
   return backendImages
     .map(img => img.original || img.thumbnail)

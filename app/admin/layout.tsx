@@ -24,7 +24,7 @@ export default function AdminLayout({
 
   // ✅ CORREGIDO: localStorage gana sobre user?.role
   // Si pusiste 'admin' en consola, se usa eso. Si no, se usa lo que diga useAuth.
-  const effectiveRole = devRole !== null ? devRole : user?.role;
+  const effectiveRole = devRole !== null ? devRole : user?.role_name;
   
   // Esperamos a que useAuth termine de cargar Y a que leamos localStorage
   const isReady = !isLoading && devRole !== null;

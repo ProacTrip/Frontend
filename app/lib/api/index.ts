@@ -54,3 +54,9 @@ export {
   markNotificationRead,
   markAllNotificationsRead,
 } from './notifications';
+
+// ==========================================
+// 7. CONTEXTO (ubicación + clima)
+// ==========================================
+export { getContext } from './context';
+export type { ContextResponse, LocationData, WeatherData } from './context';

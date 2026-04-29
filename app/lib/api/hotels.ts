@@ -37,11 +37,11 @@ export async function searchHotels(
 
   // ✅ VERSIÓN REAL - Backend Marco Aurelio
   try {
-    console.log('🔍 Llamando a POST /api/v1/search/hotels');
+    console.log('🔍 Llamando a POST /v1/search/hotels');
     
     const user = getUserPreferences();
 
-    const response = await apiFetch('/api/v1/search/hotels', {
+    const response = await apiFetch('/v1/search/hotels', {
       method: 'POST',
       body: JSON.stringify({
         query: params.query,
@@ -100,11 +100,11 @@ export async function getHotelDetails(
   }
 
   try {
-    console.log('🏨 Llamando a POST /api/v1/search/hotel-details');
+    console.log('🏨 Llamando a POST /v1/search/hotel-details');
     
     const user = getUserPreferences();
 
-    const response = await apiFetch('/api/v1/search/hotel-details', {
+    const response = await apiFetch('/v1/search/hotel-details', {
       method: 'POST',
       body: JSON.stringify({
         id: hotelId,
@@ -148,11 +148,11 @@ export async function getHotelRooms(
   }
 
   try {
-    console.log('🏨 Llamando a POST /api/v1/search/hotel-rooms');
+    console.log('🏨 Llamando a POST /v1/search/hotel-rooms');
     
     const user = getUserPreferences();
 
-    const response = await apiFetch('/api/v1/search/hotel-rooms', {
+    const response = await apiFetch('/v1/search/hotel-rooms', {
       method: 'POST',
       body: JSON.stringify({
         id: hotelId,
