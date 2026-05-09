@@ -20,6 +20,14 @@ export default function Navbar(){
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user_avatar_url');
+    if (stored) setAvatarUrl(stored);
+  }, []);
+
+
   // Referencia al elemento DOM del menu desplegable para detectar clics fuera de él
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +61,8 @@ export default function Navbar(){
       console.error('Error en logout:', err);
     } finally {
       setIsLoggingOut(false);
+      localStorage.removeItem('user_avatar_url');
+      setAvatarUrl(null);
       router.push('/auth/login');
     }
   };
@@ -66,6 +76,8 @@ export default function Navbar(){
       console.error('Error en logout all:', err);
     } finally {
       setIsLoggingOutAll(false);
+      localStorage.removeItem('user_avatar_url');
+      setAvatarUrl(null);
       router.push('/auth/login');
     }
   };
@@ -127,12 +139,23 @@ export default function Navbar(){
                   </div>
 
                   {/*usuario*/}
-                  <button
-                  //setMenuAbierto(!menuAbierto = !false) = si el menu esta cerrado se abre (menuAbierto el menu empieza estando cerrado(osea false))
-                    onClick={() => setMenuAbierto(!menuAbierto)}
-                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+        
+                  <button onClick={() => setMenuAbierto(!menuAbierto)}
+                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors overflow-hidden"
                   >
-                    <User className="w-6 h-6" />
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center ${avatarUrl ? 'hidden' : ''}`}>
+                      <User className="w-6 h-6 text-gray-600" />
+                    </div>
                   </button>
 
                   <CurrencySelector />
@@ -262,6 +285,25 @@ export default function Navbar(){
                 </div>
               ) : isAuthenticated ? (
                 <>
+                  <div className="flex items-center gap-3 py-2">
+                    <div className="w-10 h-10 rounded-full bg-white overflow-hidden flex items-center justify-center">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${avatarUrl ? 'hidden' : ''}`}>
+                        <User className="w-5 h-5 text-gray-600" />
+                      </div>
+                    </div>
+                    <span className="text-white font-medium">Tu perfil</span>
+                  </div>
+                  
                   <Link
                     href="/home/profile"
                     onClick={() => setMenuAbiertoMovil(false)}

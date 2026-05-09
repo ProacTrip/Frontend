@@ -60,3 +60,40 @@ export {
 // ==========================================
 export { getContext } from './context';
 export type { ContextResponse, LocationData, WeatherData } from './context';
+
+// ==========================================
+// 8. USER PROFILE (NUEVO)
+// ==========================================
+export {
+  getProfile,
+  updateProfile,
+  updateLocale,
+  updateTravelPreferences,
+  getMedicalProfile,
+  updateMedicalProfile,
+  updateNotificationPreference,
+  getUploadAvatarUrl,
+  uploadAvatarToR2,
+  confirmAvatarUpload,
+  listDefaultAvatars,
+  selectDefaultAvatar,
+} from './user';
+
+export type {
+  ProfileResponse,
+  Profile,
+  UpdateProfileBody,
+  TravelPreferences,
+  UpdateTravelPreferencesBody,
+  MedicalProfile,
+  UpdateMedicalProfileBody,
+  NotificationPreference,
+  UpdateNotificationPreferenceBody,
+  LocaleUpdate,
+  DefaultAvatar,
+  AvatarUploadUrl,
+  Gender,
+  PreferredClass,
+  SeatPreference,
+  Channel,
+} from '@/app/lib/types/user';

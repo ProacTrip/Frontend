@@ -1,136 +1,81 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getUserProfile, UserProfile, apiFetch } from '@/app/lib/api';
-import { COUNTRIES, getCountryByCode } from '@/app/lib/constants/countries';
-import { AVATARS, DEFAULT_AVATAR } from '@/app/lib/constants/avatars';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getProfile, ProfileResponse } from '@/app/lib/api';
 import Loader from '@/components/ui/Loader';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, Mail, Phone, Globe, Save, X, Pencil, 
-  CheckCircle2, AlertCircle 
+import {
+  User,
+  Globe,
+  Plane,
+  HeartPulse,
+  Bell,
+  Image as ImageIcon,
 } from 'lucide-react';
 
-export default function ProfilePage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [formData, setFormData] = useState<Partial<UserProfile>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATAR);
-  const [phonePrefix, setPhonePrefix] = useState('+34');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+import {
+  PersonalDataForm,
+  LocaleForm,
+  TravelForm,
+  MedicalForm,
+  NotificationsForm,
+  AvatarForm,
+} from './components';
 
-  // Cargar perfil al montar el componente
-  useEffect(() => {
-    const loadProfile = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const data = await getUserProfile();
-        if (data) {
-          setProfile(data);
-          setFormData(data);
-          
-          // Parsear teléfono si existe
-          if (data.phone) {
-            const match = data.phone.match(/^(\+\d+)\s?(.*)$/);
-            if (match) {
-              setPhonePrefix(match[1]);
-              setPhoneNumber(match[2]);
-            }
-          }
-          
-          // Si tiene avatar_url que es un emoji, usarlo
-          if (data.avatar_url && AVATARS.includes(data.avatar_url)) {
-            setSelectedAvatar(data.avatar_url);
-          }
-        } else {
-          setError('No se pudo cargar el perfil. Intenta de nuevo.');
-        }
-      } catch (err) {
-        setError('Error de conexión con el servidor.');
-      } finally {
-        setIsLoading(false);
+const TABS = [
+  { id: 'personal', label: 'Datos personales', icon: User },
+  { id: 'locale', label: 'Localización', icon: Globe },
+  { id: 'travel', label: 'Viaje', icon: Plane },
+  { id: 'medical', label: 'Médico', icon: HeartPulse },
+  { id: 'notifications', label: 'Notificaciones', icon: Bell },
+  { id: 'avatar', label: 'Avatar', icon: ImageIcon },
+];
+
+export default function ProfilePage() {
+  const { user } = useAuthContext();
+  const [activeTab, setActiveTab] = useState('personal');
+  const [data, setData] = useState<ProfileResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const reloadProfile = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const profileData = await getProfile();
+      setData(profileData);
+      if (profileData.profile.avatar_url) {
+        localStorage.setItem('user_avatar_url', profileData.profile.avatar_url);
       }
-    };
-    loadProfile();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Si cambia la nacionalidad, actualizar prefijo telefónico
-    if (name === 'nationality') {
-      const country = COUNTRIES.find(c => c.code === value);
-      if (country) {
-        setPhonePrefix(country.phone);
-      }
-    }
-  };
+  useEffect(() => {
+    reloadProfile();
+  }, [reloadProfile]);
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    setError('');
-    setSuccessMsg('');
-
-    try {
-      // Combinar prefijo + número de teléfono
-      const fullPhone = phoneNumber ? `${phonePrefix} ${phoneNumber}` : '';
-      
-      const dataToSend = {
-        ...formData,
-        phone: fullPhone,
-        avatar_url: selectedAvatar, // Guardar el emoji como avatar
-      };
-
-      const response = await apiFetch('/v1/user/profile', {
-        method: 'PUT',
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (response.ok) {
-        const updatedData = await response.json();
-        setProfile(updatedData);
-        setSuccessMsg('¡Perfil actualizado con éxito!');
-        setIsEditing(false);
-        setTimeout(() => setSuccessMsg(''), 3000);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Error al guardar los cambios.');
-      }
-    } catch (err) {
-      setError('Hubo un problema al conectar con el servidor.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Estado de carga
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader text="Cargando tu perfil..." />
+        <Loader text="Cargando perfil..." />
       </div>
     );
   }
 
-  // Estado de error
-  if (error && !profile) {
+  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">¡Ups! Algo salió mal</h2>
+      <div className="max-w-4xl mx-auto p-6 text-center">
+        <p className="text-lg font-semibold text-red-600 mb-4">
+          Error al cargar el perfil
+        </p>
         <p className="text-gray-600 mb-6">{error}</p>
-        <button 
-          onClick={() => router.refresh()} 
-          className="px-6 py-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#ff5252]"
+        <button
+          onClick={reloadProfile}
+          className="px-6 py-2 bg-[#FF6B6B] text-white rounded-xl font-medium hover:bg-[#ff5252] transition-colors"
         >
           Reintentar
         </button>
@@ -138,270 +83,124 @@ export default function ProfilePage() {
     );
   }
 
+  if (!data) return null;
+
+  const { profile, travel_preferences, notification_preferences } = data;
+  const userEmail = user?.email ?? null;
+
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.5 }}
-      >
+    <div className="max-w-5xl mx-auto p-6 pb-20">
+      {/* ─── HEADER ─── */}
+      <div className="flex items-center gap-6 mb-8">
+        <div className="relative">
+          {profile.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt="Avatar"
+              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : null}
+          <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#ff8a80] flex items-center justify-center border-4 border-white shadow-lg ${profile.avatar_url ? 'absolute top-0 left-0 -z-10' : ''}`}>
+            <User className="w-10 h-10 text-white" />
+          </div>
+          {profile.phone_verified && (
+            <span className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs w-6 h-6 flex items-center justify-center rounded-full border-2 border-white">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+          )}
+        </div>
         
-        {/* MENSAJE DE ÉXITO */}
-        <AnimatePresence>
-          {successMsg && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }} 
-              animate={{ opacity: 1, height: 'auto' }} 
-              exit={{ opacity: 0, height: 0 }} 
-              className="bg-green-100 text-green-700 p-4 rounded-lg mb-6 flex items-center gap-3"
-            >
-              <CheckCircle2 className="w-5 h-5" /> {successMsg}
-            </motion.div>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-gray-800">
+            {profile.first_name || profile.last_name
+              ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
+              : 'Usuario'}
+          </h1>
+          {userEmail && (
+            <p className="text-gray-500 mt-1">{userEmail}</p>
           )}
           
-          {/* MENSAJE DE ERROR */}
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }} 
-              animate={{ opacity: 1, height: 'auto' }} 
-              exit={{ opacity: 0, height: 0 }} 
-              className="bg-red-100 text-red-700 p-4 rounded-lg mb-6 flex items-center gap-3"
-            >
-              <AlertCircle className="w-5 h-5" /> {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* CABECERA CON AVATAR */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            
-            {/* AVATAR */}
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#ff8a80] flex items-center justify-center border-4 border-white shadow-lg text-6xl">
-                {selectedAvatar}
-              </div>
-              
-              {isEditing && (
-                <button 
-                  onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-                  className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-lg border border-gray-100 text-[#FF6B6B] hover:scale-110 transition-transform"
-                >
-                  <Pencil className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            {/* SELECTOR DE AVATAR */}
-            {isEditing && showAvatarPicker && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute z-10 mt-40 bg-white rounded-xl shadow-xl border border-gray-200 p-4 grid grid-cols-5 gap-3"
-              >
-                {AVATARS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => {
-                      setSelectedAvatar(emoji);
-                      setShowAvatarPicker(false);
-                    }}
-                    className={`text-4xl hover:scale-125 transition-transform ${
-                      selectedAvatar === emoji ? 'ring-4 ring-[#FF6B6B] rounded-lg' : ''
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </motion.div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {profile.phone_verified ? (
+              <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+                Teléfono verificado
+              </span>
+            ) : (
+              <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
+                Teléfono no verificado
+              </span>
             )}
-
-            {/* INFO BÁSICA */}
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-3xl font-bold text-gray-800 mb-1">
-                {profile?.display_name || 
-                 `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 
-                 'Viajero ProacTrip'}
-              </h1>
-              <p className="text-gray-500 flex items-center justify-center md:justify-start gap-2">
-                <Mail className="w-4 h-4" /> {profile?.email}
-              </p>
-            </div>
-
-            {/* BOTONES EDITAR/GUARDAR */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                disabled={isSaving}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
-                  isEditing 
-                  ? 'bg-green-500 text-white hover:bg-green-600' 
-                  : 'bg-[#FF6B6B] text-white hover:bg-[#ff5252]'
-                } shadow-lg disabled:opacity-50`}
-              >
-                {isSaving ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : isEditing ? (
-                  <Save className="w-5 h-5" />
-                ) : (
-                  <Pencil className="w-5 h-5" />
-                )}
-                {isEditing ? 'Guardar' : 'Editar'}
-              </button>
-              
-              {isEditing && (
-                <button 
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData(profile || {});
-                  }} 
-                  className="p-3 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+            {profile.is_public && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                Perfil público
+              </span>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* DATOS PERSONALES */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <User className="w-5 h-5 text-[#FF6B6B]" /> Datos Personales
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            {/* NOMBRE */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                Nombre
-              </label>
-              {isEditing ? (
-                <input 
-                  name="first_name" 
-                  value={formData.first_name || ''} 
-                  onChange={handleChange} 
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] outline-none transition-all" 
-                  placeholder="Tu nombre"
-                />
-              ) : (
-                <p className="text-lg text-gray-800 font-medium">
-                  {profile?.first_name || '—'}
-                </p>
-              )}
-            </div>
+      {/* ─── TABS ─── */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? 'bg-[#FF6B6B] text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-            {/* APELLIDO */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                Apellido
-              </label>
-              {isEditing ? (
-                <input 
-                  name="last_name" 
-                  value={formData.last_name || ''} 
-                  onChange={handleChange} 
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] outline-none transition-all" 
-                  placeholder="Tu apellido"
-                />
-              ) : (
-                <p className="text-lg text-gray-800 font-medium">
-                  {profile?.last_name || '—'}
-                </p>
-              )}
-            </div>
-
-            {/* NACIONALIDAD */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                <Globe className="w-4 h-4" /> Nacionalidad
-              </label>
-              {isEditing ? (
-                <select
-                  name="nationality"
-                  value={formData.nationality || ''}
-                  onChange={handleChange}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] outline-none transition-all"
-                >
-                  <option value="">Selecciona tu país</option>
-                  {COUNTRIES.map(country => (
-                    <option key={country.code} value={country.code}>
-                      {country.flag} {country.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-lg text-gray-800 font-medium">
-                  {getCountryByCode(profile?.nationality || '')
-                    ? `${getCountryByCode(profile?.nationality!)?.flag} ${getCountryByCode(profile?.nationality!)?.name}`
-                    : 'No especificada'}
-                </p>
-              )}
-            </div>
-
-            {/* TELÉFONO */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Teléfono
-              </label>
-              {isEditing ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={phonePrefix}
-                    disabled
-                    className="w-20 p-3 bg-gray-200 border border-gray-300 rounded-xl text-center font-mono"
-                  />
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="123 456 789"
-                    className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] outline-none"
-                  />
-                </div>
-              ) : (
-                <p className="text-lg text-gray-800 font-medium">
-                  {profile?.phone || 'No especificado'}
-                </p>
-              )}
-            </div>
-
-          </div>
-        </div>
-
-        {/* PREFERENCIAS DE VIAJE */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-[#FF6B6B]" /> Preferencias de Viaje
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <label className="text-xs font-bold text-gray-400 uppercase">Idioma</label>
-              <p className="text-gray-800 font-bold mt-1">
-                {profile?.preferred_language?.toUpperCase() || 'ES'}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <label className="text-xs font-bold text-gray-400 uppercase">Moneda</label>
-              <p className="text-gray-800 font-bold mt-1">
-                {profile?.preferred_currency || 'EUR'}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <label className="text-xs font-bold text-gray-400 uppercase">Zona Horaria</label>
-              <p className="text-gray-800 font-bold mt-1 text-sm truncate">
-                {profile?.timezone || 'Europe/Madrid'}
-              </p>
-            </div>
-          </div>
-          <p className="text-sm text-gray-400 mt-4 text-center">
-            💡 Las preferencias se detectarán automáticamente según tu ubicación
-          </p>
-        </div>
-
-      </motion.div>
+      {/* ─── CONTENIDO ─── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        {activeTab === 'personal' && (
+          <PersonalDataForm profile={profile} onSave={reloadProfile} />
+        )}
+        {activeTab === 'locale' && (
+          <LocaleForm profile={profile} onSave={reloadProfile} />
+        )}
+        {activeTab === 'travel' && (
+          <TravelForm 
+            prefs={travel_preferences ?? {
+              preferred_class: null,
+              seat_preference: null,
+              meal_preference: null,
+              special_assistance: null,
+              preferred_airlines: null,
+              preferred_hotels: null,
+              avoid_layovers: false,
+              max_layover_duration: null,
+            }} 
+            onSave={reloadProfile} 
+          />
+        )}
+        {activeTab === 'medical' && (
+          <MedicalForm onSave={reloadProfile} />
+        )}
+        {activeTab === 'notifications' && (
+          <NotificationsForm prefs={notification_preferences} onSave={reloadProfile} />
+        )}
+        {activeTab === 'avatar' && (
+          <AvatarForm currentUrl={profile.avatar_url} onSave={reloadProfile} />
+        )}
+      </div>
     </div>
   );
 }

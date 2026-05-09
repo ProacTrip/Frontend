@@ -30,11 +30,20 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUserState] = useState<AuthUser | null>(null);
   const [context, setContext] = useState<ContextResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+   const setUser = useCallback((user: AuthUser | null) => {
+    setUserState(user);
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, []);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -57,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setContext(null);
       localStorage.removeItem('user_context');
       localStorage.removeItem('user_location');
+      localStorage.removeItem('user');
       router.push('/auth/login');
     }
   }, [router]);
@@ -78,7 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function restoreAuth() {
-      try {
+       try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            if (!cancelled) {
+              setUserState(parsedUser);
+            }
+          } catch {
+            localStorage.removeItem('user');
+          }
+        }
+
         const storedContext = getStoredContext();
         if (storedContext) {
           const ctx = await getContext();
