@@ -1,27 +1,26 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import HotelDetailClient from '@/components/hotels/HotelDetailClient';
 
-export const metadata: Metadata = { title: 'Detalle del hotel' };
+export const metadata: Metadata = {
+  title: { default: 'Detalle del hotel', template: '%s | ProacTrip' },
+};
 
-export default async function HotelDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
+export default function HotelDetailPage() {
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-ink" suppressHydrationWarning>
-          Detalle del hotel
-        </h1>
-        <p className="text-ink-muted mt-2">
-          {/* TODO: Implement hotel detail page using POST /v1/search/hotel-details
-              with id={id}, check_in/out from searchParams, and display all fields:
-              external_reviews, nearby_places, health_and_safety, sustainability, etc.
-              See docs/Backend/docs/search_hotels_api.md § Hotel Details */}
-        </p>
-      </div>
-    </div>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-paper font-[family-name:var(--font-geist-sans)]">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-pulse space-y-6">
+            <div className="h-5 w-40 rounded bg-paper-container" />
+            <div className="aspect-[16/9] w-full rounded-xl bg-paper-container" />
+            <div className="h-7 w-1/2 rounded bg-paper-container" />
+            <div className="h-5 w-1/3 rounded bg-paper-container" />
+          </div>
+        </div>
+      }
+    >
+      <HotelDetailClient />
+    </Suspense>
   );
 }
