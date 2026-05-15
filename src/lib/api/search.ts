@@ -3,8 +3,6 @@
  *
  * Uses raw fetch (NOT apiFetch wrapper) because we need access to
  * response headers for rate-limit extraction (Retry-After, RateLimit-*).
- *
- * Phase 1: hotels only (vacation_rentals: false always hardcoded).
  */
 
 import type {
@@ -73,7 +71,6 @@ export async function searchHotels(
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      vacation_rentals: false,
       adults: params.adults ?? 2,
       children: params.children ?? 0,
       children_ages: params.children_ages ?? [],
@@ -127,10 +124,13 @@ export interface EnvironmentResponse {
     language: string;
   };
   weather: {
-    temp_c: number;
+    temp: number;
+    feels_like?: number;
     description: string;
     icon: string;
-    local_time: string;
+    icon_url: string;
+    humidity?: number;
+    wind_speed?: number;
   } | null;
 }
 

@@ -182,12 +182,15 @@ export interface PaginationState {
 }
 
 export interface FilterState {
+  vacation_rentals: boolean;   // false = hotels (default), true = vacation rentals
   min_price?: number;
   max_price?: number;
   rating?: number;             // 7|8|9 or null
   hotel_classes: number[];     // 2|3|4|5
-  property_types: number[];    // 12-24
-  amenities: number[];         // 1-61 hotel codes
+  property_types: number[];    // Hotels: 12-24, VR: 1-11
+  amenities: number[];         // coded values
+  bedrooms?: number;           // VR only
+  bathrooms?: number;          // VR only
   sort_by?: number;            // 3|8|13
   free_cancellation: boolean;
   special_offers: boolean;
@@ -199,9 +202,12 @@ export interface FilterState {
 export type FilterAction =
   | { type: 'SET_PRICE_RANGE'; min?: number; max?: number }
   | { type: 'SET_RATING'; value: number | null }
+  | { type: 'TOGGLE_VACATION_RENTALS' }
   | { type: 'TOGGLE_HOTEL_CLASS'; value: number }
   | { type: 'TOGGLE_PROPERTY_TYPE'; value: number }
   | { type: 'TOGGLE_AMENITY'; value: number }
+  | { type: 'SET_BEDROOMS'; value: number | undefined }
+  | { type: 'SET_BATHROOMS'; value: number | undefined }
   | { type: 'SET_SORT'; value: number | null }
   | { type: 'TOGGLE_FREE_CANCEL' }
   | { type: 'TOGGLE_SPECIAL_OFFERS' }

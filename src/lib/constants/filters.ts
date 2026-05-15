@@ -3,6 +3,34 @@
  * @see Backend/docs/search_hotels_api.md § Valores Codificados
  */
 
+export const PROPERTY_TYPES_VR = [
+  { value: 1, label: 'Casas' },
+  { value: 2, label: 'Apartamentos' },
+  { value: 3, label: 'Condominios' },
+  { value: 4, label: 'Casas rurales' },
+  { value: 5, label: 'Villas' },
+  { value: 6, label: 'Cabañas' },
+  { value: 7, label: 'Casa cueva' },
+  { value: 8, label: 'Habitaciones privadas' },
+  { value: 9, label: 'Barcos' },
+  { value: 10, label: 'Domo' },
+  { value: 11, label: 'Otros' },
+] as const;
+
+export const AMENITIES_VR = [
+  { value: 1, label: 'Parking gratis' },
+  { value: 5, label: 'Piscina al aire libre' },
+  { value: 7, label: 'Gimnasio' },
+  { value: 10, label: 'Spa' },
+  { value: 11, label: 'Acceso a la playa' },
+  { value: 12, label: 'Apto para niños' },
+  { value: 19, label: 'Admite mascotas' },
+  { value: 35, label: 'Wi-Fi gratis' },
+  { value: 40, label: 'Aire acondicionado' },
+  { value: 53, label: 'Acceso para silla de ruedas' },
+  { value: 61, label: 'Cargador para VE' },
+] as const;
+
 export const HOTEL_CLASSES = [
   { value: 2, label: '2 estrellas' },
   { value: 3, label: '3 estrellas' },
