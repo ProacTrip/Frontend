@@ -16,6 +16,7 @@ import { useDebounce } from './useDebounce';
 // ── Initial Filter State ──
 
 const initialFilterState: FilterState = {
+  vacation_rentals: false,
   hotel_classes: [],
   property_types: [],
   amenities: [],
@@ -79,6 +80,25 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
     case 'TOGGLE_FREE_CANCEL':
       return { ...state, free_cancellation: !state.free_cancellation, ...markDirty };
 
+    case 'TOGGLE_VACATION_RENTALS':
+      // Switching mode resets hotel/VR-specific filters to avoid conflicts
+      return {
+        ...state,
+        vacation_rentals: !state.vacation_rentals,
+        hotel_classes: [],
+        property_types: [],
+        amenities: [],
+        bedrooms: undefined,
+        bathrooms: undefined,
+        ...markDirty,
+      };
+
+    case 'SET_BEDROOMS':
+      return { ...state, bedrooms: action.value, ...markDirty };
+
+    case 'SET_BATHROOMS':
+      return { ...state, bathrooms: action.value, ...markDirty };
+
     case 'TOGGLE_SPECIAL_OFFERS':
       return { ...state, special_offers: !state.special_offers, ...markDirty };
 
@@ -103,12 +123,15 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
 
 function filterFingerprint(fs: FilterState): string {
   return JSON.stringify({
+    vr: fs.vacation_rentals,
     min: fs.min_price ?? null,
     max: fs.max_price ?? null,
     rating: fs.rating ?? null,
     classes: [...fs.hotel_classes].sort(),
     types: [...fs.property_types].sort(),
     amenities: [...fs.amenities].sort(),
+    bedrooms: fs.bedrooms ?? null,
+    bathrooms: fs.bathrooms ?? null,
     sort: fs.sort_by ?? null,
     fc: fs.free_cancellation,
     sp: fs.special_offers,
@@ -147,6 +170,9 @@ export interface UseHotelSearchReturn {
   searchStatus: 'idle' | 'loading' | 'success' | 'error';
   resultsState: 'matching' | 'non_matching_only' | null;
   brands: Brand[];
+
+  // Environment (city + weather from GET /v1/environment)
+  environment: { city: string; temp: number; description: string; iconUrl: string } | null;
 
   // Error state
   error: { code: string; message: string; retryAfter?: number } | null;
@@ -201,6 +227,14 @@ export function useHotelSearch(): UseHotelSearchReturn {
   const [hl, setHl] = useState('');
   const [currency, setCurrency] = useState('');
 
+  // ── Environment data exposed for UI (city + weather) ──
+  const [environment, setEnvironment] = useState<{
+    city: string;
+    temp: number;
+    description: string;
+    iconUrl: string;
+  } | null>(null);
+
   useEffect(() => {
     const CACHE_KEY = 'proactrip_env';
     const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -233,6 +267,20 @@ export function useHotelSearch(): UseHotelSearchReturn {
         setGl(glVal);
         setHl(hlVal);
         setCurrency(currencyVal);
+
+        // Save environment data for UI (WeatherWidget, hero subtitle)
+        const city = env.location.city || '';
+        if (env.weather) {
+          setEnvironment({
+            city,
+            temp: env.weather.temp,
+            description: env.weather.description,
+            iconUrl: env.weather.icon_url,
+          });
+        } else {
+          setEnvironment(city ? { city, temp: 0, description: '', iconUrl: '' } : null);
+        }
+
         // Cache in localStorage
         try {
           localStorage.setItem(
@@ -291,6 +339,7 @@ export function useHotelSearch(): UseHotelSearchReturn {
           gl: gl || undefined,
           hl: hl || undefined,
           currency: currency || undefined,
+          vacation_rentals: filters.vacation_rentals,
           min_price: filters.min_price,
           max_price: filters.max_price,
           rating: filters.rating,
@@ -298,6 +347,8 @@ export function useHotelSearch(): UseHotelSearchReturn {
           amenities: filters.amenities.length > 0 ? filters.amenities : undefined,
           hotel_classes: filters.hotel_classes.length > 0 ? filters.hotel_classes : undefined,
           brands: filters.brands.length > 0 ? filters.brands : undefined,
+          bedrooms: filters.vacation_rentals ? filters.bedrooms : undefined,
+          bathrooms: filters.vacation_rentals ? filters.bathrooms : undefined,
           sort_by: filters.sort_by,
           free_cancellation: filters.free_cancellation ? true : undefined,
           special_offers: filters.special_offers ? true : undefined,
@@ -306,8 +357,12 @@ export function useHotelSearch(): UseHotelSearchReturn {
         });
 
         if (isLoadMore && pageToken) {
-          // Append results
-          setResults((prev) => [...prev, ...response.properties]);
+          // Deduplicate by id — API pagination may return overlapping results
+          setResults((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            const newOnes = response.properties.filter((p) => !seen.has(p.id));
+            return [...prev, ...newOnes];
+          });
           visitedTokensRef.current = [...visitedTokensRef.current, pageToken];
         } else {
           setResults(response.properties);
@@ -379,6 +434,8 @@ export function useHotelSearch(): UseHotelSearchReturn {
     filters.hotel_classes.length +
     filters.property_types.length +
     filters.amenities.length +
+    (filters.bedrooms !== undefined ? 1 : 0) +
+    (filters.bathrooms !== undefined ? 1 : 0) +
     (filters.sort_by !== undefined ? 1 : 0) +
     (filters.free_cancellation ? 1 : 0) +
     (filters.special_offers ? 1 : 0) +
@@ -474,6 +531,9 @@ export function useHotelSearch(): UseHotelSearchReturn {
     searchStatus,
     resultsState,
     brands,
+
+    // Environment
+    environment,
 
     // Error
     error,
