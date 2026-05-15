@@ -1,21 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Star,
   MapPin,
-  Wifi,
   Shield,
   Leaf,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
+  X,
+  ImageOff,
 } from 'lucide-react';
 import type { HotelDetailResponse } from '@/lib/types/search';
 import { getHotelDetails } from '@/lib/api/search';
+import { getAmenityIcon } from '@/lib/constants/amenityIcons';
 
 // ── Sub-components ──
 
@@ -166,6 +169,155 @@ function SustainabilitySection({
   );
 }
 
+// ── Image Lightbox ──
+
+function ImageLightbox({
+  images,
+  initialIndex,
+  onClose,
+}: {
+  images: { thumbnail: string; original: string }[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const total = images.length;
+
+  // Keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && index > 0) setIndex((i) => i - 1);
+      if (e.key === 'ArrowRight' && index < total - 1) setIndex((i) => i + 1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, index, total]);
+
+  // Lock body scroll
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors"
+        aria-label="Cerrar"
+      >
+        <X size={24} />
+      </button>
+
+      {/* Navigation — prev */}
+      {index > 0 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setIndex((i) => i - 1); }}
+          className="absolute left-4 z-10 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors"
+          aria-label="Imagen anterior"
+        >
+          <ChevronLeft size={28} />
+        </button>
+      )}
+
+      {/* Navigation — next */}
+      {index < total - 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setIndex((i) => i + 1); }}
+          className="absolute right-4 z-10 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors"
+          aria-label="Imagen siguiente"
+        >
+          <ChevronRight size={28} />
+        </button>
+      )}
+
+      {/* Image */}
+      <motion.div
+        key={index}
+        className="relative max-w-[90vw] max-h-[85vh] w-auto h-auto"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.25 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <ImageWithFallback
+          src={images[index].original}
+          alt={`Imagen ${index + 1} de ${total}`}
+          width={1200}
+          height={800}
+          className="rounded-lg object-contain max-h-[85vh] w-auto h-auto mx-auto"
+          sizes="90vw"
+        />
+      </motion.div>
+
+      {/* Counter */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/20 px-4 py-1.5 text-sm text-white font-medium">
+        {index + 1} / {total}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Image with fallback ──
+
+function ImageWithFallback({
+  src,
+  alt,
+  width,
+  height,
+  className,
+  sizes,
+}: {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  className?: string;
+  sizes?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return width && height ? (
+      <div
+        className={`flex items-center justify-center bg-paper-container ${className ?? ''}`}
+        style={{ width, height }}
+      >
+        <ImageOff size={24} className="text-ink-faint" />
+      </div>
+    ) : (
+      <div className={`flex aspect-[4/3] items-center justify-center bg-paper-container rounded-lg ${className ?? ''}`}>
+        <ImageOff size={32} className="text-ink-faint" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      fill={!width && !height}
+      sizes={sizes}
+      className={className}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 // ── Main Client Component ──
 
 type DetailStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -176,6 +328,7 @@ export default function HotelDetailClient() {
   const searchParams = useSearchParams();
 
   const id = typeof params.id === 'string' ? params.id : '';
+  const query = searchParams.get('query') || undefined;
   const checkIn = searchParams.get('check_in') || '';
   const checkOut = searchParams.get('check_out') || '';
   const adults = Number(searchParams.get('adults')) || 2;
@@ -185,6 +338,7 @@ export default function HotelDetailClient() {
   const [detail, setDetail] = useState<HotelDetailResponse | null>(null);
   const [status, setStatus] = useState<DetailStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const fetchDetail = useCallback(async () => {
     if (!id) return;
@@ -198,6 +352,7 @@ export default function HotelDetailClient() {
         id,
         check_in_date: checkIn,
         check_out_date: checkOut,
+        query,
         adults,
         children: children > 0 ? children : undefined,
         children_ages: children > 0 && childrenAges.length > 0 ? childrenAges : undefined,
@@ -209,7 +364,7 @@ export default function HotelDetailClient() {
       setError(apiErr.message || 'No se pudo cargar el detalle del hotel.');
       setStatus('error');
     }
-  }, [id, checkIn, checkOut, adults, children, childrenAgesRaw]);
+  }, [id, query, checkIn, checkOut, adults, children, childrenAgesRaw]);
 
   useEffect(() => {
     fetchDetail();
@@ -226,7 +381,6 @@ export default function HotelDetailClient() {
         qs.set('children', String(children));
         if (childrenAgesRaw) qs.set('children_ages', childrenAgesRaw);
       }
-      // Preserve filter state from search params if available
       const vr = searchParams.get('vr');
       if (vr) qs.set('vr', vr);
       router.push(`/hotels?${qs.toString()}`);
@@ -277,8 +431,9 @@ export default function HotelDetailClient() {
     );
   }
 
-  const mainImages = (detail.images ?? []).slice(0, 4);
-  const hasPrice = detail.price_range || detail.price;
+  const mainImages = detail.images ?? [];
+  const isHotel = detail.type === 'hotel';
+  const hasPrice = detail.price_range || (detail.price && detail.price.per_night.amount > 0);
 
   return (
     <div className="min-h-screen bg-paper font-[family-name:var(--font-geist-sans)]">
@@ -299,32 +454,49 @@ export default function HotelDetailClient() {
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8 rounded-xl overflow-hidden"
           >
-            {mainImages.slice(0, 1).map((img, i) => (
-              <div key={i} className="aspect-[16/9] sm:aspect-auto sm:row-span-2 relative overflow-hidden bg-paper-container">
-                <Image
-                  src={img.original}
-                  alt={`${detail.name} — foto principal`}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 50vw"
-                  className="object-cover"
-                />
-              </div>
-            ))}
+            {/* Main image (clickable) */}
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(0)}
+              className="aspect-[16/9] sm:aspect-auto sm:row-span-2 relative overflow-hidden bg-paper-container cursor-zoom-in group"
+            >
+              <ImageWithFallback
+                src={mainImages[0].original}
+                alt={`${detail.name} — foto principal`}
+                sizes="(max-width: 640px) 100vw, 50vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </button>
             <div className="grid grid-cols-2 gap-2">
               {mainImages.slice(1, 5).map((img, i) => (
-                <div key={i} className="aspect-[4/3] relative overflow-hidden bg-paper-container">
-                  <Image
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setLightboxIndex(i + 1)}
+                  className="aspect-[4/3] relative overflow-hidden bg-paper-container cursor-zoom-in group"
+                >
+                  <ImageWithFallback
                     src={img.original}
                     alt={`${detail.name} — foto ${i + 2}`}
-                    fill
                     sizes="(max-width: 640px) 50vw, 25vw"
-                    className="object-cover"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                </div>
+                </button>
               ))}
             </div>
           </motion.div>
         )}
+
+        {/* ── Lightbox ── */}
+        <AnimatePresence>
+          {lightboxIndex !== null && (
+            <ImageLightbox
+              images={mainImages}
+              initialIndex={lightboxIndex}
+              onClose={() => setLightboxIndex(null)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* ── Hotel header ── */}
         <motion.div
@@ -361,20 +533,22 @@ export default function HotelDetailClient() {
               )}
             </div>
 
-            {/* Price */}
+            {/* Price — Hotels: price_range, VR: price.per_night */}
             {hasPrice && (
               <div className="text-right shrink-0">
-                {detail.price_range && (
+                {isHotel && detail.price_range ? (
                   <>
                     <p className="text-xs text-ink-muted">Desde</p>
                     <p className="text-xl font-bold text-coral">
                       {detail.price_range.currency === 'USD' ? 'US$' : '€'}
                       {Math.round(detail.price_range.min)}
                     </p>
-                    <p className="text-xs text-ink-faint">por noche</p>
+                    <p className="text-xs text-ink-faint">
+                      {detail.price_range.currency === 'USD' ? 'US$' : '€'}
+                      {Math.round(detail.price_range.min)} – {Math.round(detail.price_range.max)} por noche
+                    </p>
                   </>
-                )}
-                {detail.price && (
+                ) : detail.price && detail.price.per_night.amount > 0 ? (
                   <>
                     <p className="text-xs text-ink-muted">Desde</p>
                     <p className="text-xl font-bold text-coral">
@@ -383,7 +557,7 @@ export default function HotelDetailClient() {
                     </p>
                     <p className="text-xs text-ink-faint">por noche</p>
                   </>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -416,15 +590,18 @@ export default function HotelDetailClient() {
               Servicios
             </h2>
             <div className="flex flex-wrap gap-2">
-              {(detail.amenities ?? []).map((amenity) => (
-                <span
-                  key={amenity}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-paper-outline bg-paper-dim px-3 py-1.5 text-xs text-ink-muted"
-                >
-                  <Wifi size={12} className="text-ink-faint" />
-                  {amenity}
-                </span>
-              ))}
+              {(detail.amenities ?? []).map((amenity) => {
+                const Icon = getAmenityIcon(amenity);
+                return (
+                  <span
+                    key={amenity}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-paper-outline bg-paper-dim px-3 py-1.5 text-xs text-ink-muted"
+                  >
+                    <Icon size={12} className="text-ink-faint" />
+                    {amenity}
+                  </span>
+                );
+              })}
             </div>
           </motion.section>
         )}
