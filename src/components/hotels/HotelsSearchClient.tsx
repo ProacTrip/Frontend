@@ -53,6 +53,7 @@ export default function HotelsSearchClient() {
   function handlePropertyClick(id: string) {
     // Navigate to internal hotel detail page with search params for hotel-details API
     const params = new URLSearchParams();
+    if (hook.query) params.set('query', hook.query);
     if (hook.checkIn) params.set('check_in', hook.checkIn);
     if (hook.checkOut) params.set('check_out', hook.checkOut);
     if (hook.adults !== 2) params.set('adults', String(hook.adults));
@@ -229,6 +230,7 @@ export default function HotelsSearchClient() {
                   hasMore={hook.hasMore}
                   onLoadMore={hook.loadMore}
                   isLoading={hook.isLoadingMore}
+                  rateLimitedUntil={hook.rateLimitedUntil}
                 />
 
                 {/* ── Map CTA ── */}
