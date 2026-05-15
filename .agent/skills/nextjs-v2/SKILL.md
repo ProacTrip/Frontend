@@ -232,6 +232,27 @@ src/
 │   └── types/              # TypeScript interfaces
 ```
 
+7. **Duplicate keys from API data**: The API can return multiple items with the same `source` or `name` field (e.g., two "Tripadvisor" reviews, two "Airport" nearby places). Never use a non-unique field as React `key`. Always append array index: `key={\`${item.id || item.name}-${i}\`}`.
+
+8. **External image URLs with HTTP protocol**: Third-party image URLs (gstatic, tripadvisor logos) may use `http://` even when `https://` is available. `next/image` with `remotePatterns` requires protocol match. For small thumbnails/logos, use native `<img>` tag instead of `next/image` to avoid hostname configuration issues.
+
+9. **Turbopack module resolution**: Barrel imports from large icon libraries (e.g., `react-icons/fa`) can fail under Turbopack. Prefer `lucide-react` (already a project dependency) with individual named imports. Never add `react-icons` as a dependency.
+
+10. **Back-navigation state preservation**: When navigating from search results → detail page, the search state (results, filters) is lost on full page navigation. Use sessionStorage:
+    - Before navigating: `sessionStorage.setItem('hotelSearchState', JSON.stringify({ results, totalCount, query, checkIn, checkOut, ... }))`
+    - On mount: check `sessionStorage.getItem('hotelSearchState')`, restore if URL params match, then remove from storage
+    - Use `router.back()` in the detail page to return to search results
+
+11. **Image gallery pattern**: Always use `thumbnail` URL + `next/image` for gallery grid display (they are already optimized). Use `original` URL ONLY in the lightbox (full resolution, rendered with native `<img>` tag to avoid next/image dimension constraints). Add `priority` to first 2 images above the fold. Show ALL images from the API — do not limit.
+
+12. **Check-in/out time formatting**: API returns 24h format strings (`"14:00"`, `"12:00"`). Parse with `parseInt(time.split(':')[0])`. If hour >= 12 → PM (subtract 12 if > 12). If hour < 12 → AM. Omit `:00` minutes. Display in card layout with lucide-react `Clock` icon and `bg-paper-dim` surface.
+
+13. **Price display**: Hotels use `price_range.min` → "€{min} por noche". Vacation rentals use `price.per_night.amount` → "€{amount} por noche". Never prefix with "Desde". If neither available, hide the section.
+
+14. **Excluded amenities**: Vacation rentals can return `excluded_amenities: string[]` — display as red-tinted chips using `bg-error-container` + `text-error` + `border border-error/20`. Use lucide-react `Ban` icon.
+
+15. **Capacity display**: Vacation rentals return `capacity: { unit_type, guests, bedrooms, bathrooms, beds, area }`. Display as a single card with the pattern: "Villa completa · 4 huéspedes · 2 dormitorios · 2 baños". Use lucide-react icons (Home, Users, Bed, Bath, Ruler).
+
 ## Scripts
 
 ```bash
