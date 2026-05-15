@@ -226,6 +226,38 @@ export function useHotelSearch(): UseHotelSearchReturn {
   const [error, setError] = useState<UseHotelSearchReturn['error']>(null);
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
 
+  // ── Restore search results from sessionStorage on mount (back-navigation) ──
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('hotelSearchState');
+      if (!cached) return;
+
+      const state = JSON.parse(cached);
+      // Only restore if URL params match the cached search
+      const urlQuery = searchParams.get('query') || '';
+      const urlCheckIn = searchParams.get('check_in') || '';
+      const urlCheckOut = searchParams.get('check_out') || '';
+      if (
+        state.query === urlQuery &&
+        state.checkIn === urlCheckIn &&
+        state.checkOut === urlCheckOut
+      ) {
+        setResults(state.results || []);
+        setTotalCount(state.totalCount || 0);
+        setSearchStatus('success');
+        setResultsState(state.resultsState || null);
+        setBrands(state.brands || []);
+        setHasMore(state.hasMore || false);
+        // Mark that a search has been done so auto-search doesn't fire
+        hasSearchedRef.current = true;
+        lastAppliedFingerprintRef.current = filterFingerprint(filters);
+        sessionStorage.removeItem('hotelSearchState');
+      }
+    } catch {
+      // sessionStorage unavailable or corrupt — skip restore
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Environment defaults (gl/hl/currency from GET /v1/environment) ──
   const [gl, setGl] = useState('');
   const [hl, setHl] = useState('');

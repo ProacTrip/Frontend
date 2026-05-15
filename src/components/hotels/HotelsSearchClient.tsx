@@ -51,6 +51,28 @@ export default function HotelsSearchClient() {
   }
 
   function handlePropertyClick(id: string) {
+    // Persist search state to sessionStorage so back-navigation restores results
+    try {
+      sessionStorage.setItem(
+        'hotelSearchState',
+        JSON.stringify({
+          results: hook.results,
+          totalCount: hook.totalCount,
+          resultsState: hook.resultsState,
+          brands: hook.brands,
+          query: hook.query,
+          checkIn: hook.checkIn,
+          checkOut: hook.checkOut,
+          adults: hook.adults,
+          children: hook.children,
+          childrenAges: hook.childrenAges,
+          hasMore: hook.hasMore,
+        })
+      );
+    } catch {
+      // sessionStorage unavailable — proceed without caching
+    }
+
     // Navigate to internal hotel detail page with search params for hotel-details API
     const params = new URLSearchParams();
     if (hook.query) params.set('query', hook.query);
