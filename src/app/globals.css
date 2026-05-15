@@ -1,26 +1,67 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ProacTrip Brand Colors */
+@theme {
+  /* ── Global chrome (Navbar, footer — existing, unchanged) ── */
+  --color-brand: #c54141;
+  --color-brand-dark: #a83535;
+  --color-brand-light: #d96a6a;
+
+  /* ── Paper palette: background surfaces ── */
+  --color-paper: #FEF9F0;
+  --color-paper-dim: #F7F2E7;
+  --color-paper-container: #EFE9DA;
+  --color-paper-outline: #E0D8C5;
+
+  /* ── Paper palette: text hierarchy ── */
+  --color-ink: #15140F;
+  --color-ink-muted: #5C5954;
+  --color-ink-faint: #8B8781;
+
+  /* ── Paper palette: primary actions (Coral) ──
+     Overrides legacy --color-coral (#d4542a) from old design system.
+     Search page uses these. SplashScreen/DestinationCarousel will
+     inherit the new shade — visual migration is intentional. */
+  --color-coral: #ED6F5C;
+  --color-coral-hover: #D65B4A;
+  --color-coral-container: #FDE8E5;
+  --color-coral-on-container: #A53A2C;
+  --color-coral-light: #F4A599;
+
+  /* ── Paper palette: secondary actions (Olive) ── */
+  --color-olive: #5C6238;
+  --color-olive-hover: #4A4F2C;
+  --color-olive-container: #E8EBD6;
+
+  /* ── Paper palette: accents (Mustard) ── */
+  --color-mustard: #E9B94A;
+  --color-mustard-container: #FDF4DC;
+
+  /* ── Semantic ── */
+  --color-success: #2E7D32;
+  --color-success-container: #E8F5E9;
+  --color-warning: #E6A817;
+  --color-warning-container: #FFF8E1;
+  --color-error: #BA1A1A;
+  --color-error-container: #FFEBEE;
+
+  /* ── Rating badges ── */
+  --color-rating-excellent: #2E7D32;
+  --color-rating-great: #5C6238;
+  --color-rating-good: #E6A817;
+  --color-rating-fair: #ED6F5C;
+
+  /* ── Fonts (unchanged) ── */
+  --font-geist-sans: var(--font-geist-sans);
+  --font-geist-mono: var(--font-geist-mono);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
