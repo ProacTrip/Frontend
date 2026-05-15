@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SlidersHorizontal, Search } from 'lucide-react';
+import { SlidersHorizontal, Search, Map } from 'lucide-react';
 
 import SearchBar, { type SearchBarState } from './SearchBar';
+import WeatherWidget from './WeatherWidget';
 import FilterSidebar from './FilterSidebar';
 import MobileFilterSheet from './MobileFilterSheet';
 import ResultsHeader from './ResultsHeader';
@@ -25,6 +27,7 @@ import { useHotelSearch } from '@/lib/hooks/useHotelSearch';
  */
 export default function HotelsSearchClient() {
   const hook = useHotelSearch();
+  const router = useRouter();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // ── Search bar state bridge ──
@@ -48,8 +51,19 @@ export default function HotelsSearchClient() {
   }
 
   function handlePropertyClick(id: string) {
-    // Phase 2: navigate to hotel detail page
-    console.debug('[HotelsSearchClient] Property clicked:', id);
+    // Navigate to internal hotel detail page with search params for hotel-details API
+    const params = new URLSearchParams();
+    if (hook.checkIn) params.set('check_in', hook.checkIn);
+    if (hook.checkOut) params.set('check_out', hook.checkOut);
+    if (hook.adults !== 2) params.set('adults', String(hook.adults));
+    if (hook.children > 0) {
+      params.set('children', String(hook.children));
+      if (hook.childrenAges.length > 0) {
+        params.set('children_ages', hook.childrenAges.join(','));
+      }
+    }
+    const qs = params.toString();
+    router.push(`/hotels/${id}${qs ? `?${qs}` : ''}`);
   }
 
   // ── Derived display states ──
@@ -78,18 +92,55 @@ export default function HotelsSearchClient() {
             />
         </div>
 
+        {/* ── Hero / Weather section ── */}
+        <div className="mb-6">
+          {hook.searchStatus === 'idle' ? (
+            <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6">
+              <div className="flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold text-ink font-[family-name:var(--font-geist-sans)]" suppressHydrationWarning>
+                  Buscar Hoteles
+                </h1>
+                <p className="text-sm text-ink-muted mt-1">
+                  {hook.environment?.city
+                    ? `Encontrá alojamientos en ${hook.environment.city}`
+                    : 'Encontrá el alojamiento ideal para tu viaje'}
+                </p>
+              </div>
+              <div className="w-full md:w-auto md:min-w-[200px]">
+                <WeatherWidget
+                  location={hook.environment?.city ?? ''}
+                  weather={
+                    hook.environment
+                      ? {
+                          temp: hook.environment.temp,
+                          description: hook.environment.description,
+                          iconUrl: hook.environment.iconUrl,
+                        }
+                      : null
+                  }
+                  variant="idle"
+                />
+              </div>
+            </div>
+          ) : (
+            <WeatherWidget
+              location={hook.query}
+              weather={null}
+              variant="search"
+            />
+          )}
+        </div>
+
         {/* ── Main content grid: sidebar (desktop) + results ── */}
         <div className="flex gap-6">
-          {/* Sidebar — desktop only (≥1024px) */}
+          {/* Sidebar — desktop only (≥1024px). Always visible. */}
           <div className="hidden lg:block w-[280px] shrink-0">
-            {hook.searchStatus !== 'idle' && (
-              <FilterSidebar
-                filterState={hook.filters}
-                onFilterChange={hook.filterDispatch}
-                onApply={hook.applyFilters}
-                onReset={hook.resetFilters}
-              />
-            )}
+            <FilterSidebar
+              filterState={hook.filters}
+              onFilterChange={hook.filterDispatch}
+              onApply={hook.applyFilters}
+              onReset={hook.resetFilters}
+            />
           </div>
 
           {/* Results area */}
@@ -179,18 +230,43 @@ export default function HotelsSearchClient() {
                   onLoadMore={hook.loadMore}
                   isLoading={hook.isLoadingMore}
                 />
+
+                {/* ── Map CTA ── */}
+                <div className="mt-8 p-6 bg-paper-dim rounded-xl border border-paper-outline text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Map size={20} className="text-coral" />
+                    <h3 className="text-base font-semibold text-ink" suppressHydrationWarning>
+                      Explorá en el mapa
+                    </h3>
+                  </div>
+                  <p className="text-sm text-ink-muted mb-4">
+                    Descubrí la ubicación exacta de cada alojamiento
+                  </p>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-lg bg-paper-container px-5 py-2.5 text-sm font-medium text-ink hover:bg-paper-outline transition-colors"
+                    onClick={() => {
+                      // TODO: Open interactive map showing hotel locations for query={hook.query}.
+                      // Will integrate with a map component (Google Maps / Mapbox) in Phase 2.
+                      console.debug('[MapCTA] Map not yet implemented');
+                    }}
+                  >
+                    <Map size={16} />
+                    Ver mapa
+                  </button>
+                </div>
               </motion.div>
             )}
 
             {/* ── Idle state (before first search) ── */}
             {hook.searchStatus === 'idle' && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-paper-container mb-4">
-                  <Search size={28} className="text-ink-faint" />
+              <div
+                className="flex flex-col items-center justify-center py-16 text-center"
+                suppressHydrationWarning
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-paper-container mb-4">
+                  <Search size={24} className="text-ink-faint" />
                 </div>
-                <h2 className="text-lg font-bold text-ink mb-1">
-                  Buscá alojamientos
-                </h2>
                 <p className="text-sm text-ink-muted max-w-sm">
                   Ingresá un destino, fechas y cantidad de huéspedes para
                   encontrar el alojamiento ideal.
@@ -201,23 +277,21 @@ export default function HotelsSearchClient() {
         </div>
       </div>
 
-      {/* ── Mobile/tablet filter FAB + bottom sheet ── */}
+      {/* ── Mobile/tablet filter FAB + bottom sheet — always visible ── */}
       <div className="lg:hidden">
-        {hook.searchStatus !== 'idle' && (
-          <button
-            type="button"
-            onClick={() => setMobileSheetOpen(true)}
-            className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-coral px-5 py-3 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 min-h-[44px]"
-          >
-            <SlidersHorizontal size={16} />
-            Filtros
-            {hook.activeFilterCount > 0 && (
-              <span className="inline-flex items-center justify-center rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold min-w-[20px]">
-                {hook.activeFilterCount}
-              </span>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setMobileSheetOpen(true)}
+          className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-coral px-5 py-3 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 min-h-[44px]"
+        >
+          <SlidersHorizontal size={16} />
+          Filtros
+          {hook.activeFilterCount > 0 && (
+            <span className="inline-flex items-center justify-center rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold min-w-[20px]">
+              {hook.activeFilterCount}
+            </span>
+          )}
+        </button>
 
         <MobileFilterSheet
           isOpen={mobileSheetOpen}

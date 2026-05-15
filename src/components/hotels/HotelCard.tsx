@@ -11,6 +11,8 @@ import { useState } from 'react';
 
 interface HotelCardProps {
   hotel: HotelSearchResult;
+  /** Called when the card or "Ver oferta" button is clicked. Passes property id. */
+  onClick?: (id: string) => void;
 }
 
 /** Generate star rating array 1-5 for visual display. */
@@ -28,7 +30,7 @@ function StarRating({ hotelClass }: { hotelClass: number }) {
   );
 }
 
-export default function HotelCard({ hotel }: HotelCardProps) {
+export default function HotelCard({ hotel, onClick }: HotelCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const imageSrc = hotel.images?.[0]?.thumbnail;
@@ -91,7 +93,7 @@ export default function HotelCard({ hotel }: HotelCardProps) {
       {/* Content section */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         {/* Hotel name */}
-        <h3 className="text-base font-bold leading-tight text-ink line-clamp-2">
+        <h3 className="text-base font-bold leading-tight text-ink line-clamp-2" suppressHydrationWarning>
           {hotel.name}
         </h3>
 
@@ -129,21 +131,23 @@ export default function HotelCard({ hotel }: HotelCardProps) {
           <AmenitiesList amenities={hotel.amenities!} max={3} />
         )}
 
-        {/* Spacer to push price + button to bottom */}
-        <div className="flex-1" />
+          {/* Spacer to push price + button to bottom */}
+          <div className="flex-1" />
 
-        {/* Price + CTA */}
-        <div className="flex items-end justify-between pt-2 border-t border-paper-outline">
-          <PriceDisplay price={hotel.price} variant="card" />
-          <a
-            href={hotel.booking_url ?? '#'}
-            target={hotel.booking_url ? '_blank' : undefined}
-            rel={hotel.booking_url ? 'noopener noreferrer' : undefined}
-            className="inline-flex items-center rounded-lg bg-coral px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-coral-hover"
-          >
-            Ver oferta
-          </a>
-        </div>
+          {/* Price + CTA */}
+          <div className="flex items-end justify-between pt-2 border-t border-paper-outline">
+            <PriceDisplay price={hotel.price} variant="card" />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.(hotel.id);
+              }}
+              className="inline-flex items-center rounded-lg bg-coral px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-coral-hover"
+            >
+              Ver oferta
+            </button>
+          </div>
       </div>
     </motion.article>
   );

@@ -131,7 +131,7 @@ export function EmptyState({ query }: EmptyStateProps) {
         <SearchX size={32} className="text-ink-faint" />
       </div>
       <div>
-        <h3 className="text-lg font-bold text-ink">
+        <h3 className="text-lg font-bold text-ink" suppressHydrationWarning>
           No encontramos alojamientos
         </h3>
         <p className="text-sm text-ink-muted mt-1 max-w-md">
