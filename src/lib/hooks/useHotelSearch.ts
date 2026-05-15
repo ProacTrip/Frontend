@@ -10,7 +10,7 @@ import type {
   ResultsState,
   PaginationInfo,
 } from '@/lib/types/search';
-import { searchHotels } from '@/lib/api/search';
+import { searchHotels, getEnvironment, type EnvironmentResponse } from '@/lib/api/search';
 import { useDebounce } from './useDebounce';
 
 // ── Initial Filter State ──
@@ -196,6 +196,67 @@ export function useHotelSearch(): UseHotelSearchReturn {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState<UseHotelSearchReturn['error']>(null);
 
+  // ── Environment defaults (gl/hl/currency from GET /v1/environment) ──
+  const [gl, setGl] = useState('');
+  const [hl, setHl] = useState('');
+  const [currency, setCurrency] = useState('');
+
+  useEffect(() => {
+    const CACHE_KEY = 'proactrip_env';
+    const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+    // Try localStorage cache first
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed: { gl: string; hl: string; currency: string; ts: number } =
+          JSON.parse(cached);
+        if (Date.now() - parsed.ts < CACHE_TTL_MS) {
+          setGl(parsed.gl);
+          setHl(parsed.hl);
+          setCurrency(parsed.currency);
+          return; // cached values are fresh — skip network call
+        }
+      }
+    } catch {
+      // localStorage unavailable or corrupt — fetch fresh
+    }
+
+    // Fetch fresh environment data
+    let cancelled = false;
+    getEnvironment()
+      .then((env: EnvironmentResponse) => {
+        if (cancelled) return;
+        const glVal = env.location.country_code || '';
+        const hlVal = env.location.language || '';
+        const currencyVal = env.location.currency || '';
+        setGl(glVal);
+        setHl(hlVal);
+        setCurrency(currencyVal);
+        // Cache in localStorage
+        try {
+          localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              gl: glVal,
+              hl: hlVal,
+              currency: currencyVal,
+              ts: Date.now(),
+            })
+          );
+        } catch {
+          // quota exceeded — silently skip caching
+        }
+      })
+      .catch(() => {
+        // Environment fetch failed — leave defaults empty; API uses its own fallbacks
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // ── Pagination ──
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -227,6 +288,9 @@ export function useHotelSearch(): UseHotelSearchReturn {
           adults,
           children: children > 0 ? children : undefined,
           children_ages: children > 0 && childrenAges.length > 0 ? childrenAges : undefined,
+          gl: gl || undefined,
+          hl: hl || undefined,
+          currency: currency || undefined,
           min_price: filters.min_price,
           max_price: filters.max_price,
           rating: filters.rating,
@@ -280,7 +344,7 @@ export function useHotelSearch(): UseHotelSearchReturn {
         }
       }
     },
-    [query, checkIn, checkOut, adults, children, childrenAges, filters]
+    [query, checkIn, checkOut, adults, children, childrenAges, filters, gl, hl, currency]
   );
 
   // ── Load more ──

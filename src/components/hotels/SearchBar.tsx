@@ -24,6 +24,8 @@ interface SearchBarProps {
   onSearch: () => void;
   /** Whether a search is in progress */
   isLoading?: boolean;
+  /** Whether rate-limiting is active (disables search button) */
+  isRateLimited?: boolean;
   /** Validation errors keyed by field */
   errors?: Partial<Record<keyof SearchBarState, string>>;
 }
@@ -33,6 +35,7 @@ const SearchBar: FC<SearchBarProps> = ({
   onStateChange,
   onSearch,
   isLoading = false,
+  isRateLimited = false,
   errors,
 }) => {
   // GuestSelector expects a combined onChange
@@ -83,7 +86,7 @@ const SearchBar: FC<SearchBarProps> = ({
           <button
             type="button"
             onClick={onSearch}
-            disabled={isLoading}
+            disabled={isLoading || isRateLimited}
             className="flex w-full md:w-auto items-center justify-center gap-2 rounded-xl bg-coral px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-coral-hover disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoading ? (

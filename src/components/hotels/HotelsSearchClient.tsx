@@ -61,17 +61,21 @@ export default function HotelsSearchClient() {
     hook.resultsState === 'non_matching_only' && !showEmpty && hook.results.length > 0;
   const showError = hook.searchStatus === 'error' && hook.error !== null;
 
+  const isRateLimited =
+    hook.error?.code === 'RATE_LIMIT_EXCEEDED' && (hook.error?.retryAfter ?? 0) > 0;
+
   return (
     <div className="font-[family-name:var(--font-geist-sans)] min-h-screen bg-paper">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* ── Search Bar ── */}
         <div className="mb-6">
-          <SearchBar
-            searchState={searchBarState}
-            onStateChange={handleSearchBarChange}
-            onSearch={hook.search}
-            isLoading={hook.searchStatus === 'loading'}
-          />
+            <SearchBar
+              searchState={searchBarState}
+              onStateChange={handleSearchBarChange}
+              onSearch={hook.search}
+              isLoading={hook.searchStatus === 'loading'}
+              isRateLimited={isRateLimited}
+            />
         </div>
 
         {/* ── Main content grid: sidebar (desktop) + results ── */}
