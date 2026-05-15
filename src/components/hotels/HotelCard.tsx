@@ -1,13 +1,15 @@
 'use client';
 
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Star, Heart, MapPin, Sparkles, Leaf } from 'lucide-react';
 import type { HotelSearchResult } from '@/lib/types/search';
 import PriceDisplay from '@/components/ui/PriceDisplay';
 import RatingBadge from '@/components/ui/RatingBadge';
 import AmenitiesList from '@/components/ui/AmenitiesList';
-import { useState } from 'react';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { useState, useCallback } from 'react';
 
 interface HotelCardProps {
   hotel: HotelSearchResult;
@@ -32,10 +34,34 @@ function StarRating({ hotelClass }: { hotelClass: number }) {
 
 export default function HotelCard({ hotel, onClick }: HotelCardProps) {
   const [imageError, setImageError] = useState(false);
+  const [favoriteToast, setFavoriteToast] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const imageSrc = hotel.images?.[0]?.thumbnail;
   const hasRating = hotel.rating?.overall !== null && hotel.rating?.overall !== undefined;
   const distanceInfo = hotel.nearby_places?.[0];
+
+  const currentPath =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}`
+      : '/hotels';
+
+  const handleFavoriteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      if (!isAuthenticated) {
+        router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+
+      setFavoriteToast(true);
+      setTimeout(() => setFavoriteToast(false), 2500);
+    },
+    [isAuthenticated, router, currentPath]
+  );
 
   return (
     <motion.article
@@ -64,9 +90,22 @@ export default function HotelCard({ hotel, onClick }: HotelCardProps) {
         <button
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
           aria-label="Guardar en favoritos"
+          onClick={handleFavoriteClick}
         >
           <Heart size={16} className="text-ink-muted hover:text-coral transition-colors" />
         </button>
+
+        {/* Favorite toast */}
+        {favoriteToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="absolute right-3 top-14 z-10 rounded-lg bg-coral px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+          >
+            Guardado en favoritos
+          </motion.div>
+        )}
 
         {/* Badges overlay (top-left) */}
         <div className="absolute left-3 top-3 flex flex-col gap-1">
