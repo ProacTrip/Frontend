@@ -301,7 +301,10 @@ export function useHotelSearch(): UseHotelSearchReturn {
         }
       })
       .catch(() => {
-        // Environment fetch failed — leave defaults empty; API uses its own fallbacks
+        // Fallback for development — backend may not resolve localhost IP
+        setGl('ES');
+        setHl('es');
+        setCurrency('EUR');
       });
 
     return () => {
