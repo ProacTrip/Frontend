@@ -177,6 +177,9 @@ export interface UseHotelSearchReturn {
   // Error state
   error: { code: string; message: string; retryAfter?: number } | null;
 
+  // ── Rate limit
+  rateLimitedUntil: number | null;
+
   // Pagination
   hasMore: boolean;
   loadMore: () => void;
@@ -221,6 +224,7 @@ export function useHotelSearch(): UseHotelSearchReturn {
   const [resultsState, setResultsState] = useState<ResultsState | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState<UseHotelSearchReturn['error']>(null);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
 
   // ── Environment defaults (gl/hl/currency from GET /v1/environment) ──
   const [gl, setGl] = useState('');
@@ -314,9 +318,12 @@ export function useHotelSearch(): UseHotelSearchReturn {
   // ── Search function ──
   const search = useCallback(
     async (pageToken?: string) => {
-      // Validate
+      // Validate required fields
       if (!query.trim()) return;
       if (!checkIn || !checkOut) return;
+
+      // Rate-limit guard: block searches until cooldown expires
+      if (rateLimitedUntil !== null && Date.now() < rateLimitedUntil) return;
 
       const isLoadMore = !!pageToken;
 
@@ -380,6 +387,8 @@ export function useHotelSearch(): UseHotelSearchReturn {
 
         // Mark filters as applied
         filterDispatch({ type: 'APPLY_FILTERS' });
+        // Record the fingerprint that was used for this successful search
+        lastAppliedFingerprintRef.current = filterFingerprint(filters);
       } catch (err: unknown) {
         setSearchStatus('error');
         const apiError = err as {
@@ -393,6 +402,15 @@ export function useHotelSearch(): UseHotelSearchReturn {
             apiError.message || 'Ocurrió un error inesperado. Intentá de nuevo.',
           retryAfter: apiError.retryAfter,
         });
+
+        // Block all searches until rate-limit cooldown expires
+        if (
+          apiError.code === 'RATE_LIMIT_EXCEEDED' &&
+          apiError.retryAfter &&
+          apiError.retryAfter > 0
+        ) {
+          setRateLimitedUntil(Date.now() + apiError.retryAfter * 1000);
+        }
       } finally {
         if (isLoadMore) {
           setIsLoadingMore(false);
@@ -455,14 +473,21 @@ export function useHotelSearch(): UseHotelSearchReturn {
 
   // ── Debounced auto-search on filter changes ──
   const fingerprint = filterFingerprint(filters);
-  const debouncedFingerprint = useDebounce(fingerprint, 600);
+  const debouncedFingerprint = useDebounce(fingerprint, 1000);
   const hasSearchedRef = useRef(false);
+  const lastAppliedFingerprintRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Don't auto-search until the user has performed an initial search
     if (!hasSearchedRef.current) return;
 
-    // Only auto-search if we're currently in a success state (don't spam during error/loading)
+    // Don't auto-search if rate-limited
+    if (rateLimitedUntil !== null && Date.now() < rateLimitedUntil) return;
+
+    // Don't auto-search if filters haven't actually changed from last applied state
+    if (debouncedFingerprint === lastAppliedFingerprintRef.current) return;
+
+    // Only auto-search if we're currently in a success or error state (don't spam during loading)
     if (searchStatus === 'success' || searchStatus === 'error') {
       search();
     }
@@ -537,6 +562,9 @@ export function useHotelSearch(): UseHotelSearchReturn {
 
     // Error
     error,
+
+    // Rate limit
+    rateLimitedUntil,
 
     // Pagination
     hasMore,

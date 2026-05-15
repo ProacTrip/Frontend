@@ -76,7 +76,7 @@ export default function HotelsSearchClient() {
   const showError = hook.searchStatus === 'error' && hook.error !== null;
 
   const isRateLimited =
-    hook.error?.code === 'RATE_LIMIT_EXCEEDED' && (hook.error?.retryAfter ?? 0) > 0;
+    hook.rateLimitedUntil !== null && Date.now() < hook.rateLimitedUntil;
 
   return (
     <div className="font-[family-name:var(--font-geist-sans)] min-h-screen bg-paper">
