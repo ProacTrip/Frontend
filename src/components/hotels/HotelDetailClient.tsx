@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,13 @@ import {
   ChevronLeft,
   X,
   ImageOff,
+  Clock,
+  Users,
+  Bed,
+  Bath,
+  Ruler,
+  Home,
+  Ban,
 } from 'lucide-react';
 import type { HotelDetailResponse } from '@/lib/types/search';
 import { getHotelDetails } from '@/lib/api/search';
@@ -169,6 +176,201 @@ function SustainabilitySection({
   );
 }
 
+// ── Check-in / Check-out Card ──
+
+function formatCheckTime(timeStr: string): string {
+  const parts = timeStr.split(':');
+  const hour = parseInt(parts[0], 10);
+  const minutes = parts[1] || '00';
+
+  if (isNaN(hour)) return timeStr;
+
+  if (hour === 0) return `12:${minutes} AM`;
+  if (hour === 12) return minutes === '00' ? '12 PM' : `12:${minutes} PM`;
+  if (hour > 12) {
+    const h12 = hour - 12;
+    return minutes === '00' ? `${h12} PM` : `${h12}:${minutes} PM`;
+  }
+  return minutes === '00' ? `${hour} AM` : `${hour}:${minutes} AM`;
+}
+
+function CheckInOutCard({
+  checkIn,
+  checkOut,
+}: {
+  checkIn: string;
+  checkOut: string;
+}) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-lg font-bold text-ink mb-3 flex items-center gap-2" suppressHydrationWarning>
+        <Clock size={18} className="text-olive" />
+        Horarios
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-lg border border-paper-outline bg-paper-dim p-4">
+          <p className="text-xs text-ink-faint mb-1">Check-in</p>
+          <p className="text-lg font-bold text-ink">{formatCheckTime(checkIn)}</p>
+          <p className="text-xs text-ink-muted mt-1">Horario de entrada</p>
+        </div>
+        <div className="rounded-lg border border-paper-outline bg-paper-dim p-4">
+          <p className="text-xs text-ink-faint mb-1">Check-out</p>
+          <p className="text-lg font-bold text-ink">{formatCheckTime(checkOut)}</p>
+          <p className="text-xs text-ink-muted mt-1">Horario de salida</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Excluded Amenities ──
+
+function ExcludedAmenitiesSection({ amenities }: { amenities: string[] }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-lg font-bold text-ink mb-3 flex items-center gap-2" suppressHydrationWarning>
+        <Ban size={18} className="text-error" />
+        No incluye
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {amenities.map((item) => (
+          <span
+            key={item}
+            className="inline-flex items-center gap-1.5 rounded-full border border-error/20 bg-error-container px-3 py-1.5 text-xs text-error"
+          >
+            <Ban size={10} />
+            {item}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ── Capacity Card ──
+
+function CapacityCard({
+  capacity,
+}: {
+  capacity: NonNullable<HotelDetailResponse['capacity']>;
+}) {
+  const items: { icon: React.ReactNode; label: string }[] = [];
+
+  if (capacity.unit_type) {
+    items.push({
+      icon: <Home size={14} />,
+      label: capacity.unit_type,
+    });
+  }
+  if (capacity.guests !== null && capacity.guests !== undefined) {
+    items.push({
+      icon: <Users size={14} />,
+      label: `${capacity.guests} huésped${capacity.guests !== 1 ? 'es' : ''}`,
+    });
+  }
+  if (capacity.bedrooms !== null && capacity.bedrooms !== undefined) {
+    items.push({
+      icon: <Bed size={14} />,
+      label: `${capacity.bedrooms} dormitorio${capacity.bedrooms !== 1 ? 's' : ''}`,
+    });
+  }
+  if (capacity.bathrooms !== null && capacity.bathrooms !== undefined) {
+    items.push({
+      icon: <Bath size={14} />,
+      label: `${capacity.bathrooms} baño${capacity.bathrooms !== 1 ? 's' : ''}`,
+    });
+  }
+  if (capacity.beds !== null && capacity.beds !== undefined) {
+    items.push({
+      icon: <Bed size={14} />,
+      label: `${capacity.beds} cama${capacity.beds !== 1 ? 's' : ''}`,
+    });
+  }
+  if (capacity.area) {
+    items.push({
+      icon: <Ruler size={14} />,
+      label: capacity.area,
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-lg font-bold text-ink mb-3 flex items-center gap-2" suppressHydrationWarning>
+        <Home size={18} className="text-olive" />
+        Capacidad
+      </h2>
+      <div className="rounded-lg border border-paper-outline bg-paper-dim p-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {items.map((item, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 text-sm text-ink-muted"
+            >
+              <span className="text-ink-faint">{item.icon}</span>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Ratings Histogram ──
+
+function RatingsHistogram({
+  ratings,
+  totalReviews,
+}: {
+  ratings: { stars: number; count: number }[];
+  totalReviews: number;
+}) {
+  if (!ratings || ratings.length === 0) return null;
+
+  const maxCount = Math.max(...ratings.map((r) => r.count), 1);
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-lg font-bold text-ink mb-4" suppressHydrationWarning>
+        Distribución de valoraciones
+      </h2>
+      <div className="space-y-2">
+        {ratings
+          .slice()
+          .sort((a, b) => b.stars - a.stars)
+          .map((r) => {
+            const pct = (r.count / maxCount) * 100;
+            return (
+              <div key={r.stars} className="flex items-center gap-3">
+                <span className="w-12 text-xs font-medium text-ink-muted text-right shrink-0">
+                  {r.stars} ★
+                </span>
+                <div className="flex-1 h-3 rounded-full bg-paper-container overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-mustard"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                </div>
+                <span className="w-10 text-xs text-ink-muted text-right shrink-0">
+                  {r.count}
+                </span>
+              </div>
+            );
+          })}
+      </div>
+      {totalReviews > 0 && (
+        <p className="text-xs text-ink-faint mt-3">
+          Basado en {totalReviews.toLocaleString()} reseñas
+        </p>
+      )}
+    </section>
+  );
+}
+
 // ── Image Lightbox ──
 
 function ImageLightbox({
@@ -242,7 +444,7 @@ function ImageLightbox({
         </button>
       )}
 
-      {/* Image */}
+      {/* Image — uses original URL for full resolution */}
       <motion.div
         key={index}
         className="relative max-w-[90vw] max-h-[85vh] w-auto h-auto"
@@ -252,13 +454,12 @@ function ImageLightbox({
         transition={{ duration: 0.25 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <ImageWithFallback
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={images[index].original}
           alt={`Imagen ${index + 1} de ${total}`}
-          width={1200}
-          height={800}
           className="rounded-lg object-contain max-h-[85vh] w-auto h-auto mx-auto"
-          sizes="90vw"
+          style={{ maxWidth: '90vw' }}
         />
       </motion.div>
 
@@ -270,7 +471,7 @@ function ImageLightbox({
   );
 }
 
-// ── Image with fallback ──
+// ── Image with fallback (grid thumbnails use next/image) ──
 
 function ImageWithFallback({
   src,
@@ -279,6 +480,7 @@ function ImageWithFallback({
   height,
   className,
   sizes,
+  priority,
 }: {
   src: string;
   alt: string;
@@ -286,6 +488,7 @@ function ImageWithFallback({
   height?: number;
   className?: string;
   sizes?: string;
+  priority?: boolean;
 }) {
   const [hasError, setHasError] = useState(false);
 
@@ -313,6 +516,7 @@ function ImageWithFallback({
       fill={!width && !height}
       sizes={sizes}
       className={className}
+      priority={priority}
       onError={() => setHasError(true)}
     />
   );
@@ -371,22 +575,7 @@ export default function HotelDetailClient() {
   }, [fetchDetail]);
 
   const handleBack = () => {
-    if (checkIn && checkOut) {
-      const qs = new URLSearchParams();
-      qs.set('query', searchParams.get('query') || '');
-      qs.set('check_in', checkIn);
-      qs.set('check_out', checkOut);
-      if (adults !== 2) qs.set('adults', String(adults));
-      if (children > 0) {
-        qs.set('children', String(children));
-        if (childrenAgesRaw) qs.set('children_ages', childrenAgesRaw);
-      }
-      const vr = searchParams.get('vr');
-      if (vr) qs.set('vr', vr);
-      router.push(`/hotels?${qs.toString()}`);
-    } else {
-      router.push('/hotels');
-    }
+    router.back();
   };
 
   // ── Render ──
@@ -433,7 +622,17 @@ export default function HotelDetailClient() {
 
   const mainImages = detail.images ?? [];
   const isHotel = detail.type === 'hotel';
-  const hasPrice = detail.price_range || (detail.price && detail.price.per_night.amount > 0);
+  const hasPrice = isHotel
+    ? detail.price_range !== null && detail.price_range !== undefined
+    : detail.price !== null && detail.price !== undefined && detail.price.per_night.amount > 0;
+
+  // Build booking URL params
+  const bookingParams = new URLSearchParams();
+  if (checkIn) bookingParams.set('check_in', checkIn);
+  if (checkOut) bookingParams.set('check_out', checkOut);
+  if (adults !== 2) bookingParams.set('adults', String(adults));
+  bookingParams.set('name', encodeURIComponent(detail.name));
+  const bookingQs = bookingParams.toString();
 
   return (
     <div className="min-h-screen bg-paper font-[family-name:var(--font-geist-sans)]">
@@ -447,47 +646,53 @@ export default function HotelDetailClient() {
           Volver a resultados
         </button>
 
-        {/* ── Image Gallery ── */}
+        {/* ── Image Gallery — ALL images, thumbnail URLs, priority on first 2 ── */}
         {mainImages.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8 rounded-xl overflow-hidden"
+            className="mb-8"
           >
-            {/* Main image (clickable) */}
+            {/* Main first image — large, above the fold */}
             <button
               type="button"
               onClick={() => setLightboxIndex(0)}
-              className="aspect-[16/9] sm:aspect-auto sm:row-span-2 relative overflow-hidden bg-paper-container cursor-zoom-in group"
+              className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-paper-container cursor-zoom-in group mb-2"
             >
               <ImageWithFallback
-                src={mainImages[0].original}
+                src={mainImages[0].thumbnail}
                 alt={`${detail.name} — foto principal`}
-                sizes="(max-width: 640px) 100vw, 50vw"
+                sizes="(max-width: 768px) 100vw, 66vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-300"
+                priority
               />
             </button>
-            <div className="grid grid-cols-2 gap-2">
-              {mainImages.slice(1, 5).map((img, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setLightboxIndex(i + 1)}
-                  className="aspect-[4/3] relative overflow-hidden bg-paper-container cursor-zoom-in group"
-                >
-                  <ImageWithFallback
-                    src={img.original}
-                    alt={`${detail.name} — foto ${i + 2}`}
-                    sizes="(max-width: 640px) 50vw, 25vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </button>
-              ))}
-            </div>
+
+            {/* Remaining images in responsive 3-column grid */}
+            {mainImages.length > 1 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {mainImages.slice(1).map((img, i) => (
+                  <button
+                    key={`${img.thumbnail}-${i}`}
+                    type="button"
+                    onClick={() => setLightboxIndex(i + 1)}
+                    className="relative aspect-[4/3] rounded-lg overflow-hidden bg-paper-container cursor-zoom-in group"
+                  >
+                    <ImageWithFallback
+                      src={img.thumbnail}
+                      alt={`${detail.name} — foto ${i + 2}`}
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      priority={i === 0}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 
-        {/* ── Lightbox ── */}
+        {/* ── Lightbox — uses original URLs ── */}
         <AnimatePresence>
           {lightboxIndex !== null && (
             <ImageLightbox
@@ -506,7 +711,7 @@ export default function HotelDetailClient() {
           className="mb-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-ink" suppressHydrationWarning>
                 {detail.name}
               </h1>
@@ -529,6 +734,17 @@ export default function HotelDetailClient() {
                 <div className="flex items-start gap-1.5 mt-2 text-xs text-ink-muted">
                   <MapPin size={14} className="shrink-0 mt-0.5" />
                   <span>{detail.address}</span>
+                  {detail.directions_url && (
+                    <a
+                      href={detail.directions_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 ml-2 text-coral hover:text-coral-hover font-medium shrink-0"
+                    >
+                      Ver en Google Maps
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
                 </div>
               )}
             </div>
@@ -538,19 +754,14 @@ export default function HotelDetailClient() {
               <div className="text-right shrink-0">
                 {isHotel && detail.price_range ? (
                   <>
-                    <p className="text-xs text-ink-muted">Desde</p>
                     <p className="text-xl font-bold text-coral">
                       {detail.price_range.currency === 'USD' ? 'US$' : '€'}
                       {Math.round(detail.price_range.min)}
                     </p>
-                    <p className="text-xs text-ink-faint">
-                      {detail.price_range.currency === 'USD' ? 'US$' : '€'}
-                      {Math.round(detail.price_range.min)} – {Math.round(detail.price_range.max)} por noche
-                    </p>
+                    <p className="text-xs text-ink-faint">por noche</p>
                   </>
                 ) : detail.price && detail.price.per_night.amount > 0 ? (
                   <>
-                    <p className="text-xs text-ink-muted">Desde</p>
                     <p className="text-xl font-bold text-coral">
                       {detail.price.currency === 'USD' ? 'US$' : '€'}
                       {Math.round(detail.price.per_night.amount)}
@@ -576,6 +787,28 @@ export default function HotelDetailClient() {
             </h2>
             <p className="text-sm text-ink-muted leading-relaxed">{detail.description}</p>
           </motion.section>
+        )}
+
+        {/* ── Check-in / Check-out ── */}
+        {detail.check_in && detail.check_out && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+          >
+            <CheckInOutCard checkIn={detail.check_in} checkOut={detail.check_out} />
+          </motion.div>
+        )}
+
+        {/* ── Capacity (VR only) ── */}
+        {detail.capacity && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+          >
+            <CapacityCard capacity={detail.capacity} />
+          </motion.div>
         )}
 
         {/* ── Amenities ── */}
@@ -606,6 +839,17 @@ export default function HotelDetailClient() {
           </motion.section>
         )}
 
+        {/* ── Excluded Amenities ── */}
+        {(detail.excluded_amenities ?? []).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+          >
+            <ExcludedAmenitiesSection amenities={detail.excluded_amenities!} />
+          </motion.div>
+        )}
+
         {/* ── Reviews Breakdown ── */}
         {(detail.reviews_breakdown ?? []).length > 0 && (
           <motion.section
@@ -630,6 +874,20 @@ export default function HotelDetailClient() {
           </motion.section>
         )}
 
+        {/* ── Ratings Histogram ── */}
+        {(detail.ratings ?? []).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28 }}
+          >
+            <RatingsHistogram
+              ratings={detail.ratings!}
+              totalReviews={detail.total_reviews ?? 0}
+            />
+          </motion.div>
+        )}
+
         {/* ── External Reviews ── */}
         {(detail.external_reviews ?? []).length > 0 && (
           <motion.section
@@ -643,14 +901,14 @@ export default function HotelDetailClient() {
               Reseñas externas
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(detail.external_reviews ?? []).map((ext) => (
+              {(detail.external_reviews ?? []).map((ext, i) => (
                 <div
-                  key={ext.source}
+                  key={`${ext.source}-${i}`}
                   className="rounded-lg border border-paper-outline bg-paper-dim p-4"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     {ext.logo_url && (
-                      <Image
+                      <img
                         src={ext.logo_url}
                         alt={ext.source}
                         width={20}
@@ -664,11 +922,25 @@ export default function HotelDetailClient() {
                     </span>
                   </div>
                   {ext.featured_review && (
-                    <blockquote className="text-xs text-ink-muted italic mt-2 border-l-2 border-paper-outline pl-3">
-                      {ext.featured_review.comment.length > 200
-                        ? ext.featured_review.comment.slice(0, 200) + '...'
-                        : ext.featured_review.comment}
-                    </blockquote>
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-ink">{ext.featured_review.author}</span>
+                        <span className="text-xs text-ink-faint">
+                          {new Date(ext.featured_review.date).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span className="ml-auto text-xs font-semibold text-coral">
+                          {ext.featured_review.score}/{ext.max_score}
+                        </span>
+                      </div>
+                      <blockquote className="text-xs text-ink-muted italic border-l-2 border-mustard pl-3 mt-1">
+                        {ext.featured_review.comment.length > 250
+                          ? ext.featured_review.comment.slice(0, 250) + '...'
+                          : ext.featured_review.comment}
+                      </blockquote>
+                    </div>
                   )}
                 </div>
               ))}
@@ -718,7 +990,7 @@ export default function HotelDetailClient() {
                   className="flex items-center gap-3 py-3"
                 >
                   {place.thumbnail_url ? (
-                    <Image
+                    <img
                       src={place.thumbnail_url}
                       alt={place.name}
                       width={40}
@@ -758,34 +1030,45 @@ export default function HotelDetailClient() {
           </motion.section>
         )}
 
+        {/* ── TODO: Weather widget (Phase 2) ── */}
+        {/* TODO Phase 2: Weather widget using detail.gps coordinates
+            lat={detail.gps.lat} lng={detail.gps.lng}
+            Will show current weather at hotel location */}
+
         {/* ── Booking CTA ── */}
-        {detail.booking_url && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="sticky bottom-4 mt-8 p-4 bg-paper-dim border border-paper-outline rounded-xl shadow-lg"
-          >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm text-ink-muted">
-                  {detail.check_in && detail.check_out
-                    ? `Check-in: ${detail.check_in} · Check-out: ${detail.check_out}`
-                    : 'Consultá disponibilidad en el sitio oficial'}
-                </p>
-              </div>
-              <a
-                href={detail.booking_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-coral px-6 py-3 text-sm font-bold text-white hover:bg-coral-hover transition-colors shrink-0"
-              >
-                <ExternalLink size={16} />
-                Ver oferta
-              </a>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="sticky bottom-4 mt-8 p-4 bg-paper-dim border border-paper-outline rounded-xl shadow-lg"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              {detail.check_in && detail.check_out ? (
+                <div className="flex items-center gap-3 text-sm text-ink-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={14} className="text-ink-faint" />
+                    {formatCheckTime(detail.check_in)}
+                  </span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={14} className="text-ink-faint" />
+                    {formatCheckTime(detail.check_out)}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted">Consultá disponibilidad</p>
+              )}
             </div>
-          </motion.div>
-        )}
+            <button
+              type="button"
+              onClick={() => router.push(`/hotels/${id}/booking?${bookingQs}`)}
+              className="inline-flex items-center gap-2 rounded-xl bg-coral px-6 py-3 text-sm font-bold text-white hover:bg-coral-hover transition-colors shrink-0"
+            >
+              Reservar
+            </button>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
