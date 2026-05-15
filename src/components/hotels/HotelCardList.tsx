@@ -46,7 +46,7 @@ export default function HotelCardList({
           }
           className={onPropertyClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-coral rounded-xl' : ''}
         >
-          <HotelCard hotel={property} />
+          <HotelCard hotel={property} onClick={onPropertyClick} />
         </div>
       ))}
     </div>
