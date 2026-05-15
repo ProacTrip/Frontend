@@ -47,7 +47,7 @@ export default function PaginationControls({
     }
 
     tick();
-    const interval = setInterval(tick, 500);
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [rateLimitedUntil]);
 
@@ -65,7 +65,7 @@ export default function PaginationControls({
           className="inline-flex items-center gap-2 rounded-xl border border-warning-container bg-warning-container px-6 py-3 text-sm font-medium text-warning opacity-80 cursor-not-allowed min-h-[44px]"
         >
           <Loader2 size={16} className="animate-spin" />
-          Esperá {countdown}s...
+          Esperá {countdown} segundos...
         </button>
       ) : (
         <button

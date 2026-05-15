@@ -97,11 +97,15 @@ export function ErrorBanner({
 
   const config = errorCode ? ERROR_CONFIG[errorCode] || DEFAULT_ERROR : DEFAULT_ERROR;
   const Icon = config.icon;
-  const displayMessage =
-    message ||
-    (countdown !== null
-      ? config.message.replace('{retry}', String(countdown))
-      : config.message);
+  const isRateLimit = errorCode === 'RATE_LIMIT_EXCEEDED';
+  const displayMessage = (() => {
+    if (message) return message;
+    if (isRateLimit) {
+      const secs = countdown !== null ? countdown : (retryAfter ?? '');
+      return config.message.replace('{retry}', String(secs));
+    }
+    return config.message;
+  })();
 
   return (
     <div

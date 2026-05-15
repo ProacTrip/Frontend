@@ -350,6 +350,22 @@ export function useHotelSearch(): UseHotelSearchReturn {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const visitedTokensRef = useRef<string[]>([]);
 
+  // ── Auto-clear rate limit error when cooldown expires ──
+  useEffect(() => {
+    if (rateLimitedUntil === null) return;
+    const remaining = rateLimitedUntil - Date.now();
+    if (remaining <= 0) {
+      setError(null);
+      setRateLimitedUntil(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setError(null);
+      setRateLimitedUntil(null);
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [rateLimitedUntil]);
+
   // ── Search function ──
   const search = useCallback(
     async (pageToken?: string) => {
