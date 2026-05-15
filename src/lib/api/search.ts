@@ -8,6 +8,8 @@
 import type {
   HotelSearchRequest,
   HotelSearchResponse,
+  HotelDetailRequest,
+  HotelDetailResponse,
   ProblemDetails,
   ApiError,
 } from '@/lib/types/search';
@@ -132,6 +134,53 @@ export interface EnvironmentResponse {
     humidity?: number;
     wind_speed?: number;
   } | null;
+}
+
+/**
+ * Fetches detailed information for a single hotel or vacation rental.
+ *
+ * POST /v1/search/hotel-details
+ */
+export async function getHotelDetails(
+  params: HotelDetailRequest
+): Promise<HotelDetailResponse> {
+  const response = await fetch(`${API_URL}/v1/search/hotel-details`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adults: params.adults ?? 2,
+      children: params.children ?? 0,
+      children_ages: params.children_ages ?? [],
+      ...params,
+    }),
+  });
+
+  const rateLimit = extractRateLimitHeaders(response);
+
+  if (!response.ok) {
+    let body: ProblemDetails | null = null;
+    try {
+      body = await response.json();
+    } catch {
+      // Non-JSON error response — use status-based fallback
+    }
+
+    const error = mapError(response.status, body);
+    if (rateLimit.retryAfter) {
+      error.retryAfter = parseInt(rateLimit.retryAfter, 10);
+    }
+
+    if (error.traceId) {
+      console.error(
+        `[getHotelDetails] Error ${error.code} (${error.status}) — trace: ${error.traceId}`
+      );
+    }
+
+    throw error;
+  }
+
+  return response.json() as Promise<HotelDetailResponse>;
 }
 
 export async function getEnvironment(): Promise<EnvironmentResponse> {

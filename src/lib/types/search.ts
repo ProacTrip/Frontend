@@ -246,3 +246,99 @@ export interface ProblemDetails {
   instance: string;
   trace_id: string;
 }
+
+// ── Hotel Detail Request ──
+
+export interface HotelDetailRequest {
+  id: string;
+  check_in_date: string;
+  check_out_date: string;
+  adults?: number;
+  children?: number;
+  children_ages?: number[];
+  gl?: string;
+  hl?: string;
+  currency?: string;
+  vacation_rentals?: boolean;
+}
+
+// ── Hotel Detail Response ──
+
+export interface ExternalReview {
+  source: string;
+  logo_url: string | null;
+  score: number;
+  max_score: number;
+  total_reviews: number;
+  featured_review: {
+    author: string;
+    date: string;
+    score: number;
+    comment: string;
+    url: string | null;
+  } | null;
+}
+
+export interface HealthSafetyItem {
+  name: string;
+  available: boolean;
+}
+
+export interface HealthSafetyCategory {
+  category: string;
+  items: HealthSafetyItem[];
+}
+
+export interface SustainabilityCategory {
+  category: string;
+  items: HealthSafetyItem[];
+}
+
+export interface PriceRange {
+  currency: string;
+  min: number;
+  max: number;
+}
+
+export interface DetailNearbyPlace {
+  category: string;
+  name: string;
+  description: string | null;
+  rating: number | null;
+  total_reviews: number | null;
+  thumbnail_url: string | null;
+  maps_url: string | null;
+  gps: GpsCoordinates;
+  transport: TransportOption[];
+}
+
+export interface HotelDetailResponse {
+  id: string;
+  type: PropertyType;
+  name: string;
+  description: string | null;
+  booking_url: string | null;
+  address: string | null;
+  directions_url: string | null;
+  gps: GpsCoordinates;
+  hotel_class: number | null;
+  check_in: string | null;
+  check_out: string | null;
+  price_range: PriceRange | null;
+  price: HotelPrice | null;
+  rating: HotelRating;
+  total_reviews: number | null;
+  external_reviews: ExternalReview[] | null;
+  images: HotelImage[] | null;
+  amenities: string[] | null;
+  health_and_safety: HealthSafetyCategory[] | null;
+  sustainability: SustainabilityCategory[] | null;
+  eco_certified: boolean | null;
+  nearby_places: DetailNearbyPlace[] | null;
+  ratings: RatingsDistribution[];
+  reviews_breakdown: ReviewBreakdown[];
+  from_cache: boolean;
+  cached_at: string | null;
+  excluded_amenities?: string[] | null;
+  capacity?: CapacityInfo | null;
+}
