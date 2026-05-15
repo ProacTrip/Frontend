@@ -174,7 +174,7 @@ Configured in `next.config.ts`: `X-Frame-Options: DENY`, `X-Content-Type-Options
 
 ## Common Gotchas
 
-1. **Hydration mismatches**: Browser extensions (Grammarly, color pickers) can change DOM. Use `suppressHydrationWarning` on `<html>` when needed.
+1. **Hydration mismatches from browser extensions**: Browser extensions (Grammarly, color pickers, translator add-ons) inject DOM attributes like `data-heading-tag="H1"` on heading elements. Always add `suppressHydrationWarning` to ALL `<h1>`, `<h2>`, `<h3>` tags. Without it, Next.js will throw hydration mismatch warnings in development and potentially break rendering in production.
 
 2. **Null API fields**: The Go backend can return `null` for `amenities`, `images`, `nearby_places` when providers don't have data. Always use `?? []` for arrays and null guards for objects.
 
@@ -183,6 +183,31 @@ Configured in `next.config.ts`: `X-Frame-Options: DENY`, `X-Content-Type-Options
 4. **Framer Motion server rendering**: `motion.*` components MUST be inside `'use client'` components. Animation props like `whileHover`, `transition` are client-only.
 
 5. **`useSearchParams`**: Needs `<Suspense>` boundary in Next.js 16. Without it, the page will fail to build.
+
+6. **API pagination may return overlapping results**: When loading more results via page_token, the API can return properties that were already in the previous page. ALWAYS deduplicate by `id` before appending to state:
+   ```ts
+   setResults((prev) => {
+     const seen = new Set(prev.map((p) => p.id));
+     const newOnes = response.properties.filter((p) => !seen.has(p.id));
+     return [...prev, ...newOnes];
+   });
+   ```
+
+## Patterns
+
+### Internal routing for detail pages
+Never use `booking_url` directly as a link target. The correct flow is:
+1. User clicks hotel card → navigate to internal route `/hotels/{id}`
+2. Search params (check_in, check_out, adults) are passed via URL query string
+3. The detail page calls `POST /v1/search/hotel-details` with the id and search params
+4. `booking_url` is an external affiliate link — display it as a secondary CTA, not the primary navigation
+
+### Vacation Rentals toggle
+The search supports both hotels and vacation rentals via `vacation_rentals: boolean` in the API. To switch modes:
+- Use a segmented tab toggle at the top of FilterSidebar
+- When switching modes, reset mode-specific filters (hotel_classes, property_types, amenities, bedrooms, bathrooms)
+- In VR mode, show different filter options: bedrooms/bathrooms instead of hotel_classes
+- Pass `vacation_rentals` to the searchHotels API call (NOT hardcoded to `false`)
 
 ## File Conventions
 
