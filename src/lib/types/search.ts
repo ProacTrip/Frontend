@@ -109,6 +109,12 @@ export interface HotelImage {
 
 export interface NearbyPlace {
   name: string;
+  category?: string;
+  description?: string | null;
+  rating?: number | null;
+  total_reviews?: number | null;
+  thumbnail_url?: string | null;
+  gps?: GpsCoordinates;
   transport: TransportOption[];
 }
 
@@ -253,6 +259,7 @@ export interface HotelDetailRequest {
   id: string;
   check_in_date: string;
   check_out_date: string;
+  query?: string;
   adults?: number;
   children?: number;
   children_ages?: number[];
