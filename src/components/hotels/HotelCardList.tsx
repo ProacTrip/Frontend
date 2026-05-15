@@ -4,8 +4,8 @@ import type { HotelSearchResult } from '@/lib/types/search';
 import HotelCard from './HotelCard';
 
 interface HotelCardListProps {
-  /** Array of hotel search results to render */
-  properties: HotelSearchResult[];
+  /** Array of hotel search results to render. Null-safe — renders nothing when null/empty. */
+  properties: HotelSearchResult[] | null;
   /** Optional callback when a hotel card is clicked. Receives property ID. */
   onPropertyClick?: (id: string) => void;
 }
@@ -24,7 +24,7 @@ export default function HotelCardList({
   properties,
   onPropertyClick,
 }: HotelCardListProps) {
-  if (properties.length === 0) return null;
+  if (!properties || properties.length === 0) return null;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">

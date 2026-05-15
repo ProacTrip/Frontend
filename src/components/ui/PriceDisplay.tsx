@@ -3,7 +3,7 @@
 import type { HotelPrice } from '@/lib/types/search';
 
 interface PriceDisplayProps {
-  price: HotelPrice;
+  price?: HotelPrice | null;
   variant?: 'card' | 'detail';
 }
 
@@ -28,8 +28,11 @@ function formatAmount(amount: number): string {
 }
 
 export default function PriceDisplay({ price, variant = 'card' }: PriceDisplayProps) {
+  if (!price?.currency || !price?.per_night?.amount) return null;
+
   const symbol = getCurrencySymbol(price.currency);
   const perNight = price.per_night.amount;
+  const totalAmount = price.total?.amount ?? 0;
 
   if (variant === 'card') {
     return (
@@ -39,9 +42,9 @@ export default function PriceDisplay({ price, variant = 'card' }: PriceDisplayPr
           {symbol}{formatAmount(perNight)}
           <span className="text-xs font-normal text-ink-muted"> /noche</span>
         </p>
-        {price.total.amount > 0 && (
+        {totalAmount > 0 && (
           <p className="text-xs text-ink-muted mt-0.5">
-            {symbol}{formatAmount(price.total.amount)} en total
+            {symbol}{formatAmount(totalAmount)} en total
           </p>
         )}
       </div>
@@ -75,11 +78,11 @@ export default function PriceDisplay({ price, variant = 'card' }: PriceDisplayPr
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium text-ink">Total</span>
         <span className="text-lg font-bold text-ink">
-          {symbol}{formatAmount(price.total.amount)}
+          {symbol}{formatAmount(totalAmount)}
         </span>
       </div>
 
-      {price.total.before_taxes !== null && price.total.before_taxes !== undefined && (
+      {price.total?.before_taxes !== null && price.total?.before_taxes !== undefined && (
         <div className="flex items-baseline justify-between">
           <span className="text-xs text-ink-muted ml-4">Antes de impuestos</span>
           <span className="text-xs text-ink-faint">

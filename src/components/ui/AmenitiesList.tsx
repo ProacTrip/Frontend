@@ -1,13 +1,14 @@
 'use client';
 
 interface AmenitiesListProps {
-  /** List of amenity labels (e.g., ["WiFi gratis", "Piscina", "Desayuno incluido"]) */
-  amenities: string[];
+  /** List of amenity labels (e.g., ["WiFi gratis", "Piscina", "Desayuno incluido"]). Null-safe — treated as empty. */
+  amenities: string[] | null;
   /** Maximum number of amenities to show before "+N más" overflow (default 4) */
   max?: number;
 }
 
-export default function AmenitiesList({ amenities, max = 4 }: AmenitiesListProps) {
+export default function AmenitiesList({ amenities: rawAmenities, max = 4 }: AmenitiesListProps) {
+  const amenities = rawAmenities ?? [];
   const visible = amenities.slice(0, max);
   const overflow = amenities.length - visible.length;
 

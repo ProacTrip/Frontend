@@ -60,9 +60,9 @@ export interface HotelSearchResult {
   rating: HotelRating;
   total_reviews: number | null;
   price: HotelPrice;
-  images: HotelImage[];
-  amenities: string[];
-  nearby_places: NearbyPlace[];
+  images: HotelImage[] | null;
+  amenities: string[] | null;
+  nearby_places: NearbyPlace[] | null;
   free_cancellation: boolean;
   special_offer: boolean;
   eco_certified: boolean;

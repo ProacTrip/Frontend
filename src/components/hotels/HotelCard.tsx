@@ -125,8 +125,8 @@ export default function HotelCard({ hotel }: HotelCardProps) {
         )}
 
         {/* Amenities */}
-        {hotel.amenities.length > 0 && (
-          <AmenitiesList amenities={hotel.amenities} max={3} />
+        {(hotel.amenities ?? []).length > 0 && (
+          <AmenitiesList amenities={hotel.amenities!} max={3} />
         )}
 
         {/* Spacer to push price + button to bottom */}

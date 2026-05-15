@@ -1,8 +1,8 @@
 'use client';
 
 interface RatingBadgeProps {
-  /** Overall rating score, 0–10 scale (e.g., 8.7) */
-  rating: number;
+  /** Overall rating score, 0–10 scale (e.g., 8.7). Null-safe — renders nothing when null. */
+  rating: number | null | undefined;
   /** Total number of reviews */
   totalReviews?: number;
   /** Visual variant */
@@ -38,6 +38,12 @@ function formatReviewCount(count: number): string {
 }
 
 export default function RatingBadge({ rating, totalReviews, variant = 'card' }: RatingBadgeProps) {
+  if (rating === null || rating === undefined) {
+    return (
+      <span className="text-xs text-ink-faint italic">Sin puntuación</span>
+    );
+  }
+
   // Round to one decimal place for display
   const score = Math.round(rating * 10) / 10;
   const label = getRatingLabel(score);
