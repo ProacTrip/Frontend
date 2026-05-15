@@ -51,6 +51,9 @@ export default function HotelsSearchClient() {
   }
 
   function handlePropertyClick(id: string) {
+    // Look up the hotel from current results to extract its price
+    const hotel = hook.results.find((r) => r.id === id);
+
     // Persist search state to sessionStorage so back-navigation restores results
     try {
       sessionStorage.setItem(
@@ -84,6 +87,11 @@ export default function HotelsSearchClient() {
       if (hook.childrenAges.length > 0) {
         params.set('children_ages', hook.childrenAges.join(','));
       }
+    }
+    // Pass per-night price from search results so detail page matches what was shown
+    if (hotel?.price?.per_night?.amount) {
+      params.set('price', String(Math.round(hotel.price.per_night.amount)));
+      params.set('currency', hotel.price.currency);
     }
     const qs = params.toString();
     router.push(`/hotels/${id}${qs ? `?${qs}` : ''}`);

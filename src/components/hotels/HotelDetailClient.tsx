@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +22,11 @@ import {
   Ruler,
   Home,
   Ban,
+  Plane,
+  Bus,
+  UtensilsCrossed,
+  ShoppingBag,
+  Building2,
 } from 'lucide-react';
 import type { HotelDetailResponse } from '@/lib/types/search';
 import { getHotelDetails } from '@/lib/api/search';
@@ -186,12 +191,12 @@ function formatCheckTime(timeStr: string): string {
   if (isNaN(hour)) return timeStr;
 
   if (hour === 0) return `12:${minutes} AM`;
-  if (hour === 12) return minutes === '00' ? '12 PM' : `12:${minutes} PM`;
+  if (hour === 12) return `12:${minutes} PM`;
   if (hour > 12) {
     const h12 = hour - 12;
-    return minutes === '00' ? `${h12} PM` : `${h12}:${minutes} PM`;
+    return `${h12}:${minutes} PM`;
   }
-  return minutes === '00' ? `${hour} AM` : `${hour}:${minutes} AM`;
+  return `${hour}:${minutes} AM`;
 }
 
 function CheckInOutCard({
@@ -492,7 +497,7 @@ function ImageWithFallback({
 }) {
   const [hasError, setHasError] = useState(false);
 
-  if (hasError) {
+  if (!src || hasError) {
     return width && height ? (
       <div
         className={`flex items-center justify-center bg-paper-container ${className ?? ''}`}
@@ -522,6 +527,195 @@ function ImageWithFallback({
   );
 }
 
+// ── Image Gallery Carousel ──
+
+function ImageGallery({
+  images,
+  hotelName,
+  onImageClick,
+}: {
+  images: { thumbnail: string; original: string }[];
+  hotelName: string;
+  onImageClick: (index: number) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollLeft() {
+    scrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' });
+  }
+
+  function scrollRight() {
+    scrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' });
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-8"
+    >
+      <div className="relative group/carousel">
+        {/* Scroll left arrow */}
+        <button
+          type="button"
+          onClick={scrollLeft}
+          aria-label="Desplazar izquierda"
+          className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-r from-paper/80 to-transparent opacity-0 group-hover/carousel:opacity-100 transition-opacity rounded-l-xl"
+        >
+          <ChevronLeft size={24} className="text-ink" />
+        </button>
+
+        {/* Horizontal scroll strip */}
+        <div
+          ref={scrollRef}
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+        >
+          {images.map((img, i) => (
+            <button
+              key={`${img.thumbnail}-${i}`}
+              type="button"
+              onClick={() => onImageClick(i)}
+              className="relative shrink-0 snap-start w-[calc((100%-16px)/3)] min-w-[140px] aspect-[4/3] rounded-lg overflow-hidden bg-paper-container cursor-zoom-in group"
+            >
+              <ImageWithFallback
+                src={img.thumbnail}
+                alt={`${hotelName} — foto ${i + 1}`}
+                sizes="(max-width: 768px) 33vw, 25vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                priority={i < 2}
+              />
+            </button>
+          ))}
+        </div>
+
+        {/* Scroll right arrow */}
+        <button
+          type="button"
+          onClick={scrollRight}
+          aria-label="Desplazar derecha"
+          className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center bg-gradient-to-l from-paper/80 to-transparent opacity-0 group-hover/carousel:opacity-100 transition-opacity rounded-r-xl"
+        >
+          <ChevronRight size={24} className="text-ink" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Nearby Places — grouped by category with icons ──
+
+const CATEGORY_META: Record<string, { label: string; icon: typeof MapPin }> = {};
+
+function getCategoryMeta(category: string): { label: string; icon: typeof MapPin } {
+  // Check exact match first
+  if (CATEGORY_META[category]) return CATEGORY_META[category];
+
+  const lower = category.toLowerCase();
+  let meta: { label: string; icon: typeof MapPin };
+
+  if (lower.includes('airport') || lower.includes('aeropuerto')) {
+    meta = { label: 'Aeropuertos', icon: Plane };
+  } else if (lower.includes('bus') || lower.includes('coach') || lower.includes('estación') || lower.includes('station') || lower.includes('train') || lower.includes('metro') || lower.includes('subway')) {
+    meta = { label: 'Transporte', icon: Bus };
+  } else if (lower.includes('restaurant') || lower.includes('restaurante') || lower.includes('food') || lower.includes('dining') || lower.includes('café') || lower.includes('cafe') || lower.includes('bar')) {
+    meta = { label: 'Restaurantes', icon: UtensilsCrossed };
+  } else if (lower.includes('shop') || lower.includes('shopping') || lower.includes('mall') || lower.includes('store') || lower.includes('market') || lower.includes('compras') || lower.includes('centro comercial')) {
+    meta = { label: 'Compras', icon: ShoppingBag };
+  } else if (lower.includes('beach') || lower.includes('playa') || lower.includes('park') || lower.includes('parque') || lower.includes('museum') || lower.includes('museo') || lower.includes('temple') || lower.includes('templo')) {
+    meta = { label: 'Puntos de interés', icon: MapPin };
+  } else {
+    meta = { label: 'Puntos de interés', icon: MapPin };
+  }
+
+  CATEGORY_META[category] = meta;
+  return meta;
+}
+
+function NearbyPlacesGrouped({
+  places,
+}: {
+  places: NonNullable<HotelDetailResponse['nearby_places']>;
+}) {
+  // Group by category
+  const groups = new Map<string, typeof places>();
+  for (const place of places) {
+    const cat = place.category || 'Otros';
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat)!.push(place);
+  }
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.45 }}
+      className="mb-8"
+    >
+      <h2 className="text-lg font-bold text-ink mb-4" suppressHydrationWarning>
+        Lugares cercanos
+      </h2>
+
+      {Array.from(groups.entries()).map(([category, categoryPlaces]) => {
+        const { label, icon: CatIcon } = getCategoryMeta(category);
+        return (
+          <div key={category} className="mb-4">
+            {/* Category header */}
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink mb-2 px-1" suppressHydrationWarning>
+              <CatIcon size={16} className="text-ink-faint" />
+              {label}
+            </h3>
+            <ul className="divide-y divide-paper-outline">
+              {categoryPlaces.map((place, i) => (
+                <li
+                  key={`${place.name}-${place.category}-${i}`}
+                  className="flex items-center gap-3 py-3"
+                >
+                  {place.thumbnail_url ? (
+                    <img
+                      src={place.thumbnail_url}
+                      alt={place.name}
+                      width={40}
+                      height={40}
+                      className="rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-paper-container shrink-0 flex items-center justify-center">
+                      <CatIcon size={16} className="text-ink-faint" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-ink truncate">
+                        {place.name}
+                      </span>
+                      {place.rating !== null && place.rating !== undefined && (
+                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-ink-muted shrink-0">
+                          <Star size={10} className="text-mustard fill-mustard" />
+                          {place.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    {place.description && (
+                      <p className="text-xs text-ink-faint truncate">{place.description}</p>
+                    )}
+                  </div>
+                  {place.transport?.[0] && (
+                    <span className="text-xs text-ink-muted shrink-0 flex items-center gap-1">
+                      <ChevronRight size={12} />
+                      {place.transport[0].duration}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </motion.section>
+  );
+}
+
 // ── Main Client Component ──
 
 type DetailStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -538,6 +732,9 @@ export default function HotelDetailClient() {
   const adults = Number(searchParams.get('adults')) || 2;
   const children = Number(searchParams.get('children')) || 0;
   const childrenAgesRaw = searchParams.get('children_ages') || '';
+  const searchPrice = searchParams.get('price');
+  const searchCurrency = searchParams.get('currency');
+  const hasSearchPrice = searchPrice !== null && searchCurrency !== null;
 
   const [detail, setDetail] = useState<HotelDetailResponse | null>(null);
   const [status, setStatus] = useState<DetailStatus>('idle');
@@ -646,50 +843,25 @@ export default function HotelDetailClient() {
           Volver a resultados
         </button>
 
-        {/* ── Image Gallery — ALL images, thumbnail URLs, priority on first 2 ── */}
+        {/* ── Image Gallery — horizontal carousel of thumbnails (max 300px) ── */}
         {mainImages.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            {/* Main first image — large, above the fold */}
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(0)}
-              className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-paper-container cursor-zoom-in group mb-2"
-            >
-              <ImageWithFallback
-                src={mainImages[0].thumbnail}
-                alt={`${detail.name} — foto principal`}
-                sizes="(max-width: 768px) 100vw, 66vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                priority
-              />
-            </button>
+          <ImageGallery
+            images={mainImages}
+            hotelName={detail.name}
+            onImageClick={(i) => setLightboxIndex(i)}
+          />
+        )}
 
-            {/* Remaining images in responsive 3-column grid */}
-            {mainImages.length > 1 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {mainImages.slice(1).map((img, i) => (
-                  <button
-                    key={`${img.thumbnail}-${i}`}
-                    type="button"
-                    onClick={() => setLightboxIndex(i + 1)}
-                    className="relative aspect-[4/3] rounded-lg overflow-hidden bg-paper-container cursor-zoom-in group"
-                  >
-                    <ImageWithFallback
-                      src={img.thumbnail}
-                      alt={`${detail.name} — foto ${i + 2}`}
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      priority={i === 0}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </motion.div>
+        {/* ── Image placeholder when no images available ── */}
+        {mainImages.length === 0 && (
+          <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-paper-container flex items-center justify-center mb-8">
+            <div className="flex flex-col items-center gap-2">
+              <Building2 size={48} className="text-ink-faint" />
+              <p className="text-xs text-ink-faint font-[family-name:var(--font-geist-sans)]">
+                Sin imágenes disponibles
+              </p>
+            </div>
+          </div>
         )}
 
         {/* ── Lightbox — uses original URLs ── */}
@@ -749,10 +921,18 @@ export default function HotelDetailClient() {
               )}
             </div>
 
-            {/* Price — Hotels: price_range, VR: price.per_night */}
-            {hasPrice && (
+            {/* Price — search price from results > price_range (hotel) > price.per_night (VR) */}
+            {(hasSearchPrice || hasPrice) && (
               <div className="text-right shrink-0">
-                {isHotel && detail.price_range ? (
+                {hasSearchPrice ? (
+                  <>
+                    <p className="text-xl font-bold text-coral">
+                      {searchCurrency === 'USD' ? 'US$' : '€'}
+                      {searchPrice}
+                    </p>
+                    <p className="text-xs text-ink-faint">por noche</p>
+                  </>
+                ) : isHotel && detail.price_range ? (
                   <>
                     <p className="text-xl font-bold text-coral">
                       {detail.price_range.currency === 'USD' ? 'US$' : '€'}
@@ -974,60 +1154,7 @@ export default function HotelDetailClient() {
 
         {/* ── Nearby Places ── */}
         {(detail.nearby_places ?? []).length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="mb-8"
-          >
-            <h2 className="text-lg font-bold text-ink mb-3" suppressHydrationWarning>
-              Lugares cercanos
-            </h2>
-            <ul className="divide-y divide-paper-outline">
-              {(detail.nearby_places ?? []).map((place) => (
-                <li
-                  key={`${place.name}-${place.category}`}
-                  className="flex items-center gap-3 py-3"
-                >
-                  {place.thumbnail_url ? (
-                    <img
-                      src={place.thumbnail_url}
-                      alt={place.name}
-                      width={40}
-                      height={40}
-                      className="rounded-lg object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-paper-container shrink-0 flex items-center justify-center">
-                      <MapPin size={16} className="text-ink-faint" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-ink truncate">
-                        {place.name}
-                      </span>
-                      {place.rating !== null && place.rating !== undefined && (
-                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-ink-muted shrink-0">
-                          <Star size={10} className="text-mustard fill-mustard" />
-                          {place.rating.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                    {place.description && (
-                      <p className="text-xs text-ink-faint truncate">{place.description}</p>
-                    )}
-                  </div>
-                  {place.transport?.[0] && (
-                    <span className="text-xs text-ink-muted shrink-0 flex items-center gap-1">
-                      <ChevronRight size={12} />
-                      {place.transport[0].duration}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </motion.section>
+          <NearbyPlacesGrouped places={detail.nearby_places!} />
         )}
 
         {/* ── TODO: Weather widget (Phase 2) ── */}
