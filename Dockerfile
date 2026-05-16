@@ -1,5 +1,6 @@
 # frontend-v2 — ProacTrip Next.js 16 + Tailwind v4 + Turbopack
-FROM oven/bun:1-alpine
+# Usamos Debian (no Alpine) porque @tailwindcss/oxide necesita glibc
+FROM oven/bun:1
 
 WORKDIR /app
 
