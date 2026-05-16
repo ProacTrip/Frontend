@@ -17,6 +17,16 @@ import type {
   CreateFavoriteBody,
   FavoritesResponse,
   AddFavoriteResponse,
+  DocumentsResponse,
+  DocumentTypesResponse,
+  DocumentUploadResponse,
+  SavedSearchesResponse,
+  CreateSavedSearchBody,
+  CreateSavedSearchResponse,
+  UpdateSavedSearchBody,
+  ToggleAlertResponse,
+  MedicalPendingResponse,
+  ResolveConflictBody,
 } from '@/app/lib/types/user';
 
 // ─────────────────────────────────────────────────────────────
@@ -201,6 +211,140 @@ export async function addFavorite(body: CreateFavoriteBody): Promise<AddFavorite
 export async function deleteFavorite(favoriteId: string): Promise<{ message: string }> {
   const res = await apiFetch(`/v1/user/favorites/${favoriteId}`, {
     method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────
+// DOCUMENTOS
+// ─────────────────────────────────────────────────────────────
+
+export async function listDocuments(
+  status?: string,
+  documentType?: string
+): Promise<DocumentsResponse> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (documentType) params.set('document_type', documentType);
+  const qs = params.toString();
+  const url = qs ? `/v1/user/documents?${qs}` : '/v1/user/documents';
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function getDocumentTypes(): Promise<DocumentTypesResponse> {
+  const res = await apiFetch('/v1/user/documents/types');
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/v1/user/documents`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  if (!res.ok) {
+    try {
+      const data = await res.json();
+      throw new Error(data?.error?.message ?? `Error ${res.status}`);
+    } catch (e: any) {
+      if (e instanceof Error && e.message !== `Error ${res.status}`) throw e;
+      throw new Error(`Error ${res.status}: ${res.statusText}`);
+    }
+  }
+  return res.json();
+}
+
+export async function deleteDocument(
+  documentId: string
+): Promise<{ message: string }> {
+  const res = await apiFetch(`/v1/user/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────
+// BÚSQUEDAS GUARDADAS
+// ─────────────────────────────────────────────────────────────
+
+export async function listSavedSearches(): Promise<SavedSearchesResponse> {
+  const res = await apiFetch('/v1/user/saved-searches');
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function createSavedSearch(
+  body: CreateSavedSearchBody
+): Promise<CreateSavedSearchResponse> {
+  const res = await apiFetch('/v1/user/saved-searches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function updateSavedSearch(
+  searchId: string,
+  body: UpdateSavedSearchBody
+): Promise<{ message: string }> {
+  const res = await apiFetch(`/v1/user/saved-searches/${searchId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function deleteSavedSearch(
+  searchId: string
+): Promise<{ message: string }> {
+  const res = await apiFetch(`/v1/user/saved-searches/${searchId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function toggleAlert(
+  searchId: string,
+  enabled: boolean
+): Promise<ToggleAlertResponse> {
+  const res = await apiFetch(`/v1/user/saved-searches/${searchId}/alert`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────
+// CONFLICTOS MÉDICOS
+// ─────────────────────────────────────────────────────────────
+
+export async function listMedicalPending(): Promise<MedicalPendingResponse> {
+  const res = await apiFetch('/v1/user/profile/medical/pending');
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function resolveMedicalConflict(
+  body: ResolveConflictBody
+): Promise<{ message: string }> {
+  const res = await apiFetch('/v1/user/profile/medical/pending/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json();

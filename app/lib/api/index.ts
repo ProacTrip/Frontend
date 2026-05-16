@@ -80,6 +80,20 @@ export {
   listFavorites,
   addFavorite,
   deleteFavorite,
+  // Documentos
+  listDocuments,
+  getDocumentTypes,
+  uploadDocument,
+  deleteDocument,
+  // Búsquedas guardadas
+  listSavedSearches,
+  createSavedSearch,
+  updateSavedSearch,
+  deleteSavedSearch,
+  toggleAlert,
+  // Conflictos médicos
+  listMedicalPending,
+  resolveMedicalConflict,
 } from './user';
 
 export type {
@@ -104,4 +118,21 @@ export type {
   CreateFavoriteBody,
   FavoritesResponse,
   AddFavoriteResponse,
+  // Documentos
+  Document,
+  DocumentType_,
+  DocumentsResponse,
+  DocumentTypesResponse,
+  DocumentUploadResponse,
+  // Búsquedas guardadas
+  SavedSearch,
+  CreateSavedSearchBody,
+  UpdateSavedSearchBody,
+  SavedSearchesResponse,
+  CreateSavedSearchResponse,
+  ToggleAlertResponse,
+  // Conflictos médicos
+  MedicalConflict,
+  MedicalPendingResponse,
+  ResolveConflictBody,
 } from '@/app/lib/types/user';

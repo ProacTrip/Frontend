@@ -196,3 +196,95 @@ export interface AddFavoriteResponse {
   favorite_id: string;
   message: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// DOCUMENTOS
+// ─────────────────────────────────────────────────────────────
+
+export interface Document {
+  id: string;
+  file_name: string;
+  document_type: string | null;
+  ocr_status: string; // 'uploaded' | 'validating' | 'sanitizing' | 'ocr_processing' | 'completed' | 'rejected' | 'failed'
+  ocr_confidence: number | null;
+  is_verified: boolean;
+  file_size?: number;
+  mime_type?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentType_ {
+  code: string;
+  name: string;
+  description: string;
+  is_identity: boolean;
+  requires_ocr: boolean;
+}
+
+export interface DocumentsResponse { documents: Document[] }
+export interface DocumentTypesResponse { document_types: DocumentType_[] }
+export interface DocumentUploadResponse {
+  document_id: string;
+  status: string;
+  events_url: string;
+  message: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// BÚSQUEDAS GUARDADAS
+// ─────────────────────────────────────────────────────────────
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  parameters: Record<string, any>;
+  filters: Record<string, any> | null;
+  alert_enabled: boolean;
+  last_executed_at: string | null;
+  result_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSavedSearchBody {
+  name?: string;
+  parameters: Record<string, any>;
+  filters?: Record<string, any>;
+  alert_enabled?: boolean;
+}
+
+export interface UpdateSavedSearchBody {
+  name?: string;
+  parameters?: Record<string, any>;
+  filters?: Record<string, any>;
+}
+
+export interface SavedSearchesResponse { searches: SavedSearch[] }
+export interface CreateSavedSearchResponse { search_id: string; message: string }
+export interface ToggleAlertResponse { search_id: string; alert_enabled: boolean; message: string }
+
+// ─────────────────────────────────────────────────────────────
+// CONFLICTOS MÉDICOS
+// ─────────────────────────────────────────────────────────────
+
+export interface MedicalConflict {
+  id: string;
+  field: string;
+  current_value: string;
+  proposed_value: string;
+  source: {
+    type: string;
+    document_id: string;
+    file_name: string;
+  };
+  suggested_at: string;
+  expires_at: string;
+}
+
+export interface MedicalPendingResponse { conflicts: MedicalConflict[] }
+export interface ResolveConflictBody {
+  pending_update_id: string;
+  action: 'accept' | 'reject' | 'custom';
+  custom_value?: string;
+}
