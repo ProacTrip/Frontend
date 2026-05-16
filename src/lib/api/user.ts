@@ -17,7 +17,6 @@ import type {
   UploadDocumentResponse,
   GetDocumentResponse,
   ListDocumentsResponse,
-  SavedSearch,
   CreateSavedSearchResponse,
   ListSavedSearchesResponse,
   Wishlist,
