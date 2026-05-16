@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SlidersHorizontal, Search, Map } from 'lucide-react';
+import { SlidersHorizontal, Search, Map, Bookmark, Check } from 'lucide-react';
 
 import SearchBar, { type SearchBarState } from './SearchBar';
 import WeatherWidget from './WeatherWidget';
@@ -15,6 +15,8 @@ import HotelCardSkeleton from './HotelCardSkeleton';
 import PaginationControls from './PaginationControls';
 import { EmptyState, NonMatchingWarning, ErrorBanner } from './StateBanners';
 import { useHotelSearch } from '@/lib/hooks/useHotelSearch';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { createSavedSearch } from '@/lib/api/user';
 
 /**
  * Main orchestrator for the hotel search page.
@@ -109,6 +111,35 @@ export default function HotelsSearchClient() {
   const isRateLimited =
     hook.rateLimitedUntil !== null && Date.now() < hook.rateLimitedUntil;
 
+  // ── Save search state ──
+  const { isAuthenticated } = useAuth();
+  const [isSavingSearch, setIsSavingSearch] = useState(false);
+  const [searchSaved, setSearchSaved] = useState(false);
+
+  const handleSaveSearch = useCallback(async () => {
+    if (isSavingSearch || searchSaved) return;
+    setIsSavingSearch(true);
+    try {
+      await createSavedSearch({
+        name: hook.query,
+        parameters: {
+          query: hook.query,
+          check_in_date: hook.checkIn,
+          check_out_date: hook.checkOut,
+          adults: hook.adults,
+          children: hook.children,
+          children_ages: hook.childrenAges.length > 0 ? hook.childrenAges : undefined,
+        },
+      });
+      setSearchSaved(true);
+      setTimeout(() => setSearchSaved(false), 3000);
+    } catch {
+      // Silently ignore errors — the user can retry
+    } finally {
+      setIsSavingSearch(false);
+    }
+  }, [isSavingSearch, searchSaved, hook.query, hook.checkIn, hook.checkOut, hook.adults, hook.children, hook.childrenAges]);
+
   return (
     <div className="font-[family-name:var(--font-geist-sans)] min-h-screen bg-paper">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -195,6 +226,34 @@ export default function HotelsSearchClient() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* ── Save search button (authenticated users, after search) ── */}
+            {isAuthenticated && showResults && hook.results.length > 0 && (
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveSearch}
+                  disabled={isSavingSearch || searchSaved}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    searchSaved
+                      ? 'bg-success-container text-success'
+                      : 'bg-paper-dim border border-paper-outline text-ink-muted hover:text-ink hover:border-ink-faint'
+                  }`}
+                >
+                  {searchSaved ? (
+                    <>
+                      <Check size={16} />
+                      Búsqueda guardada
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark size={16} />
+                      {isSavingSearch ? 'Guardando...' : 'Guardar búsqueda'}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* ── State banners ── */}
             <AnimatePresence mode="wait">
