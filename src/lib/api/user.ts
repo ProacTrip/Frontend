@@ -52,6 +52,7 @@ export async function updateLocale(fields: {
   timezone_name?: string;
   language_code?: string;
   currency_code?: string;
+  current_location?: string;
 }): Promise<{ message: string }> {
   return api.put('/v1/user/profile/locale', fields);
 }
@@ -99,7 +100,7 @@ export async function listMedicalPending(): Promise<ListMedicalPendingResponse> 
  */
 export async function resolveMedicalPending(
   pendingUpdateId: string,
-  action: 'accept' | 'reject',
+  action: 'accept' | 'reject' | 'custom',
   customValue?: string
 ): Promise<{ message: string }> {
   return api.post('/v1/user/profile/medical/pending/resolve', {
