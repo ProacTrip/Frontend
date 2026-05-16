@@ -165,3 +165,34 @@ export interface ProfileResponse {
   travel_preferences: TravelPreferences | null;
   notification_preferences: NotificationPreference[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// FAVORITOS
+// ─────────────────────────────────────────────────────────────
+
+export type EntityType = 'hotel' | 'flight' | 'destination';
+
+export interface Favorite {
+  id: string;
+  entity_id: string;
+  entity_type: EntityType;
+  title: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface CreateFavoriteBody {
+  entity_id: string;
+  entity_type: EntityType;
+  title: string;
+  notes?: string;
+}
+
+export interface FavoritesResponse {
+  favorites: Favorite[];
+}
+
+export interface AddFavoriteResponse {
+  favorite_id: string;
+  message: string;
+}

@@ -13,6 +13,13 @@ interface HotelCardProps {
   onToggleFavorite?: (hotelId: string) => void;
 }
 
+interface HotelCardProps {
+  hotel: FrontendHotel;
+  isFavorite?: boolean;
+  onToggleFavorite?: (hotelId: string) => void; 
+  isToggling?: boolean;
+}
+
 export default function HotelCard({ hotel, isFavorite = false, onToggleFavorite }: HotelCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHoveringImage, setIsHoveringImage] = useState(false);

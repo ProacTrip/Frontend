@@ -77,6 +77,9 @@ export {
   confirmAvatarUpload,
   listDefaultAvatars,
   selectDefaultAvatar,
+  listFavorites,
+  addFavorite,
+  deleteFavorite,
 } from './user';
 
 export type {
@@ -96,4 +99,9 @@ export type {
   PreferredClass,
   SeatPreference,
   Channel,
+  EntityType,
+  Favorite,
+  CreateFavoriteBody,
+  FavoritesResponse,
+  AddFavoriteResponse,
 } from '@/app/lib/types/user';

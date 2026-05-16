@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import HotelCard from './HotelCard';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface HotelsListProps {
   hotels: any[];
@@ -18,7 +19,8 @@ export default function HotelsList({
   nextToken,
   onLoadMore 
 }: HotelsListProps) {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const { isFavorite, toggleFavorite } = useFavorites('hotel');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // ==================== INFINITE SCROLL ====================
@@ -42,51 +44,34 @@ export default function HotelsList({
   }, [hasMore, isLoading, onLoadMore]);
 
   // ==================== FAVORITOS ====================
-  const handleToggleFavorite = (hotelId: string) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(hotelId)) {
-        newFavorites.delete(hotelId);
-        console.log('💔 Eliminado de favoritos:', hotelId);
-      } else {
-        newFavorites.add(hotelId);
-        console.log('❤️ Añadido a favoritos:', hotelId);
-      }
-      return newFavorites;
-    });
-
-    // 🚧 TODO APARTADO 8-9: Guardar en backend cuando conectemos
-    /*
-    // ✅ VERSIÓN REAL (cuando tengamos endpoint de favoritos):
+  const handleToggleFavorite = async (hotel: any) => {
+    if (togglingId) return; // Ya hay uno procesando
+    
+    setTogglingId(hotel.id);
     try {
-      if (favorites.has(hotelId)) {
-        await apiFetch(`/v1/user/favorites/${hotelId}`, { method: 'DELETE' });
-      } else {
-        await apiFetch('/v1/user/favorites', { 
-          method: 'POST', 
-          body: JSON.stringify({ hotel_id: hotelId }) 
-        });
-      }
+      await toggleFavorite({
+        entity_id: hotel.id,
+        entity_type: 'hotel',
+        title: hotel.name,
+      });
     } catch (error) {
       console.error('Error guardando favorito:', error);
-      // Revertir cambio en caso de error
+    } finally {
+      setTogglingId(null);
     }
-    */
   };
-
-  return (
+return (
     <div className="space-y-4">
-      {/* Lista de hoteles */}
       {hotels.map((hotel) => (
         <HotelCard
           key={hotel.id}
           hotel={hotel}
-          isFavorite={favorites.has(hotel.id)}
-          onToggleFavorite={handleToggleFavorite}
+          isFavorite={isFavorite(hotel.id)}
+          onToggleFavorite={() => handleToggleFavorite(hotel)}
+          isToggling={togglingId === hotel.id} // ← Solo true para el clickeado
         />
       ))}
 
-      {/* ==================== ELEMENTO DE CARGA INFINITA ==================== */}
       {hasMore && (
         <div ref={loadMoreRef} className="py-8 text-center">
           {isLoading ? (
@@ -97,11 +82,9 @@ export default function HotelsList({
           ) : (
             <div>
               <p className="text-gray-500">Scroll para cargar más</p>
-              
-              {/* 🐛 DEBUG - Mostrar info de paginación (QUITAR EN PRODUCCIÓN) */}
               {nextToken && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Token: {nextToken} | Total cargados: {hotels.length}
+                  Total cargados: {hotels.length}
                 </p>
               )}
             </div>
@@ -109,7 +92,6 @@ export default function HotelsList({
         </div>
       )}
 
-      {/* Mensaje cuando ya no hay más resultados */}
       {!hasMore && hotels.length > 0 && (
         <p className="text-center text-gray-500 py-8">
           ✅ No hay más resultados

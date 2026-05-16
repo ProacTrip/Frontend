@@ -13,6 +13,10 @@ import type {
   UpdateNotificationPreferenceBody,
   AvatarUploadUrl,
   DefaultAvatar,
+  EntityType,
+  CreateFavoriteBody,
+  FavoritesResponse,
+  AddFavoriteResponse,
 } from '@/app/lib/types/user';
 
 // ─────────────────────────────────────────────────────────────
@@ -167,4 +171,37 @@ export async function selectDefaultAvatar(avatar_name: string): Promise<string> 
   if (!res.ok) throw new Error(await extractError(res));
   const data = await res.json();
   return data.avatar_url;
+}
+
+// ─────────────────────────────────────────────────────────────
+// FAVORITOS
+// ─────────────────────────────────────────────────────────────
+
+export async function listFavorites(entityType?: EntityType): Promise<FavoritesResponse> {
+  let url = '/v1/user/favorites';
+  if (entityType) {
+    url += `?entity_type=${encodeURIComponent(entityType)}`;
+  }
+
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function addFavorite(body: CreateFavoriteBody): Promise<AddFavoriteResponse> {
+  const res = await apiFetch('/v1/user/favorites', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function deleteFavorite(favoriteId: string): Promise<{ message: string }> {
+  const res = await apiFetch(`/v1/user/favorites/${favoriteId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
 }
