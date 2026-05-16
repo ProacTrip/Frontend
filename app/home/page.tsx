@@ -2,33 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight,Smile, Frown} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { DESTINATIONS } from '@/app/lib/constants/destinations';
 import DestinationCard from '@/components/home/DestinationCard';
+import { useFavorites } from '@/hooks/useFavorites';
 
 export default function HomePage() {
-  const [currentIndex, setCurrentIndex] = useState(1); // Controla qué destino estamos viendo ahora (1 a 7)
-  const [isFirstRender, setIsFirstRender] = useState(true); // Truco para que la primera animación sea distinta
-  const [favorites, setFavorites] = useState<Record<number, boolean>>({});
-
-  const isFavorite = favorites[currentIndex] || false; //controla si el destino actual esta en favoritos
+  const [currentIndex, setCurrentIndex] = useState(1);
+  const [isFirstRender, setIsFirstRender] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    // Cuando el componente carga por primera vez, desactivamos la bandera de 'primer renderizado'
-    setIsFirstRender(false);
-  }, []);
+  const { isFavorite, toggleFavorite, isToggling } = useFavorites('destination');
 
-  const toggleFavorite = () => {
-    // Actualiza el diccionario de favoritos invirtiendo el valor del destino actual
-    setFavorites(prev => ({
-      ...prev,
-      [currentIndex]: !prev[currentIndex]
-    }));
-  };
-
-  const backgroundDestination = DESTINATIONS[currentIndex - 1];
+  const currentDest = DESTINATIONS[currentIndex - 1];
+  const currentDestId = String(currentDest?.id ?? '');
+  const favorited = isFavorite(currentDestId);
+  const backgroundDestination = currentDest;
 
   // Lógica compleja para ordenar el carrusel de tarjetas:
   // Filtramos el destino actual (para no repetirlo) y ordenamos el resto
@@ -49,6 +39,10 @@ export default function HomePage() {
   const handlePrev = () => {
     setCurrentIndex(prev => (prev === 1 ? 7 : prev - 1));
   };
+
+  useEffect(() => {
+    setIsFirstRender(false);
+  }, []);
 
   return (
     <div className="relative w-full h-[calc(100vh-64px)] overflow-hidden">
@@ -101,24 +95,27 @@ export default function HomePage() {
               {/* Botones */}
               <div className="flex items-center gap-3 md:gap-4">
                 <button 
-                  onClick={toggleFavorite}
+                  onClick={() =>
+                    toggleFavorite({
+                      entity_id: currentDestId,
+                      entity_type: 'destination',
+                      title: `${currentDest.name} - ${currentDest.place}`,
+                    })
+                  }
+                  disabled={isToggling}
                   className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-300 ${
-                    isFavorite 
-                      ? 'bg-yellow-400/20 border-yellow-400/50 hover:bg-yellow-400/30' 
+                    favorited 
+                      ? 'bg-coral/20 border-coral/50 hover:bg-coral/30' 
                       : 'bg-white/10 border-white/30 hover:bg-white/20'
-                  }`}
+                  } ${isToggling ? 'opacity-50' : ''}`}
                 >
-                  {isFavorite ? (
-                    <Smile 
-                      className="w-5 h-5 md:w-6 md:h-6 text-yellow-300 transition-all duration-300" 
-                      strokeWidth={2.5}
-                    />
-                  ) : (
-                    <Frown 
-                      className="w-5 h-5 md:w-6 md:h-6 text-white transition-all duration-300" 
-                      strokeWidth={2}
-                    />
-                  )}
+                  <Heart 
+                    className={`w-5 h-5 md:w-6 md:h-6 transition-all duration-300 ${
+                      favorited ? 'text-coral' : 'text-white'
+                    }`}
+                    fill={favorited ? 'currentColor' : 'none'}
+                    strokeWidth={favorited ? 0 : 2}
+                  />
                 </button>
                 
                 <button 

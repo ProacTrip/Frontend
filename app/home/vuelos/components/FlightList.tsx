@@ -4,6 +4,7 @@
 import React from 'react';
 import { Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import FlightCard from './FlightCard';
+import { useFavorites } from '@/hooks/useFavorites';
 import type { FlightOfferUI } from '@/app/lib/types/flight';
 
 interface FlightListProps {
@@ -14,7 +15,7 @@ interface FlightListProps {
   onRetry?: () => void;
   onSelect: (offer: FlightOfferUI) => void;
   onShowDetails?: (offer: FlightOfferUI) => void;
-  showAuthError?: boolean; // NUEVA PROP
+  showAuthError?: boolean;
   hasNext?: boolean;
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
@@ -33,6 +34,8 @@ export default function FlightList({
   onLoadMore,
   isLoadingMore = false,
 }: FlightListProps) {
+
+  const { isFavorite, toggleFavorite, isToggling } = useFavorites('flight');
 
   if (error) {
     return (
@@ -110,7 +113,16 @@ export default function FlightList({
               onSelect={onSelect}
               onShowDetails={onShowDetails}
               isSelected={offer.id === selectedOfferId}
-              showAuthError={showAuthError} // PASAR A FLIGHTCARD
+              showAuthError={showAuthError}
+              isFavorited={isFavorite(offer.id)}
+              isToggling={isToggling}
+              onToggleFavorite={() =>
+                toggleFavorite({
+                  entity_id: offer.id,
+                  entity_type: 'flight',
+                  title: `${offer.airline.name} ${offer.segments[0]?.legs[0]?.origin.code ?? ''}-${offer.segments[0]?.legs[0]?.destination.code ?? ''}`,
+                })
+              }
             />
           </React.Fragment>
         );

@@ -9,7 +9,8 @@ import {
   Leaf, 
   Wifi, 
   Luggage, 
-  Star
+  Star,
+  Heart,
 } from 'lucide-react';
 import type { FlightOfferUI } from '@/app/lib/types/flight';
 
@@ -19,7 +20,10 @@ interface FlightCardProps {
   onShowDetails?: (offer: FlightOfferUI) => void;
   variant?: 'default' | 'compact';
   isSelected?: boolean;
-  showAuthError?: boolean; // NUEVA PROP
+  showAuthError?: boolean;
+  isFavorited?: boolean;
+  isToggling?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const formatDuration = (minutes: number | undefined): string => {
@@ -75,7 +79,10 @@ export default function FlightCard({
   onShowDetails,
   variant = 'default',
   isSelected = false,
-  showAuthError = false
+  showAuthError = false,
+  isFavorited = false,
+  isToggling = false,
+  onToggleFavorite,
 }: FlightCardProps) {
   
   if (!offer.segments || offer.segments.length === 0) {
@@ -179,11 +186,32 @@ export default function FlightCard({
             )}
           </div>
 
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">
-              {formatPrice(offer.price?.total, offer.price?.currency || 'EUR')}
+          <div className="text-right flex items-center gap-3">
+            {onToggleFavorite && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite();
+                }}
+                disabled={isToggling}
+                className={`transition-colors disabled:opacity-50 ${
+                  isFavorited ? 'text-coral hover:text-coral-hover' : 'text-ink-faint hover:text-coral'
+                }`}
+                title={isFavorited ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              >
+                <Heart
+                  className="w-5 h-5"
+                  fill={isFavorited ? 'currentColor' : 'none'}
+                  strokeWidth={isFavorited ? 0 : 2}
+                />
+              </button>
+            )}
+            <div>
+              <div className="text-2xl font-bold text-gray-900">
+                {formatPrice(offer.price?.total, offer.price?.currency || 'EUR')}
+              </div>
+              <div className="text-xs text-gray-500">Precio total</div>
             </div>
-            <div className="text-xs text-gray-500">Precio total</div>
           </div>
         </div>
       </div>
