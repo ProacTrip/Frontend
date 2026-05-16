@@ -5,10 +5,15 @@ services:
       - "3000:3000"
     volumes:
       - .:/app
-      - /app/node_modules
-      - /app/.next
+      - node_modules_data:/app/node_modules
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8080
     env_file:
       - .env.local
+    # Instalar dependencias al arrancar (no durante el build)
+    command: >
+      sh -c "bun install --frozen-lockfile && bun --bun run dev"
+
+volumes:
+  node_modules_data:
