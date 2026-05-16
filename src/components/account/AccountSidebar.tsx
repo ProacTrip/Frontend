@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, Globe, HeartPulse, FileText, Shield } from 'lucide-react';
+import { User, Globe, HeartPulse, FileText, Shield, Heart, Search } from 'lucide-react';
 
 const navItems = [
   { href: '/account', label: 'Mi Perfil', icon: User },
+  { href: '/account/favorites', label: 'Favoritos', icon: Heart },
   { href: '/account/preferences', label: 'Preferencias', icon: Globe },
+  { href: '/account/searches', label: 'Búsquedas', icon: Search },
   { href: '/account/medical', label: 'Médico', icon: HeartPulse },
   { href: '/account/documents', label: 'Documentos', icon: FileText },
   { href: '/account/security', label: 'Seguridad', icon: Shield },

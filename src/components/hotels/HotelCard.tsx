@@ -9,6 +9,7 @@ import PriceDisplay from '@/components/ui/PriceDisplay';
 import RatingBadge from '@/components/ui/RatingBadge';
 import AmenitiesList from '@/components/ui/AmenitiesList';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { useFavorites } from '@/lib/hooks/useFavorites';
 import { useState, useCallback } from 'react';
 
 interface HotelCardProps {
@@ -36,11 +37,13 @@ export default function HotelCard({ hotel, onClick }: HotelCardProps) {
   const [imageError, setImageError] = useState(false);
   const [favoriteToast, setFavoriteToast] = useState(false);
   const { isAuthenticated } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites('hotel');
   const router = useRouter();
 
   const imageSrc = hotel.images?.[0]?.thumbnail;
   const hasRating = hotel.rating?.overall !== null && hotel.rating?.overall !== undefined;
   const distanceInfo = hotel.nearby_places?.[0];
+  const isFav = isFavorite(hotel.id);
 
   const currentPath =
     typeof window !== 'undefined'
@@ -48,7 +51,7 @@ export default function HotelCard({ hotel, onClick }: HotelCardProps) {
       : '/hotels';
 
   const handleFavoriteClick = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
 
@@ -57,10 +60,17 @@ export default function HotelCard({ hotel, onClick }: HotelCardProps) {
         return;
       }
 
-      setFavoriteToast(true);
-      setTimeout(() => setFavoriteToast(false), 2500);
+      try {
+        const added = await toggleFavorite(hotel.id, 'hotel', hotel.name);
+        if (added) {
+          setFavoriteToast(true);
+          setTimeout(() => setFavoriteToast(false), 2500);
+        }
+      } catch {
+        // Silently ignore — the hook handles rollback
+      }
     },
-    [isAuthenticated, router, currentPath]
+    [isAuthenticated, router, currentPath, toggleFavorite, hotel.id, hotel.name]
   );
 
   return (
@@ -89,10 +99,17 @@ export default function HotelCard({ hotel, onClick }: HotelCardProps) {
         {/* Favorite heart button */}
         <button
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-colors hover:bg-white"
-          aria-label="Guardar en favoritos"
+          aria-label={isFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
           onClick={handleFavoriteClick}
         >
-          <Heart size={16} className="text-ink-muted hover:text-coral transition-colors" />
+          <Heart
+            size={16}
+            className={`transition-colors ${
+              isFav
+                ? 'text-coral fill-coral'
+                : 'text-ink-muted hover:text-coral'
+            }`}
+          />
         </button>
 
         {/* Favorite toast */}

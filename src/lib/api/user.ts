@@ -23,6 +23,10 @@ import type {
   CreateWishlistResponse,
   GetWishlistResponse,
   AddWishlistItemResponse,
+  FavoritesResponse,
+  AddFavoriteResponse,
+  EntityType,
+  CreateFavoriteBody,
 } from './types';
 
 // ============================================================
@@ -382,4 +386,33 @@ export async function shareWishlist(wishlistId: string): Promise<{ message: stri
  */
 export async function makeWishlistPrivate(wishlistId: string): Promise<{ message: string }> {
   return api.put(`/v1/user/wishlists/${wishlistId}/private`);
+}
+
+// ============================================================
+// Favorites
+// ============================================================
+
+/**
+ * GET /v1/user/favorites
+ * List all favorites, optionally filtered by entity type.
+ */
+export async function listFavorites(entityType?: EntityType): Promise<FavoritesResponse> {
+  const query = entityType ? `?entity_type=${entityType}` : '';
+  return api.get<FavoritesResponse>(`/v1/user/favorites${query}`);
+}
+
+/**
+ * POST /v1/user/favorites
+ * Add an entity to favorites.
+ */
+export async function addFavorite(body: CreateFavoriteBody): Promise<AddFavoriteResponse> {
+  return api.post<AddFavoriteResponse>('/v1/user/favorites', body);
+}
+
+/**
+ * DELETE /v1/user/favorites/:id
+ * Remove an entity from favorites.
+ */
+export async function deleteFavorite(favoriteId: string): Promise<{ message: string }> {
+  return api.delete(`/v1/user/favorites/${favoriteId}`);
 }
