@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { AccountSidebar } from './AccountSidebar';
+import { AccountErrorBoundary } from './AccountErrorBoundary';
 
 export function AccountShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -48,7 +49,9 @@ export function AccountShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-[calc(100vh-4rem)]">
       <AccountSidebar />
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-        <div className="max-w-3xl mx-auto">{children}</div>
+        <div className="max-w-3xl mx-auto">
+          <AccountErrorBoundary>{children}</AccountErrorBoundary>
+        </div>
       </main>
     </div>
   );
