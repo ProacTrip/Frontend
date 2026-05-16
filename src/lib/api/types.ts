@@ -243,13 +243,14 @@ export interface ListDocumentTypesResponse {
 export interface Document {
   id: string;
   file_name: string;
-  mime_type: string;
-  file_size: number;
+  mime_type?: string;
+  file_size?: number;
   ocr_status: 'uploaded' | 'validating' | 'sanitizing' | 'ocr_processing' | 'completed' | 'rejected' | 'failed';
+  ocr_confidence: number | null;
   is_verified: boolean;
   document_type: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface UploadDocumentResponse {
@@ -274,7 +275,10 @@ export interface SavedSearch {
   parameters: Record<string, unknown>;
   filters: Record<string, unknown> | null;
   alert_enabled: boolean;
+  last_executed_at: string | null;
+  result_count: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateSavedSearchResponse {
@@ -283,7 +287,7 @@ export interface CreateSavedSearchResponse {
 }
 
 export interface ListSavedSearchesResponse {
-  saved_searches: SavedSearch[];
+  searches: SavedSearch[];
 }
 
 export interface Wishlist {
