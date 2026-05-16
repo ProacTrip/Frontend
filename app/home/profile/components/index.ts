@@ -4,3 +4,6 @@ export { TravelForm } from './TravelForm';
 export { MedicalForm } from './MedicalForm';
 export { NotificationsForm } from './NotificationsForm';
 export { AvatarForm } from './AvatarForm';
+export { DocumentsForm } from './DocumentsForm';
+export { SavedSearchesForm } from './SavedSearchesForm';
+export { MedicalConflictsCard } from './MedicalConflictsCard';

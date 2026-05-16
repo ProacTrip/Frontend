@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getProfile, ProfileResponse } from '@/app/lib/api';
+import { getProfile, ProfileResponse, listMedicalPending } from '@/app/lib/api';
 import Loader from '@/components/ui/Loader';
 import {
   User,
@@ -11,6 +11,8 @@ import {
   HeartPulse,
   Bell,
   Image as ImageIcon,
+  FileText,
+  Search,
 } from 'lucide-react';
 
 import {
@@ -20,6 +22,9 @@ import {
   MedicalForm,
   NotificationsForm,
   AvatarForm,
+  DocumentsForm,
+  SavedSearchesForm,
+  MedicalConflictsCard,
 } from './components';
 
 const TABS = [
@@ -29,6 +34,8 @@ const TABS = [
   { id: 'medical', label: 'Médico', icon: HeartPulse },
   { id: 'notifications', label: 'Notificaciones', icon: Bell },
   { id: 'avatar', label: 'Avatar', icon: ImageIcon },
+  { id: 'documents', label: 'Documentos', icon: FileText },
+  { id: 'searches', label: 'Búsquedas', icon: Search },
 ];
 
 export default function ProfilePage() {
@@ -37,6 +44,7 @@ export default function ProfilePage() {
   const [data, setData] = useState<ProfileResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [conflictCount, setConflictCount] = useState(0);
 
   const reloadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +60,19 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Fetch medical conflicts count for badge
+  useEffect(() => {
+    async function fetchConflicts() {
+      try {
+        const res = await listMedicalPending();
+        setConflictCount(res.conflicts.length);
+      } catch {
+        setConflictCount(0);
+      }
+    }
+    fetchConflicts();
   }, []);
 
   useEffect(() => {
@@ -148,28 +169,34 @@ export default function ProfilePage() {
       </div>
 
       {/* ─── TABS ─── */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
+      <div className="flex flex-wrap gap-2 border-b border-paper-outline mb-6">
         {TABS.map((tab) => {
           const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'bg-[#FF6B6B] text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 relative ${
+                isActive
+                  ? 'border-b-2 border-coral text-coral'
+                  : 'text-ink-muted hover:bg-paper-dim hover:text-ink'
               }`}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
+              {tab.id === 'medical' && conflictCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-error text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                  {conflictCount}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       {/* ─── CONTENIDO ─── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-paper rounded-2xl shadow-sm border border-paper-outline p-6">
         {activeTab === 'personal' && (
           <PersonalDataForm profile={profile} onSave={reloadProfile} />
         )}
@@ -192,13 +219,24 @@ export default function ProfilePage() {
           />
         )}
         {activeTab === 'medical' && (
-          <MedicalForm onSave={reloadProfile} />
+          <>
+            <MedicalForm onSave={reloadProfile} />
+            <div className="mt-6">
+              <MedicalConflictsCard />
+            </div>
+          </>
         )}
         {activeTab === 'notifications' && (
           <NotificationsForm prefs={notification_preferences} onSave={reloadProfile} />
         )}
         {activeTab === 'avatar' && (
           <AvatarForm currentUrl={profile.avatar_url} onSave={reloadProfile} />
+        )}
+        {activeTab === 'documents' && (
+          <DocumentsForm />
+        )}
+        {activeTab === 'searches' && (
+          <SavedSearchesForm />
         )}
       </div>
     </div>
