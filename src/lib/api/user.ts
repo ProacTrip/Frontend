@@ -294,8 +294,8 @@ export async function deleteSavedSearch(searchId: string): Promise<{ message: st
 /**
  * PUT /v1/user/saved-searches/:id/alert
  */
-export async function toggleAlert(searchId: string): Promise<{ message: string; alert_enabled: boolean }> {
-  return api.put(`/v1/user/saved-searches/${searchId}/alert`);
+export async function toggleAlert(searchId: string, enabled: boolean): Promise<{ message: string; alert_enabled: boolean }> {
+  return api.put(`/v1/user/saved-searches/${searchId}/alert`, { enabled });
 }
 
 // ============================================================

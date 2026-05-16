@@ -15,6 +15,28 @@ import {
 } from 'lucide-react';
 import type { Document, DocumentType } from '@/lib/api/types';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+async function handleDownload(docId: string, fileName: string) {
+  try {
+    const res = await fetch(`${API_URL}/v1/user/documents/${docId}/download`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    // Silent fail — user can retry
+  }
+}
+
 interface DocumentCardProps {
   document: Document;
   onDelete: (id: string) => void;
@@ -161,14 +183,17 @@ export function DocumentCard({ document: doc, onDelete, documentTypes }: Documen
 
           <div className="flex items-center gap-2 pt-1">
             {canDownload && (
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/v1/user/documents/${doc.id}/download`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-olive-container text-olive hover:bg-olive-container/80 transition-colors"
-                download
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(doc.id, doc.file_name);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-olive-container text-olive hover:bg-olive-container/80 transition-colors cursor-pointer"
               >
                 <Download size={14} />
                 Descargar
-              </a>
+              </button>
             )}
 
             {!confirmDelete ? (
