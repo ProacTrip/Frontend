@@ -3,7 +3,7 @@
 // Forwards browser cookies to the backend via Cookie header
 // ==========================================
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 interface ProxyOptions {
   method?: string;
@@ -48,5 +48,5 @@ export async function proxyFetch(
     fetchOpts.body = JSON.stringify(options.body);
   }
 
-  return fetch(`${BACKEND_URL}${endpoint}`, fetchOpts);
+  return fetch(`${API_URL}${endpoint}`, fetchOpts);
 }

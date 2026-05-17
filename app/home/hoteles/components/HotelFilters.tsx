@@ -3,7 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DollarSign, Star, Home } from 'lucide-react';
+import { DollarSign, Star, Home, ArrowUpDown, XCircle, Percent, Leaf, Bed, Bath, Building2 } from 'lucide-react';
 import type { FilterValues } from '@/app/lib/types/hotel';
 
 // ✅ CORRECCIÓN 1: Re-export para que page.tsx no se rompa
@@ -20,6 +20,15 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<number[]>([]);
   const [selectedHotelClasses, setSelectedHotelClasses] = useState<number[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<number[]>([]);
+
+  // Nuevos filtros — hotel-search-alignment
+  const [sortBy, setSortBy] = useState<string>('relevance');
+  const [freeCancellation, setFreeCancellation] = useState<boolean>(false);
+  const [specialOffers, setSpecialOffers] = useState<boolean>(false);
+  const [ecoCertified, setEcoCertified] = useState<boolean>(false);
+  const [bedrooms, setBedrooms] = useState<number | null>(null);
+  const [bathrooms, setBathrooms] = useState<number | null>(null);
+  const [vacationRentals, setVacationRentals] = useState<boolean>(false);
 
   // Ratings disponibles
   const ratings = [
@@ -106,6 +115,14 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
       property_types: selectedPropertyTypes,
       hotel_classes: selectedHotelClasses,
       amenities: selectedAmenities,
+      // Nuevos filtros
+      sort_by: sortBy !== 'relevance' ? sortBy : undefined,
+      free_cancellation: freeCancellation || undefined,
+      special_offers: specialOffers || undefined,
+      eco_certified: ecoCertified || undefined,
+      bedrooms: bedrooms ?? undefined,
+      bathrooms: bathrooms ?? undefined,
+      vacation_rentals: vacationRentals || undefined,
     });
   };
 
@@ -117,6 +134,14 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
     setSelectedPropertyTypes([]);
     setSelectedHotelClasses([]);
     setSelectedAmenities([]);
+    
+    setSortBy('relevance');
+    setFreeCancellation(false);
+    setSpecialOffers(false);
+    setEcoCertified(false);
+    setBedrooms(null);
+    setBathrooms(null);
+    setVacationRentals(false);
     
     onFilterChange({
       min_price: null,
@@ -287,7 +312,7 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
       </div>
 
       {/* AMENITIES */}
-      <div className="mb-6">
+      <div className="mb-6 pb-6 border-b border-gray-200">
         <h4 className="font-semibold text-gray-800 mb-4">Servicios</h4>
         
         <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
@@ -307,6 +332,136 @@ export default function HotelFilters({ onFilterChange }: HotelFiltersProps) {
           ))}
         </div>
       </div>
+
+      {/* ORDENAR POR — Nuevo filtro */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-2 mb-4">
+          <ArrowUpDown className="w-5 h-5 text-gray-600" />
+          <h4 className="font-semibold text-gray-800">Ordenar por</h4>
+        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none bg-white"
+        >
+          <option value="relevance">Relevancia</option>
+          <option value="price_low_to_high">Precio: menor a mayor</option>
+          <option value="price_high_to_low">Precio: mayor a menor</option>
+          <option value="rating">Mejor valorados</option>
+          <option value="distance">Más cercanos</option>
+        </select>
+      </div>
+
+      {/* FILTROS RÁPIDOS — toggles */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4">Filtros rápidos</h4>
+        
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors">
+            <input
+              type="checkbox"
+              checked={freeCancellation}
+              onChange={(e) => setFreeCancellation(e.target.checked)}
+              className="w-4 h-4 text-[#FF6B6B] focus:ring-[#FF6B6B] rounded cursor-pointer"
+            />
+            <XCircle className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-700">Cancelación gratuita</span>
+          </label>
+          
+          <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors">
+            <input
+              type="checkbox"
+              checked={specialOffers}
+              onChange={(e) => setSpecialOffers(e.target.checked)}
+              className="w-4 h-4 text-[#FF6B6B] focus:ring-[#FF6B6B] rounded cursor-pointer"
+            />
+            <Percent className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-700">Ofertas especiales</span>
+          </label>
+          
+          <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors">
+            <input
+              type="checkbox"
+              checked={ecoCertified}
+              onChange={(e) => setEcoCertified(e.target.checked)}
+              className="w-4 h-4 text-[#FF6B6B] focus:ring-[#FF6B6B] rounded cursor-pointer"
+            />
+            <Leaf className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-700">Eco certificado</span>
+          </label>
+        </div>
+      </div>
+
+      {/* TIPO DE ALOJAMIENTO — toggle Hotels/VR */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 className="w-5 h-5 text-gray-600" />
+          <h4 className="font-semibold text-gray-800">Tipo de alojamiento</h4>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setVacationRentals(false)}
+            className={`px-3 py-2 text-sm rounded-md font-medium transition-colors ${
+              !vacationRentals
+                ? 'bg-[#FF6B6B] text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Hoteles
+          </button>
+          <button
+            onClick={() => setVacationRentals(true)}
+            className={`px-3 py-2 text-sm rounded-md font-medium transition-colors ${
+              vacationRentals
+                ? 'bg-[#FF6B6B] text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Alquileres
+          </button>
+        </div>
+      </div>
+
+      {/* CAPACIDAD VR — visible solo si vacationRentals está activo */}
+      {vacationRentals && (
+        <div className="mb-6">
+          <h4 className="font-semibold text-gray-800 mb-4">Capacidad</h4>
+          
+          <div className="flex items-center gap-3 mb-3">
+            <Bed className="w-4 h-4 text-gray-500" />
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 mb-1">Mínimo de dormitorios</label>
+              <select
+                value={bedrooms ?? ''}
+                onChange={(e) => setBedrooms(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none bg-white"
+              >
+                <option value="">Cualquiera</option>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>{n}+ dormitorio{n > 1 ? 's' : ''}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <Bath className="w-4 h-4 text-gray-500" />
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 mb-1">Mínimo de baños</label>
+              <select
+                value={bathrooms ?? ''}
+                onChange={(e) => setBathrooms(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none bg-white"
+              >
+                <option value="">Cualquiera</option>
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>{n}+ baño{n > 1 ? 's' : ''}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Botón aplicar filtros */}
       <button

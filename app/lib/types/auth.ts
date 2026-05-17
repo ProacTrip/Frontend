@@ -98,3 +98,27 @@ export interface ForgotPasswordResponse {
 export interface ResetPasswordResponse {
   message: string;
 }
+
+/**
+ * Machine-readable error codes for auth API errors.
+ * Maps to RFC 9457 type URI last path segments from the backend.
+ * Follows UserErrorCode pattern (UPPER_SNAKE_CASE).
+ */
+export type AuthApiErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'EMAIL_NOT_VERIFIED'
+  | 'EMAIL_ALREADY_EXISTS'
+  | 'ACCOUNT_LOCKED'
+  | 'ACCOUNT_SUSPENDED'
+  | 'ACCOUNT_INACTIVE'
+  | 'TOKEN_INVALID'
+  | 'TOKEN_EXPIRED'
+  | 'VALIDATION_ERROR'
+  | 'INVALID_EMAIL'
+  | 'WEAK_PASSWORD'
+  | 'INVALID_INPUT'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'OAUTH_PROVIDER_NOT_FOUND'
+  | 'CONFLICT'
+  | 'USER_NOT_FOUND'
+  | 'INTERNAL_ERROR';

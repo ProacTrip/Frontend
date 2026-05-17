@@ -2,11 +2,15 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, Timer } from 'lucide-react';
 import SearchForm, { SearchParams } from './components/SearchForm';
 import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
-import { searchHotels, RateLimitError } from '@/app/lib/api';
+import { searchHotels } from '@/app/lib/api/hotels';
+import { HotelApiError } from '@/app/lib/api/hotels';
+import type { HotelErrorCode } from '@/app/lib/api/hotels';
+import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
 import { getStoredEnvironment } from '@/app/lib/utils/location';
 import type { EnvironmentResponse } from '@/app/lib/api/context';
 
@@ -18,6 +22,32 @@ function HotelesContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [displayedHotels, setDisplayedHotels] = useState<any[]>([]);
   const [locationContext, setLocationContext] = useState<EnvironmentResponse | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  // ---- Rate limit state ----
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
+  const [rateLimitBlocked, setRateLimitBlocked] = useState<boolean>(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
+
+  // Subscribe to rate limit store changes
+  useEffect(() => {
+    const unsubscribe = rateLimitStore.subscribe((info: RateLimitInfo | null) => {
+      setRateLimitInfo(info);
+    });
+
+    const interval = setInterval(() => {
+      setRateLimitBlocked(rateLimitStore.isBlocked);
+      setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
+    }, 1000);
+
+    setRateLimitBlocked(rateLimitStore.isBlocked);
+    setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const env = getStoredEnvironment();
@@ -54,6 +84,7 @@ function HotelesContent() {
     setIsSearching(true);
     setHasSearched(true);
     setLastSearchParams(params);
+    setSearchError(null);
     
     try {
       const response = await searchHotels(params, activeFilters);
@@ -62,12 +93,26 @@ function HotelesContent() {
       setNextToken(response.pagination.next_token);
       setHasMore(response.pagination.has_more);
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error en la búsqueda:', error);
-      const msg = error instanceof RateLimitError
-        ? error.message
-        : 'Error al buscar hoteles. Por favor intenta de nuevo.';
-      alert(msg);
+      
+      let errorMessage: string;
+      if (error instanceof HotelApiError) {
+        const messages: Record<HotelErrorCode, string> = {
+          VALIDATION_ERROR: error.detail || 'Parámetros de búsqueda inválidos. Revisá los campos.',
+          INVALID_PARAM_RANGE: error.detail || 'Algún valor está fuera del rango permitido.',
+          RATE_LIMIT_EXCEEDED: 'Límite de búsquedas alcanzado. Reintentá en unos segundos.',
+          PROPERTY_NOT_FOUND: 'No se encontró el alojamiento solicitado.',
+          TOKEN_INVALID: 'Tu sesión ha expirado. Por favor, iniciá sesión nuevamente.',
+          PROVIDER_UNAVAILABLE: 'El servicio de búsqueda no está disponible. Reintentá más tarde.',
+          INTERNAL_ERROR: 'Error interno del servidor. Reintentá más tarde.',
+        };
+        errorMessage = messages[error.code] || error.detail;
+      } else {
+        errorMessage = error instanceof Error ? error.message : 'Error al buscar hoteles. Por favor intentá de nuevo.';
+      }
+      
+      setSearchError(errorMessage);
       setDisplayedHotels([]);
       setHasMore(false);
     } finally {
@@ -94,10 +139,10 @@ function HotelesContent() {
       setNextToken(response.pagination.next_token);
       setHasMore(response.pagination.has_more);
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('❌ Error cargando más hoteles:', error);
-      if (error instanceof RateLimitError) {
-        alert(error.message);
+      if (error instanceof HotelApiError) {
+        console.error(`[${error.code}] ${error.detail}`);
       }
     } finally {
       setIsSearching(false);
@@ -151,6 +196,53 @@ function HotelesContent() {
             </div>
 
             <SearchForm onSearch={handleSearch} isLoading={isSearching && !hasSearched} />
+
+            {/* Error banner — follows vuelos/page.tsx pattern */}
+            {searchError && (
+              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                <div>
+                  <p className="font-medium text-red-800">Error en la búsqueda</p>
+                  <p className="text-sm text-red-600">{searchError}</p>
+                </div>
+                <button
+                  onClick={() => setSearchError(null)}
+                  className="ml-auto text-xs text-red-500 hover:text-red-700 underline"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {/* Rate limit warning (non-blocking) */}
+            {rateLimitInfo && rateLimitInfo.remaining <= 2 && rateLimitInfo.remaining > 0 && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3 text-sm text-amber-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                <div>
+                  <p className="font-medium">
+                    Quedan {rateLimitInfo.remaining} búsqueda{rateLimitInfo.remaining !== 1 ? 's' : ''}.
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    Se reinicia en {Math.max(0, rateLimitInfo.reset)}s.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Rate limit BLOCKED (429) */}
+            {rateLimitBlocked && rateLimitCountdown > 0 && (
+              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                <Timer className="w-5 h-5 flex-shrink-0 text-red-500 animate-pulse" />
+                <div>
+                  <p className="font-medium text-red-800">
+                    Límite alcanzado. Reintentá en {Math.floor(rateLimitCountdown / 60)}:{String(rateLimitCountdown % 60).padStart(2, '0')}.
+                  </p>
+                  <p className="text-xs text-red-600">
+                    La búsqueda estará disponible automáticamente.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {hasSearched ? (
               displayedHotels.length > 0 ? (

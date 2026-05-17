@@ -98,6 +98,15 @@ export interface FilterValues {
   property_types: number[];
   hotel_classes: number[];
   amenities: number[];
+  // Nuevos filtros — hotel-search-alignment
+  sort_by?: string;
+  brands?: string[];
+  free_cancellation?: boolean;
+  special_offers?: boolean;
+  eco_certified?: boolean;
+  bedrooms?: number;
+  bathrooms?: number;
+  vacation_rentals?: boolean;
 }
 
 // ==========================================
@@ -116,6 +125,16 @@ export interface BackendSearchHotel {
   price: BackendPrice; // ✅ Siempre presente en búsqueda
   rating: BackendRating;
   total_reviews: number;
+  // Desglose detallado de ratings
+  ratings?: Array<{
+    type: string;
+    value: number;
+    max_score: number;
+  }>;
+  reviews_breakdown?: {
+    estimated_total: number;
+    filter_scores: Record<string, number>;
+  };
   amenities?: string[];
   check_in?: string;
   check_out?: string;
@@ -252,6 +271,17 @@ export interface FrontendHotel {
   price: FrontendPrice;
   rating: FrontendRating;
   bookingUrl?: string | null; // ✅ Añadido para el botón de reserva
+  
+  // Desglose detallado de ratings
+  ratings?: Array<{
+    type: string;
+    value: number;
+    max_score: number;
+  }>;
+  reviewsBreakdown?: {
+    estimated_total: number;
+    filter_scores: Record<string, number>;
+  };
   
   // Campos detalle:
   description?: string;

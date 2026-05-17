@@ -26,12 +26,14 @@ export type { UserProfile } from './auth';
 // ==========================================
 // 2. HOTELES
 // ==========================================
-export { searchHotels, getHotelDetails, getHotelRooms } from './hotels';
+export { searchHotels, getHotelDetails, getHotelRooms, HotelApiError } from './hotels';
+export type { HotelErrorCode } from './hotels';
 
 // ==========================================
 // 3. VUELOS
 // ==========================================
-export { searchFlights, getFlightDetails } from './flights';
+export { searchFlights, getFlightDetails, FlightApiError } from './flights';
+export type { FlightErrorCode } from './flights';
 
 // ==========================================
 // 4. DASHBOARD (ADMIN)
@@ -99,6 +101,8 @@ export {
   updateTravelPreferences,
   getMedicalProfile,
   updateMedicalProfile,
+  listMedicalConflicts,
+  resolveMedicalConflict,
   updateNotificationPreference,
   getUploadAvatarUrl,
   uploadAvatarToR2,
@@ -108,7 +112,9 @@ export {
   listFavorites,
   addFavorite,
   deleteFavorite,
+  UserApiError,
 } from './user';
+export type { UserErrorCode } from './user';
 
 export type {
   ProfileResponse,
@@ -118,6 +124,11 @@ export type {
   UpdateTravelPreferencesBody,
   MedicalProfile,
   UpdateMedicalProfileBody,
+  MedicalConflict,
+  PendingConflictsResponse,
+  ResolveConflictBody,
+  ConflictAction,
+  PendingConflicts,
   NotificationPreference,
   UpdateNotificationPreferenceBody,
   LocaleUpdate,
@@ -133,3 +144,64 @@ export type {
   FavoritesResponse,
   AddFavoriteResponse,
 } from '@/app/lib/types/user';
+
+// ==========================================
+// 9. DOCUMENTOS (NUEVO)
+// ==========================================
+export {
+  listDocumentTypes,
+  uploadDocument,
+  listDocuments,
+  getDocument,
+  downloadDocument,
+  deleteDocument,
+  subscribeToDocumentEvents,
+} from './documents';
+
+export type {
+  DocumentType,
+  DocumentListItem,
+  DocumentDetail,
+  DocumentUploadResponse,
+  DocumentEvent,
+  DocumentListResponse,
+  OcrStatus,
+} from '@/app/lib/types/document';
+
+// ==========================================
+// 10. BÚSQUEDAS GUARDADAS (NUEVO)
+// ==========================================
+export {
+  createSavedSearch,
+  listSavedSearches,
+  updateSavedSearch,
+  deleteSavedSearch,
+  togglePriceAlert,
+} from './saved-searches';
+
+export type {
+  SavedSearch,
+  CreateSavedSearchBody,
+  UpdateSavedSearchBody,
+  SavedSearchListResponse,
+  ToggleAlertResponse,
+} from '@/app/lib/types/saved-search';
+
+// ==========================================
+// 11. AI SEARCH (NUEVO)
+// ==========================================
+export { searchAI } from './search-ai';
+export { SearchAIError } from '@/app/lib/types/search-ai';
+export type { AIErrorCode } from '@/app/lib/types/search-ai';
+export type {
+  AIResponse,
+  AIIntent,
+  AIIncompleteResponse,
+  AIAmbiguousResponse,
+  AIFlightsResponse,
+  AIHotelsResponse,
+  AIBothResponse,
+  AIDiscoveryResponse,
+  SearchAIRequest,
+  ChatMessage,
+} from '@/app/lib/types/search-ai';

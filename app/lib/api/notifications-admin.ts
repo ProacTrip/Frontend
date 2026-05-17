@@ -1,7 +1,10 @@
 // app/lib/api/notifications-admin.ts
-//Utilidad: Funciones CRUD de plantillas y envío manual de notificaciones (ADMIN)
+//
+// Raw fetch client for admin notification templates and manual sending.
+// Cookie-based auth: credentials:"include", no Authorization header needed.
+// Follows canonical user.ts pattern: typed errors, rate limit extraction,
+// AbortController timeouts, direct fetch() instead of apiFetch() wrapper.
 
-import { apiFetch } from './auth';
 import type {
   NotificationTemplateListResponse,
   CreateTemplateRequest,
@@ -10,79 +13,193 @@ import type {
   SendNotificationRequest,
   SendNotificationResponse,
 } from '@/app/lib/types/notification-admin';
+import {
+  UserApiError,
+  API_URL,
+  extractRateLimitHeaders,
+  parseUserError,
+} from '@/app/lib/api/user';
 
 // ==========================================
 // TEMPLATES (Admin)
 // ==========================================
 
 /**
- * 📋 Listar plantillas de notificación
+ * Listar plantillas de notificación.
+ *
+ * GET /v1/notifications/templates
+ * 10s timeout via AbortController.
+ * Throws UserApiError on failure.
  */
-export async function listTemplates(activeOnly: boolean = true): Promise<NotificationTemplateListResponse> {
-  const query = new URLSearchParams();
-  query.set('active_only', String(activeOnly));
+export async function listTemplates(
+  activeOnly: boolean = true,
+): Promise<NotificationTemplateListResponse> {
+  const endpoint = '/v1/notifications/templates';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  const response = await apiFetch(`/v1/notifications/templates?${query.toString()}`, {
-    method: 'GET',
-  });
+  try {
+    const url = new URL(`${API_URL}${endpoint}`);
+    url.searchParams.set('active_only', String(activeOnly));
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
- * ➕ Crear nueva plantilla
+ * Crear nueva plantilla de notificación.
+ *
+ * POST /v1/notifications/templates
+ * 10s timeout via AbortController.
+ * Throws UserApiError on failure.
  */
-export async function createTemplate(data: CreateTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/v1/notifications/templates', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function createTemplate(
+  data: CreateTemplateRequest,
+): Promise<{ message: string }> {
+  const endpoint = '/v1/notifications/templates';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
- * ✏️ Actualizar plantilla existente
+ * Actualizar plantilla existente.
+ *
+ * PUT /v1/notifications/templates
+ * 10s timeout via AbortController.
+ * Throws UserApiError on failure.
  */
-export async function updateTemplate(data: UpdateTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/v1/notifications/templates', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+export async function updateTemplate(
+  data: UpdateTemplateRequest,
+): Promise<{ message: string }> {
+  const endpoint = '/v1/notifications/templates';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
- * 🔄 Activar / Desactivar plantilla
+ * Activar / Desactivar plantilla.
+ *
+ * PUT /v1/notifications/templates/toggle
+ * 10s timeout via AbortController.
+ * Throws UserApiError on failure.
  */
-export async function toggleTemplate(data: ToggleTemplateRequest): Promise<{ message: string }> {
-  const response = await apiFetch('/v1/notifications/templates/toggle', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+export async function toggleTemplate(
+  data: ToggleTemplateRequest,
+): Promise<{ message: string }> {
+  const endpoint = '/v1/notifications/templates/toggle';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -90,18 +207,45 @@ export async function toggleTemplate(data: ToggleTemplateRequest): Promise<{ mes
 // ==========================================
 
 /**
- * 📨 Enviar notificación a un usuario específico
+ * Enviar notificación a un usuario específico.
+ *
+ * POST /v1/notifications/send
+ * 10s timeout via AbortController.
+ * Throws UserApiError on failure.
  */
-export async function sendNotification(data: SendNotificationRequest): Promise<SendNotificationResponse> {
-  const response = await apiFetch('/v1/notifications/send', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function sendNotification(
+  data: SendNotificationRequest,
+): Promise<SendNotificationResponse> {
+  const endpoint = '/v1/notifications/send';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }

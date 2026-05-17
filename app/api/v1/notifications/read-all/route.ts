@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export async function PUT(req: Request) {
   try {
@@ -12,7 +12,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'authorization header required' }, { status: 401 });
     }
 
-    const res = await fetch(`${BACKEND_URL}/v1/notifications/read-all`, {
+    const res = await fetch(`${API_URL}/v1/notifications/read-all`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

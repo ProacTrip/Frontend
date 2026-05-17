@@ -1,9 +1,9 @@
 // app/home/vuelos/page.tsx
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plane, RotateCcw, MapPin, SlidersHorizontal, AlertCircle, Shield, Sparkles, Clock, Filter, ArrowUpDown } from 'lucide-react';
+import { Plane, RotateCcw, MapPin, SlidersHorizontal, AlertCircle, Shield, Sparkles, Clock, Filter, ArrowUpDown, Timer } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 import FlightSearchForm from './components/FlightSearchForm';
@@ -12,7 +12,8 @@ import FlightFilters, { FlightFiltersState } from './components/FlightFilters';
 import FlightDetailModal from './components/FlightDetailModal';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
 
-import { searchFlights, getFlightDetails } from '@/app/lib/api/flights';
+import { searchFlights, getFlightDetails, FlightApiError } from '@/app/lib/api/flights';
+import type { FlightErrorCode } from '@/app/lib/api/flights';
 import type { 
   FlightSearchResponse, 
   FlightSearchRequest, 
@@ -21,6 +22,8 @@ import type {
 } from '@/app/lib/types/flight';
 import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
 import { SEARCH_CONFIG } from '@/app/lib/constants/flights';
+import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
+import { getEnvironment, type EnvironmentResponse } from '@/app/lib/api/context';
 
 type SearchPhase = 'initial' | 'outbound_selection' | 'return_selection' | 'complete';
 
@@ -75,6 +78,55 @@ export default function FlightsPage(): React.ReactElement {
   const [flightDetails, setFlightDetails] = useState<FlightDetailsResponse | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(false);
   const [showAuthError, setShowAuthError] = useState<boolean>(false);
+
+  // ---- Rate limit state (Task 2.2) ----
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
+  const [rateLimitBlocked, setRateLimitBlocked] = useState<boolean>(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
+
+  // ---- Environment state (Task 2.4) ----
+  const [environmentData, setEnvironmentData] = useState<EnvironmentResponse | null>(null);
+  const [envError, setEnvError] = useState<string | null>(null);
+
+  // Subscribe to rate limit store changes
+  useEffect(() => {
+    const unsubscribe = rateLimitStore.subscribe((info: RateLimitInfo | null) => {
+      setRateLimitInfo(info);
+    });
+
+    // Poll blocked state and countdown every second
+    const interval = setInterval(() => {
+      setRateLimitBlocked(rateLimitStore.isBlocked);
+      setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
+    }, 1000);
+
+    // Initialize immediately
+    setRateLimitBlocked(rateLimitStore.isBlocked);
+    setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Fetch environment on first mount (Task 2.4)
+  useEffect(() => {
+    let cancelled = false;
+    
+    getEnvironment()
+      .then((data) => {
+        if (!cancelled) setEnvironmentData(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          console.warn('Failed to fetch environment:', err);
+          setEnvError('No se pudo obtener la ubicación. Usando valores por defecto.');
+        }
+      });
+    
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredResults = useMemo((): FlightOfferUI[] => {
     if (!allOffers.length) return [];
@@ -146,10 +198,26 @@ export default function FlightsPage(): React.ReactElement {
       setAllOffers(offers);
       setNextCursor(response.meta?.next_cursor ?? null);
     } catch (err: unknown) {
+      let errorMessage: string;
+      
+      if (err instanceof FlightApiError) {
+        const messages: Record<FlightErrorCode, string> = {
+          VALIDATION_ERROR: err.detail || 'Parámetros de búsqueda inválidos. Revisá los campos.',
+          INVALID_PARAM_RANGE: err.detail || 'Algún valor está fuera del rango permitido.',
+          RATE_LIMIT_EXCEEDED: 'Límite de búsquedas alcanzado. Reintentá en unos segundos.',
+          BOOKING_TOKEN_EXPIRED: 'La sesión de búsqueda expiró. Por favor, buscá de nuevo.',
+          PROVIDER_UNAVAILABLE: 'El servicio de búsqueda no está disponible. Reintentá más tarde.',
+          INTERNAL_ERROR: 'Error interno del servidor. Reintentá más tarde.',
+        };
+        errorMessage = messages[err.code] || err.detail;
+      } else {
+        errorMessage = err instanceof Error ? err.message : 'Error al buscar vuelos';
+      }
+      
       setSearchState((prev: SearchState) => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Error al buscar vuelos',
+        error: errorMessage,
       }));
     }
   }, []);
@@ -174,7 +242,11 @@ export default function FlightsPage(): React.ReactElement {
       setAllOffers((prev: FlightOfferUI[]) => [...prev, ...newOffers]);
       setNextCursor(response.meta?.next_cursor ?? null);
     } catch (err: unknown) {
-      console.error('Error loading more results:', err);
+      if (err instanceof FlightApiError) {
+        console.error(`Límite de búsquedas al cargar más: [${err.code}] ${err.detail}`);
+      } else {
+        console.error('Error al cargar más resultados:', err);
+      }
     } finally {
       setIsLoadingMore(false);
     }
@@ -234,13 +306,13 @@ export default function FlightsPage(): React.ReactElement {
           searchState.request ? {
             departure: searchState.request.departure || '',
             arrival: searchState.request.arrival || '',
-            outboundDate: searchState.request.outbound_date || '',
-            returnDate: searchState.request.return_date,
+            outbound_date: searchState.request.outbound_date || '',
+            return_date: searchState.request.return_date,
           } : undefined
         );
         setFlightDetails(details);
       } catch (e: unknown) {
-        console.error('Error cargando detalles:', e);
+        console.error('Error al cargar detalles del vuelo:', e);
       } finally {
         setIsLoadingDetails(false);
       }
@@ -504,7 +576,51 @@ export default function FlightsPage(): React.ReactElement {
                 setSortCriteria('none');
                 setAppliedSort('none');
               }}
+              searchBlocked={rateLimitBlocked}
+              initialValues={environmentData ? {
+                gl: environmentData.location.country_code,
+                hl: environmentData.location.language,
+                currency: environmentData.location.currency,
+              } : undefined}
             />
+
+            {/* Rate limit warning (non-blocking) — Task 2.2 */}
+            {rateLimitInfo && rateLimitInfo.remaining <= 2 && rateLimitInfo.remaining > 0 && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3 text-sm text-amber-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                <div>
+                  <p className="font-medium">
+                    Quedan {rateLimitInfo.remaining} búsqueda{rateLimitInfo.remaining !== 1 ? 's' : ''}.
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    Se reinicia en {Math.max(0, rateLimitInfo.reset)}s.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Rate limit BLOCKED (429) — Task 2.2 */}
+            {rateLimitBlocked && rateLimitCountdown > 0 && (
+              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                <Timer className="w-5 h-5 flex-shrink-0 text-red-500 animate-pulse" />
+                <div>
+                  <p className="font-medium text-red-800">
+                    Límite alcanzado. Reintentá en {Math.floor(rateLimitCountdown / 60)}:{String(rateLimitCountdown % 60).padStart(2, '0')}.
+                  </p>
+                  <p className="text-xs text-red-600">
+                    El botón de búsqueda se habilitará automáticamente.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Environment error (non-blocking) — Task 2.4 */}
+            {envError && (
+              <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-600">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{envError}</span>
+              </div>
+            )}
 
             {searchState.phase === 'return_selection' && selectedOutbound && (
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 md:p-4">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
-import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, ShieldAlert } from 'lucide-react';
+import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, ShieldAlert, FileText, Search, Sparkles } from 'lucide-react';
 import CurrencySelector from '@/components/layout/CurrencySelector';
 import NotificationBell from '@/components/notifications/NotificationBell';
 
@@ -86,6 +86,9 @@ export default function Navbar(){
     { href: '/home', label: 'Home' },
     { href: '/home/hoteles', label: 'Hoteles' },
     { href: '/home/vuelos', label: 'Vuelos' },
+    { href: '/home/documentos', label: 'Documentos' },
+    { href: '/home/busquedas', label: 'Búsquedas' },
+    { href: '/home/busqueda-ai', label: 'Buscar con IA  ✦' },
     { href: '/home/contactanos', label: 'Contáctanos' },
   ];
 
@@ -131,6 +134,22 @@ export default function Navbar(){
                     className="relative text-white hover:text-red-800 transition-colors"
                   >
                     <HeartPlus className="w-6 h-6"/>
+                  </Link>
+
+                  {/*documentos*/}
+                  <Link 
+                    href="/home/documentos" 
+                    className="relative text-white hover:text-red-800 transition-colors"
+                  >
+                    <FileText className="w-6 h-6"/>
+                  </Link>
+
+                  {/*búsquedas guardadas*/}
+                  <Link 
+                    href="/home/busquedas" 
+                    className="relative text-white hover:text-red-800 transition-colors"
+                  >
+                    <Search className="w-6 h-6"/>
                   </Link>
 
                   {/*Campana notificaciones*/}
@@ -334,6 +353,28 @@ export default function Navbar(){
                     <div className="flex items-center gap-3">
                       <HeartPlus className="w-5 h-5" />
                       Me gusta
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/home/documentos"
+                    onClick={() => setMenuAbiertoMovil(false)}
+                    className="block py-2 text-white hover:text-red-800 transition-colors font-medium"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5" />
+                      Documentos
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/home/busquedas"
+                    onClick={() => setMenuAbiertoMovil(false)}
+                    className="block py-2 text-white hover:text-red-800 transition-colors font-medium"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Search className="w-5 h-5" />
+                      Búsquedas
                     </div>
                   </Link>
 

@@ -16,17 +16,6 @@ export type Channel = 'email' | 'sms' | 'websocket';
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
 // ─────────────────────────────────────────────────────────────
-// ERRORES (formato: { error: { code, message } })
-// ─────────────────────────────────────────────────────────────
-
-export interface UserError {
-  error: {
-    code: string;
-    message: string;
-  };
-}
-
-// ─────────────────────────────────────────────────────────────
 // PERFIL PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 
@@ -155,6 +144,38 @@ export interface AvatarUploadUrl {
   upload_url: string;
   storage_key: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// CONFLICTOS MÉDICOS
+// ─────────────────────────────────────────────────────────────
+
+export type ConflictAction = 'accept' | 'reject' | 'custom';
+
+export interface MedicalConflict {
+  id: string;
+  field: string;
+  current_value: string;
+  proposed_value: string;
+  source: {
+    type: 'ocr' | 'nlp';
+    document_id: string;
+    file_name: string;
+  };
+  suggested_at: string;
+  expires_at: string;
+}
+
+export interface PendingConflictsResponse {
+  conflicts: MedicalConflict[];
+}
+
+export interface ResolveConflictBody {
+  pending_update_id: string;
+  action: ConflictAction;
+  custom_value?: string;
+}
+
+export type PendingConflicts = MedicalConflict[];
 
 // ─────────────────────────────────────────────────────────────
 // RESPUESTA PRINCIPAL

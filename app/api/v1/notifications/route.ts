@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export async function GET(req: Request) {
   try {
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.toString();
 
-    const res = await fetch(`${BACKEND_URL}/v1/notifications/${query ? '?' + query : ''}`, {
+    const res = await fetch(`${API_URL}/v1/notifications/${query ? '?' + query : ''}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

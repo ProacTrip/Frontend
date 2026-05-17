@@ -1,9 +1,13 @@
-import { apiFetch, RateLimitError } from './auth';
+// app/lib/api/context.ts
+//
+// GET /v1/environment — GeoIP location + weather.
+// Switched from apiFetch to raw fetch (two-tier pattern from anti-fron search.ts).
+// SessionStorage cache with 10min TTL.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // ==========================================
-// TYPES — alineados con GET /v1/environment
+// TYPES — aligned with GET /v1/environment
 // ==========================================
 
 export interface LocationData {
@@ -30,13 +34,57 @@ export interface WeatherData {
 }
 
 /**
- * Respuesta completa de GET /v1/environment.
- * `weather` puede ser null si el backend no tiene API key de OpenWeather
- * o si el proveedor falla (ver docs: degradación elegante).
+ * Full response from GET /v1/environment.
+ * `weather` can be null if the backend has no OpenWeather API key
+ * or if the provider fails (graceful degradation per docs).
  */
 export interface EnvironmentResponse {
   location: LocationData;
   weather: WeatherData | null;
+}
+
+// ==========================================
+// SESSION STORAGE CACHE
+// ==========================================
+
+const CACHE_KEY = 'environment-v1';
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+interface CachedEnvironment {
+  data: EnvironmentResponse;
+  cachedAt: number;
+}
+
+function getCachedEnvironment(): EnvironmentResponse | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+
+    const cached: CachedEnvironment = JSON.parse(raw);
+    if (Date.now() - cached.cachedAt > CACHE_TTL_MS) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+
+    return cached.data;
+  } catch {
+    // Corrupted cache — clear it
+    sessionStorage.removeItem(CACHE_KEY);
+    return null;
+  }
+}
+
+function setCachedEnvironment(data: EnvironmentResponse): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const cached: CachedEnvironment = { data, cachedAt: Date.now() };
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+  } catch {
+    // Quota exceeded or private browsing — silently skip caching
+  }
 }
 
 // ==========================================
@@ -46,16 +94,32 @@ export interface EnvironmentResponse {
 /**
  * GET /v1/environment
  *
- * Obtiene la ubicación GeoIP y el clima actual del cliente.
- * - La IP se detecta automáticamente por el backend.
- * - El idioma del clima proviene del header Accept-Language del navegador.
- * - El backend cachea 10 minutos en Redis por IP.
- * - El frontend cachea 10 minutos en localStorage (ver getStoredEnvironment).
- * - NO enviar lang como query param: el backend usa Accept-Language.
- * - `weather` puede ser null (degradación elegante sin fallo total).
- * - Usa apiFetch para manejo automático de 429 (RateLimitError) y 401.
+ * Returns GeoIP location and current weather for the client.
+ * - IP detected automatically by the backend.
+ * - Backend caches 10 minutes in Redis per IP.
+ * - Frontend caches 10 minutes in sessionStorage.
+ * - weather may be null (graceful degradation — no full failure).
+ * - Uses raw fetch with credentials:"include" for cookie-based auth.
  */
 export async function getEnvironment(): Promise<EnvironmentResponse> {
-  const res = await apiFetch('/v1/environment', { method: 'GET' });
-  return res.json();
+  // Check sessionStorage cache first
+  const cached = getCachedEnvironment();
+  if (cached) return cached;
+
+  const response = await fetch(`${API_URL}/v1/environment`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error al obtener ubicación: ${response.status}`);
+  }
+
+  const data: EnvironmentResponse = await response.json();
+
+  // Cache the fresh response
+  setCachedEnvironment(data);
+
+  return data;
 }

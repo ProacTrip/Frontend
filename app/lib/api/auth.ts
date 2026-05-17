@@ -2,8 +2,7 @@
 // 1. CONFIGURACIÓN
 // ==========================================
 
-import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthError } from '@/app/lib/types/auth';
-import { getErrorMessage } from '@/app/lib/utils/errors';
+import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthApiErrorCode } from '@/app/lib/types/auth';
 import { generateUUIDv7 } from '@/app/lib/utils/uuid';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
 
@@ -45,16 +44,25 @@ export class RateLimitError extends Error {
 export class AuthApiError extends Error {
   action: 'verify_email' | 'none';
   status: number;
+  code: AuthApiErrorCode;
+  traceId?: string;
+  retryAfter?: number;
 
   constructor(
-    message: string,
+    code: AuthApiErrorCode,
     status: number,
-    action: 'verify_email' | 'none' = 'none'
+    message: string,
+    action: 'verify_email' | 'none' = 'none',
+    traceId?: string,
+    retryAfter?: number,
   ) {
-    super(message);
+    super(`[${code}] ${message}`);
     this.name = 'AuthApiError';
-    this.action = action;
+    this.code = code;
     this.status = status;
+    this.action = action;
+    this.traceId = traceId;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -140,6 +148,117 @@ export async function apiFetch(
 }
 
 // ==========================================
+// 2.5. HELPERS — Rate limit extraction + error parsing
+// ==========================================
+
+/**
+ * Extract rate limit headers from ANY response (success or error)
+ * and update the global rateLimitStore.
+ * Exact copy of user.ts pattern.
+ */
+function extractRateLimitHeaders(response: Response, endpoint: string): void {
+  const limit = response.headers.get('RateLimit-Limit');
+  const remaining = response.headers.get('RateLimit-Remaining');
+  const reset = response.headers.get('RateLimit-Reset');
+
+  if (limit !== null && remaining !== null && reset !== null) {
+    rateLimitStore.update({
+      limit: parseInt(limit, 10),
+      remaining: parseInt(remaining, 10),
+      reset: parseInt(reset, 10),
+      endpoint,
+      timestamp: Date.now(),
+    });
+  }
+}
+
+/**
+ * Parse a non-ok Response into a typed AuthApiError.
+ * Maps RFC 9457 type URI → AuthApiErrorCode.
+ * On 429, calls rateLimitStore.block() with Retry-After.
+ * Always calls extractRateLimitHeaders before throwing.
+ */
+async function parseAuthError(response: Response, endpoint: string): Promise<never> {
+  const body = await response.json().catch(() => ({}));
+  const type: string = body?.type || '';
+  const status = response.status;
+
+  let code: AuthApiErrorCode;
+
+  // 1. Rate limit — highest priority
+  if (status === 429 || type.includes('rate_limit') || type.includes('rate-limit')) {
+    code = 'RATE_LIMIT_EXCEEDED';
+  }
+  // 2. Type URI-based mapping (last path segment)
+  else if (type.includes('invalid-credentials') || type.includes('invalid_credentials')) {
+    code = 'INVALID_CREDENTIALS';
+  } else if (type.includes('email-not-verified') || type.includes('email_not_verified')) {
+    code = 'EMAIL_NOT_VERIFIED';
+  } else if (type.includes('email-already-exists') || type.includes('email_already_exists')) {
+    code = 'EMAIL_ALREADY_EXISTS';
+  } else if (type.includes('account-locked') || type.includes('account_locked')) {
+    code = 'ACCOUNT_LOCKED';
+  } else if (type.includes('account-suspended') || type.includes('account_suspended')) {
+    code = 'ACCOUNT_SUSPENDED';
+  } else if (type.includes('account-inactive') || type.includes('account_inactive')) {
+    code = 'ACCOUNT_INACTIVE';
+  } else if (type.includes('token-invalid') || type.includes('token_invalid')) {
+    code = 'TOKEN_INVALID';
+  } else if (type.includes('token-expired') || type.includes('token_expired')) {
+    code = 'TOKEN_EXPIRED';
+  } else if (type.includes('invalid-email') || type.includes('invalid_email')) {
+    code = 'INVALID_EMAIL';
+  } else if (type.includes('weak-password') || type.includes('weak_password')) {
+    code = 'WEAK_PASSWORD';
+  } else if (type.includes('invalid-input') || type.includes('invalid_input')) {
+    code = 'INVALID_INPUT';
+  } else if (type.includes('oauth-provider-not-found') || type.includes('oauth_provider_not_found')) {
+    code = 'OAUTH_PROVIDER_NOT_FOUND';
+  } else if (type.includes('conflict')) {
+    code = 'CONFLICT';
+  } else if (type.includes('user-not-found') || type.includes('user_not_found')) {
+    code = 'USER_NOT_FOUND';
+  } else if (type.includes('validation')) {
+    code = 'VALIDATION_ERROR';
+  }
+  // 3. Status-based fallback
+  else if (status === 400) {
+    code = 'VALIDATION_ERROR';
+  } else if (status === 401) {
+    code = 'TOKEN_INVALID';
+  } else if (status === 404) {
+    code = 'USER_NOT_FOUND';
+  } else if (status === 409) {
+    code = 'CONFLICT';
+  } else {
+    code = 'INTERNAL_ERROR';
+  }
+
+  const retryAfterHeader = response.headers.get('Retry-After');
+
+  // On 429, block the rate limit store for the specified duration
+  if (code === 'RATE_LIMIT_EXCEEDED' && retryAfterHeader) {
+    rateLimitStore.block(parseInt(retryAfterHeader, 10));
+  }
+
+  // Always extract rate limit headers from error responses too
+  extractRateLimitHeaders(response, endpoint);
+
+  // Determine action for backward compatibility
+  const action: 'verify_email' | 'none' =
+    code === 'EMAIL_NOT_VERIFIED' ? 'verify_email' : 'none';
+
+  throw new AuthApiError(
+    code,
+    status,
+    body?.detail || body?.title || `Error ${status}`,
+    action,
+    body?.trace_id || undefined,
+    retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined,
+  );
+}
+
+// ==========================================
 // 3. USUARIO (User Profile)
 // ==========================================
 
@@ -205,19 +324,38 @@ export async function loginUser(
   email: string,
   password: string
 ): Promise<LoginSuccessResponse | LoginMfaResponse> {
-  const response = await apiFetch('/v1/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
+  const endpoint = '/v1/auth/login';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message, action } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status, action);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 /**
@@ -233,27 +371,46 @@ export async function registerUser(
   password: string,
   first_name?: string
 ): Promise<RegisterResponse> {
+  const endpoint = '/v1/auth/register';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   const body: Record<string, string> = { email, password };
   if (first_name) {
     body.first_name = first_name;
   }
 
-  const response = await apiFetch('/v1/auth/register', {
-    method: 'POST',
-    headers: {
-      'Idempotency-Key': generateUUIDv7(),
-    },
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': generateUUIDv7(),
+      },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  const data = await response.json();
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 /**
@@ -261,19 +418,38 @@ export async function registerUser(
  * Verifica el email del usuario usando el token enviado por correo.
  */
 export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
-  const response = await apiFetch('/v1/auth/verify-email', {
-    method: 'POST',
-    body: JSON.stringify({ token }),
-  });
+  const endpoint = '/v1/auth/verify-email';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 /**
@@ -283,19 +459,38 @@ export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
 export async function resendVerification(
   email: string
 ): Promise<ResendVerificationResponse> {
-  const response = await apiFetch('/v1/auth/resend-verification', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  });
+  const endpoint = '/v1/auth/resend-verification';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 // ==========================================
@@ -308,19 +503,38 @@ export async function resendVerification(
  * 🚧 Endpoint planificado — no implementado en backend aún.
  */
 export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
-  const response = await apiFetch('/v1/auth/forgot-password', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  });
+  const endpoint = '/v1/auth/forgot-password';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 /**
@@ -332,19 +546,38 @@ export async function resetPassword(
   token: string,
   newPassword: string
 ): Promise<ResetPasswordResponse> {
-  const response = await apiFetch('/v1/auth/reset-password', {
-    method: 'POST',
-    body: JSON.stringify({ token, new_password: newPassword }),
-  });
+  const endpoint = '/v1/auth/reset-password';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password: newPassword }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 // ==========================================
@@ -363,18 +596,36 @@ export interface OAuthUrlResponse {
 }
 
 export async function getOAuthUrl(provider: string): Promise<OAuthUrlResponse> {
-  const response = await apiFetch(`/v1/auth/oauth/${encodeURIComponent(provider)}`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/auth/oauth/${encodeURIComponent(provider)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const data = await response.json();
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const { message } = getErrorMessage(data as AuthError, response.status);
-    throw new AuthApiError(message, response.status);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return data;
 }
 
 // ==========================================
@@ -386,9 +637,34 @@ export async function getOAuthUrl(provider: string): Promise<OAuthUrlResponse> {
  * El backend responde con Clear-Site-Data: "cookies" que limpia las cookies automáticamente.
  */
 export async function logoutUser(): Promise<void> {
-  await apiFetch('/v1/auth/logout', {
-    method: 'POST',
-  });
+  const endpoint = '/v1/auth/logout';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -396,9 +672,34 @@ export async function logoutUser(): Promise<void> {
  * El backend responde con Clear-Site-Data: "cookies" que limpia las cookies automáticamente.
  */
 export async function logoutAllSessions(): Promise<void> {
-  await apiFetch('/v1/auth/logout/all', {
-    method: 'POST',
-  });
+  const endpoint = '/v1/auth/logout/all';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseAuthError(response, endpoint);
+    }
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
+  }
 }
 
 // ==========================================

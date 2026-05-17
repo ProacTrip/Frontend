@@ -197,6 +197,9 @@ export function adaptSearchHotel(
     price: adaptPrice(backend.price, params),
     rating: adaptRating(backend.rating, backend.total_reviews),
     
+    ratings: backend.ratings ?? [],
+    reviewsBreakdown: backend.reviews_breakdown ?? undefined,
+    
     amenities: backend.amenities ?? [],
     checkIn: backend.check_in,
     checkOut: backend.check_out,

@@ -1,15 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getMedicalProfile, updateMedicalProfile } from '@/app/lib/api';
-import { MedicalProfile, BloodType, UpdateMedicalProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { getMedicalProfile, updateMedicalProfile, listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
+import { MedicalProfile, BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
+import { UserApiError } from '@/app/lib/api/user';
+import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info, AlertTriangle } from 'lucide-react';
 
 interface Props {
   onSave: () => void;
 }
 
 const BLOOD_TYPES: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+const FIELD_LABELS: Record<string, string> = {
+  blood_type: 'Grupo sanguíneo',
+  allergies: 'Alergias',
+  medications: 'Medicamentos',
+  conditions: 'Condiciones médicas',
+  vaccinations: 'Vacunas',
+  emergency_contact: 'Contacto de emergencia',
+  insurance_info: 'Seguro médico',
+};
 
 export function MedicalForm({ onSave }: Props) {
   const [profile, setProfile] = useState<MedicalProfile | null>(null);
@@ -29,31 +40,56 @@ export function MedicalForm({ onSave }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // Conflict states
+  const [conflicts, setConflicts] = useState<MedicalConflict[]>([]);
+  const [loadingConflicts, setLoadingConflicts] = useState(false);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<Record<string, string>>({});
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const [customActive, setCustomActive] = useState<Record<string, boolean>>({});
+
+  const loadMedicalProfile = useCallback(async () => {
+    try {
+      const data = await getMedicalProfile();
+      if (data) {
+        setProfile(data);
+        setForm({
+          blood_type: data.blood_type ?? '',
+          allergies: data.allergies ?? '',
+          medications: data.medications ?? '',
+          conditions: data.conditions ?? '',
+          vaccinations: data.vaccinations ?? '',
+          emergency_contact: data.emergency_contact ?? '',
+          insurance_info: data.insurance_info ?? '',
+          is_shared: data.is_shared ?? false,
+        });
+      }
+    } catch (err: any) {
+      setLoadError(err.message);
+    }
+  }, []);
+
+  const loadConflicts = useCallback(async () => {
+    setLoadingConflicts(true);
+    try {
+      const data = await listMedicalConflicts();
+      setConflicts(data.conflicts || []);
+    } catch (err) {
+      // Silently fail — conflicts are optional, medical profile still works
+      console.error('Error loading conflicts:', err);
+    } finally {
+      setLoadingConflicts(false);
+    }
+  }, []);
+
   useEffect(() => {
     async function load() {
-      try {
-        const data = await getMedicalProfile();
-        if (data) {
-          setProfile(data);
-          setForm({
-            blood_type: data.blood_type ?? '',
-            allergies: data.allergies ?? '',
-            medications: data.medications ?? '',
-            conditions: data.conditions ?? '',
-            vaccinations: data.vaccinations ?? '',
-            emergency_contact: data.emergency_contact ?? '',
-            insurance_info: data.insurance_info ?? '',
-            is_shared: data.is_shared ?? false,
-          });
-        }
-      } catch (err: any) {
-        setLoadError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+      await Promise.all([loadMedicalProfile(), loadConflicts()]);
+      setIsLoading(false);
     }
     load();
-  }, []);
+  }, [loadMedicalProfile, loadConflicts]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -94,6 +130,136 @@ export function MedicalForm({ onSave }: Props) {
       setIsSaving(false);
     }
   };
+
+  const handleResolve = async (conflict: MedicalConflict, action: ConflictAction, customValue?: string) => {
+    setResolvingId(conflict.id);
+    setResolveError(prev => ({ ...prev, [conflict.id]: '' }));
+
+    try {
+      await resolveMedicalConflict({
+        pending_update_id: conflict.id,
+        action,
+        ...(action === 'custom' && { custom_value: customValue }),
+      });
+
+      // Remove resolved conflict from list
+      setConflicts(prev => prev.filter(c => c.id !== conflict.id));
+
+      // Refresh medical profile (values may have changed)
+      await loadMedicalProfile();
+
+      // Sync with parent
+      onSave();
+    } catch (err) {
+      const message = err instanceof UserApiError
+        ? err.code === 'PENDING_UPDATE_EXPIRED'
+          ? 'Este conflicto expiró.'
+          : err.message
+        : 'Error al resolver el conflicto.';
+      setResolveError(prev => ({ ...prev, [conflict.id]: message }));
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  function renderConflictCard(conflict: MedicalConflict) {
+    const fieldLabel = FIELD_LABELS[conflict.field] || conflict.field;
+    const isResolving = resolvingId === conflict.id;
+    const error = resolveError[conflict.id];
+    const showCustom = customActive[conflict.id];
+    const customValue = customValues[conflict.id] || '';
+    const isExpired = new Date(conflict.expires_at) < new Date();
+
+    return (
+      <div key={conflict.id} className="bg-white rounded-lg border border-amber-200 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-gray-800 text-sm">{fieldLabel}</p>
+              {isExpired && (
+                <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                  Expirado
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-sm">
+              <span className="text-gray-500">Actual: </span>
+              <span className="text-gray-700">{conflict.current_value || 'Sin valor actual'}</span>
+            </div>
+            <div className="text-sm">
+              <span className="text-amber-600">Propuesto: </span>
+              <span className="text-amber-700 font-medium">{conflict.proposed_value}</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Documento: {conflict.source.file_name} •{' '}
+              Expira: {new Date(conflict.expires_at).toLocaleDateString('es-AR')}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleResolve(conflict, 'accept')}
+              disabled={isResolving || isExpired}
+              className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              Aceptar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleResolve(conflict, 'reject')}
+              disabled={isResolving || isExpired}
+              className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              Rechazar
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomActive(prev => ({ ...prev, [conflict.id]: !prev[conflict.id] }))}
+              disabled={isResolving || isExpired}
+              className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+            >
+              Custom
+            </button>
+          </div>
+        </div>
+
+        {/* Custom value input */}
+        {showCustom && (
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="text"
+              value={customValue}
+              onChange={(e) => setCustomValues(prev => ({ ...prev, [conflict.id]: e.target.value }))}
+              placeholder="Ingresá un valor personalizado..."
+              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#FF6B6B]"
+            />
+            <button
+              type="button"
+              onClick={() => handleResolve(conflict, 'custom', customValue)}
+              disabled={isResolving || !customValue.trim()}
+              className="px-3 py-1 text-xs font-medium text-white bg-[#FF6B6B] rounded hover:bg-[#ff5252] disabled:opacity-50"
+            >
+              Guardar
+            </button>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <p className="mt-1 text-xs text-red-600">{error}</p>
+        )}
+
+        {/* Loading spinner */}
+        {isResolving && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <Loader className="w-3 h-3 animate-spin" />
+            Resolviendo...
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -139,6 +305,30 @@ export function MedicalForm({ onSave }: Props) {
               Completa el formulario a continuación para crearlo. Los campos son opcionales.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Conflictos Pendientes */}
+      {(conflicts.length > 0 || loadingConflicts) && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <h3 className="text-lg font-semibold text-amber-800 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Conflictos Pendientes ({conflicts.length})
+          </h3>
+          <p className="text-sm text-amber-600 mb-4">
+            El OCR detectó diferencias con tus datos actuales. Revisá cada conflicto y decidí si aceptar, rechazar o ingresar un valor personalizado.
+          </p>
+
+          {loadingConflicts ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader className="w-5 h-5 animate-spin text-amber-600" />
+              <span className="ml-2 text-sm text-amber-600">Cargando conflictos...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {conflicts.map((conflict) => renderConflictCard(conflict))}
+            </div>
+          )}
         </div>
       )}
 

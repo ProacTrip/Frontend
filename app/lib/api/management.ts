@@ -1,8 +1,12 @@
 // app/lib/api/management.ts
 // Dashboard API — Cookie-Based Authorization
 // Base URL: /v1/dashboard
+//
+// Rewritten to use direct fetch() with AbortController, rate limit extraction,
+// and typed UserApiError via parseUserError from user.ts.
+// Follows the canonical pattern established in user.ts.
 
-import { apiFetch } from './auth';
+import { API_URL, extractRateLimitHeaders, parseUserError, UserApiError } from './user';
 import type {
   UserListResponse,
   UserListParams,
@@ -43,16 +47,36 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
   if (params.created_before) query.set('created_before', params.created_before);
   if (params.created_after) query.set('created_after', params.created_after);
 
-  const response = await apiFetch(`/v1/dashboard/users?${query.toString()}`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/dashboard/users?${query.toString()}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -61,17 +85,36 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
  * Requiere permiso: users:read
  */
 export async function getUserDetail(userId: string): Promise<UserDetailResponse> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/dashboard/users/${userId}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    if (response.status === 404) throw new Error('Usuario no encontrado');
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -89,18 +132,38 @@ export async function updateAccountStatus(
   status: 'active' | 'disabled'
 ): Promise<AccountStatusResponse> {
   const body: UpdateAccountStatusBody = { status };
+  const endpoint = `/v1/dashboard/users/${userId}/status`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/status`, {
-    method: 'PUT',
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -112,16 +175,36 @@ export async function updateAccountStatus(
  * Requiere permiso: feature_limits:read
  */
 export async function getUserFeatureLimits(userId: string): Promise<FeatureLimitsResponse> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/dashboard/users/${userId}/feature-limits`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -133,17 +216,38 @@ export async function setUserFeatureLimit(
   userId: string,
   body: FeatureLimitBody
 ): Promise<FeatureLimit> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+  const endpoint = `/v1/dashboard/users/${userId}/feature-limits`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -152,13 +256,33 @@ export async function setUserFeatureLimit(
  * Requiere permiso: feature_limits:write
  */
 export async function deleteUserFeatureLimit(userId: string, key: string): Promise<void> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits/${key}`, {
-    method: 'DELETE',
-  });
+  const endpoint = `/v1/dashboard/users/${userId}/feature-limits/${key}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
 }
 
@@ -171,16 +295,36 @@ export async function deleteUserFeatureLimit(userId: string, key: string): Promi
  * Requiere permiso: feature_limits:read
  */
 export async function getRoleFeatureLimits(roleId: string): Promise<FeatureLimitsResponse> {
-  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/dashboard/roles/${roleId}/feature-limits`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -192,17 +336,38 @@ export async function setRoleFeatureLimit(
   roleId: string,
   body: FeatureLimitBody
 ): Promise<FeatureLimit> {
-  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+  const endpoint = `/v1/dashboard/roles/${roleId}/feature-limits`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -210,13 +375,33 @@ export async function setRoleFeatureLimit(
  * Requiere permiso: feature_limits:write
  */
 export async function deleteRoleFeatureLimit(roleId: string, key: string): Promise<void> {
-  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits/${key}`, {
-    method: 'DELETE',
-  });
+  const endpoint = `/v1/dashboard/roles/${roleId}/feature-limits/${key}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
 }
 
@@ -230,16 +415,36 @@ export async function deleteRoleFeatureLimit(roleId: string, key: string): Promi
  * Requiere permiso: permissions:read
  */
 export async function getPermissionOverrides(userId: string): Promise<PermissionOverridesResponse> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/permission-overrides`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/dashboard/users/${userId}/permission-overrides`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -251,17 +456,38 @@ export async function createPermissionOverride(
   userId: string,
   body: CreateOverrideBody
 ): Promise<PermissionOverride> {
-  const response = await apiFetch(`/v1/dashboard/users/${userId}/permission-overrides`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+  const endpoint = `/v1/dashboard/users/${userId}/permission-overrides`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -270,14 +496,33 @@ export async function createPermissionOverride(
  * Requiere permiso: permissions:write
  */
 export async function deletePermissionOverride(userId: string, overrideId: string): Promise<void> {
-  const response = await apiFetch(
-    `/v1/dashboard/users/${userId}/permission-overrides/${overrideId}`,
-    { method: 'DELETE' }
-  );
+  const endpoint = `/v1/dashboard/users/${userId}/permission-overrides/${overrideId}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
 }
 
@@ -290,14 +535,36 @@ export async function deletePermissionOverride(userId: string, overrideId: strin
  * Sigue usando la ruta de management para el catálogo de roles del sistema.
  */
 export async function listRoles(): Promise<RoleListResponse> {
-  const response = await apiFetch('/v1/management/roles', { method: 'GET' });
+  const endpoint = '/v1/management/roles';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -305,17 +572,38 @@ export async function listRoles(): Promise<RoleListResponse> {
  * Asigna un rol a un usuario por UUID de rol.
  */
 export async function assignRole(userId: string, roleId: string): Promise<{ message: string }> {
-  const response = await apiFetch(`/v1/management/users/${userId}/role`, {
-    method: 'POST',
-    body: JSON.stringify({ user_id: userId, role_id: roleId }),
-  });
+  const endpoint = `/v1/management/users/${userId}/role`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, role_id: roleId }),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -327,14 +615,36 @@ export async function assignRole(userId: string, roleId: string): Promise<{ mess
  * Catálogo completo de permisos disponibles en el sistema.
  */
 export async function listPermissions(): Promise<PermissionListResponse> {
-  const response = await apiFetch('/v1/management/permissions', { method: 'GET' });
+  const endpoint = '/v1/management/permissions';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -342,28 +652,71 @@ export async function listPermissions(): Promise<PermissionListResponse> {
 // ==========================================
 
 export async function listAvatars(): Promise<AvatarListResponse> {
-  const response = await apiFetch('/v1/management/avatars/default', { method: 'GET' });
+  const endpoint = '/v1/management/avatars/default';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function uploadAvatar(data: UploadAvatarRequest): Promise<UploadAvatarResponse> {
-  const response = await apiFetch('/v1/management/avatars/default', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const endpoint = '/v1/management/avatars/default';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==========================================
@@ -383,14 +736,34 @@ export async function queryAuditLogs(params: AuditLogListParams = {}): Promise<A
   if (params.date_from) query.set('date_from', params.date_from);
   if (params.date_to) query.set('date_to', params.date_to);
 
-  const response = await apiFetch(`/v1/management/audit-logs?${query.toString()}`, {
-    method: 'GET',
-  });
+  const endpoint = `/v1/management/audit-logs?${query.toString()}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
   }
-
-  return response.json();
 }

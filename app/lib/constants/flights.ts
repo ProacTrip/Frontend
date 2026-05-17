@@ -146,12 +146,9 @@ export const FLIGHT_ERROR_MESSAGES = {
 } as const;
 
 // ==========================================
-// 10. MOCK DATA
+// 10. PRICE RANGES (reference)
 // ==========================================
-export const MOCK_OUTBOUND_TOKEN = 'WyJDalJJTVVKWE5VOTVkeTFQZFVsQlRHRldWbmRDUnkwdExTMHRMUzB0TFhaMFltWnFPVUZCUVVGQlIyMHpTVTl6UzI1cWJ6SkJFZ1ZKUWpFeU5Sb0xDTkxLRGhBQ0dnTkZWVkk0SEhEdTFCQT0iLFtbIk1BRCIsIjIwMjYtMDMtMjAiLCJMSU0iLG51bGwsIklCIiwiMTI1Il1dXQ==';
-export const MOCK_BOOKING_TOKEN = 'WyJDalJJT1ZSSmJGQnFRMVpwUVZWQlQwcFFYMmRDUnkwdExTMHRMUzB0YjNsaWFIazBORUZCUVVGQlIyMHpTV1ZyUlhGMmMwdEJFZ1ZKUWpFeU5ob0xDTkxLRGhBQ0dnTkZWVkk0SEhDUzFCQT0=';
-
-export const MOCK_PRICE_RANGES = {
+export const PRICE_RANGES = {
   SHORT_HAUL: { min: 50, max: 300 },
   MEDIUM_HAUL: { min: 200, max: 800 },
   LONG_HAUL: { min: 600, max: 2000 },

@@ -49,7 +49,13 @@ export function useFavorites(entityType?: EntityType) {
         } else {
           // AGREGAR
           const res = await addFavorite(body);
-          
+
+          // El favorito ya existía — estado local desincronizado
+          if ('conflict' in res && res.conflict) {
+            await load(); // Sincronizar con el backend
+            return true;
+          }
+
           // Construir localmente para evitar el GET extra (await load())
           const newFavorite: Favorite = {
             id: res.favorite_id,
@@ -63,11 +69,6 @@ export function useFavorites(entityType?: EntityType) {
           return true;
         }
       } catch (err: any) {
-        // Si el estado local se desincronizó y hay un 409 (DUPLICATE_FAVORITE)
-        if (err.message?.includes('409') || err.message?.includes('DUPLICATE_FAVORITE')) {
-          await load(); // Sincronizar con el backend
-          return true;
-        }
         throw err;
       } finally {
         setIsToggling(false);
