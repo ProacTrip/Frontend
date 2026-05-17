@@ -1,3 +1,5 @@
+import { apiFetch, RateLimitError } from './auth';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // ==========================================
@@ -37,12 +39,6 @@ export interface EnvironmentResponse {
   weather: WeatherData | null;
 }
 
-/**
- * Alias de compatibilidad para código existente que importa ContextResponse.
- * @deprecated Usar EnvironmentResponse directamente.
- */
-export type ContextResponse = EnvironmentResponse;
-
 // ==========================================
 // API — GET /v1/environment
 // ==========================================
@@ -57,27 +53,9 @@ export type ContextResponse = EnvironmentResponse;
  * - El frontend cachea 10 minutos en localStorage (ver getStoredEnvironment).
  * - NO enviar lang como query param: el backend usa Accept-Language.
  * - `weather` puede ser null (degradación elegante sin fallo total).
+ * - Usa apiFetch para manejo automático de 429 (RateLimitError) y 401.
  */
 export async function getEnvironment(): Promise<EnvironmentResponse> {
-  const res = await fetch(`${API_URL}/v1/environment`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Environment fetch failed: ${res.status}`);
-  }
-
+  const res = await apiFetch('/v1/environment', { method: 'GET' });
   return res.json();
-}
-
-/**
- * @deprecated Usar getEnvironment() en su lugar.
- * Alias de compatibilidad para código que todavía llama a getContext().
- */
-export async function getContext(): Promise<EnvironmentResponse> {
-  return getEnvironment();
 }

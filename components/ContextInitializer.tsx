@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { fetchAndStoreContext } from '@/app/lib/utils/location';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export function ContextInitializer() {
@@ -18,9 +18,9 @@ export function ContextInitializer() {
       return;
     }
 
-    console.log('[ContextInit] Fetching context from GET /v1/context...');
+    console.log('[ContextInit] Fetching environment from GET /v1/environment...');
 
-    fetchAndStoreContext().then((result) => {
+    fetchAndStoreEnvironment().then((result) => {
       console.log('[ContextInit] Response:', result ? 'OK' : 'FAILED');
       if (result) {
         setContext(result);

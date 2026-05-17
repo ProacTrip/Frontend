@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, DollarSign } from 'lucide-react';
-import { getUserPreferences, storeEnvironment, getStoredContext } from '@/app/lib/utils/location';
+import { getUserPreferences, storeEnvironment, getStoredEnvironment } from '@/app/lib/utils/location';
 
 const CURRENCIES = [
   { code: 'EUR', symbol: '€', name: 'Euro' },
@@ -33,7 +33,7 @@ export default function CurrencySelector() {
 
     // Actualizar la moneda dentro del objeto user_environment almacenado
     try {
-      const env = getStoredContext();
+      const env = getStoredEnvironment();
       if (env) {
         const updated = { ...env, location: { ...env.location, currency: currencyCode } };
         storeEnvironment(updated);
