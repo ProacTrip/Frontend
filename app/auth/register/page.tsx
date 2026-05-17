@@ -12,7 +12,7 @@ import GoogleIcon from '@/components/iconos/GoogleIcon';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { registerUser, RateLimitError, AuthApiError } from '@/app/lib/api';
+import { registerUser, getOAuthUrl, RateLimitError, AuthApiError } from '@/app/lib/api';
 import { validatePassword } from '@/app/lib/utils/validation';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 import { useRateLimit } from '@/hooks/useRateLimit';
@@ -116,18 +116,17 @@ export default function RegisterPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/oauth/google`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        window.location.href = data.auth_url;
+      const data = await getOAuthUrl('google');
+      window.location.href = data.auth_url;
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        setError(err.message);
+        setRateLimitError(err.message);
+      } else if (err instanceof AuthApiError) {
+        setError(err.message);
       } else {
-        setError('Error al iniciar autenticación con Google. Intenta de nuevo.');
+        setError('Error al conectar con el servidor. Intenta de nuevo.');
       }
-    } catch {
-      setError('Error al conectar con el servidor. Intenta de nuevo.');
     }
   };
 

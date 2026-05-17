@@ -14,6 +14,7 @@ export {
   resendVerification,
   forgotPassword,
   resetPassword,
+  getOAuthUrl,
   logoutUser,
   logoutAllSessions,
   FEATURE_PASSWORD_RESET,

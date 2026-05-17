@@ -348,7 +348,37 @@ export async function resetPassword(
 }
 
 // ==========================================
-// 6. LOGOUT
+// 6. OAUTH
+// ==========================================
+
+/**
+ * GET /v1/auth/oauth/:provider
+ * Inicia el flujo OAuth. Retorna la URL de autorización del proveedor.
+ * El frontend debe redirigir al usuario a `auth_url` con window.location.href.
+ *
+ * IMPORTANTE: No cachear esta respuesta — el state anti-CSRF es one-time.
+ */
+export interface OAuthUrlResponse {
+  auth_url: string;
+}
+
+export async function getOAuthUrl(provider: string): Promise<OAuthUrlResponse> {
+  const response = await apiFetch(`/v1/auth/oauth/${encodeURIComponent(provider)}`, {
+    method: 'GET',
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
+}
+
+// ==========================================
+// 7. LOGOUT
 // ==========================================
 
 /**
