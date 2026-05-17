@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AuthUser } from '@/app/lib/types/auth';
-import { logoutUser, logoutAllSessions } from '@/app/lib/api/auth';
+import { logoutUser, logoutAllSessions, getCurrentUser } from '@/app/lib/api/auth';
 import { getContext, type ContextResponse } from '@/app/lib/api/context';
 import { getStoredContext } from '@/app/lib/utils/location';
 
@@ -36,23 +36,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-   const setUser = useCallback((user: AuthUser | null) => {
+  /**
+   * Establece el usuario en memoria solamente.
+   * Las cookies HttpOnly son gestionadas exclusivamente por el backend.
+   * El frontend NO almacena tokens ni datos de sesión en localStorage.
+   */
+  const setUser = useCallback((user: AuthUser | null) => {
     setUserState(user);
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
   }, []);
 
+  /**
+   * Refresca el usuario llamando a GET /v1/auth/me.
+   * El backend valida la cookie __Secure-access_token automáticamente.
+   * También recarga el contexto de ubicación/clima si hay sesión activa.
+   */
   const refreshUser = useCallback(async () => {
     try {
-      const ctx = await getContext();
-      if (ctx) {
-        setContext(ctx);
+      const currentUser = await getCurrentUser();
+      setUserState(currentUser);
+
+      if (currentUser) {
+        try {
+          const ctx = await getContext();
+          if (ctx) {
+            setContext(ctx);
+          }
+        } catch {
+          // Context no crítico — no bloqueamos la sesión si falla
+        }
+      } else {
+        setContext(null);
       }
     } catch {
-      setUser(null);
+      setUserState(null);
       setContext(null);
     }
   }, []);
@@ -61,12 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutUser();
     } catch {
+      // El backend limpia las cookies con Clear-Site-Data aunque falle el fetch
     } finally {
-      setUser(null);
+      setUserState(null);
       setContext(null);
-      localStorage.removeItem('user_context');
-      localStorage.removeItem('user_location');
-      localStorage.removeItem('user');
       router.push('/auth/login');
     }
   }, [router]);
@@ -75,42 +89,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutAllSessions();
     } catch {
+      // El backend limpia las cookies con Clear-Site-Data aunque falle el fetch
     } finally {
-      setUser(null);
+      setUserState(null);
       setContext(null);
-      localStorage.removeItem('user_context');
-      localStorage.removeItem('user_location');
       router.push('/auth/login');
     }
   }, [router]);
 
+  /**
+   * Al montar, valida la sesión activa usando GET /v1/auth/me.
+   * Si el backend devuelve 401, no hay sesión y el usuario no está autenticado.
+   * No se lee ningún dato de localStorage para determinar autenticación.
+   */
   useEffect(() => {
     let cancelled = false;
 
     async function restoreAuth() {
-       try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            if (!cancelled) {
-              setUserState(parsedUser);
-            }
-          } catch {
-            localStorage.removeItem('user');
-          }
-        }
+      try {
+        const currentUser = await getCurrentUser();
 
-        const storedContext = getStoredContext();
-        if (storedContext) {
-          const ctx = await getContext();
-          if (!cancelled && ctx) {
-            setContext(ctx);
+        if (cancelled) return;
+
+        if (currentUser) {
+          setUserState(currentUser);
+
+          // Cargar contexto si hay sesión activa
+          const storedContext = getStoredContext();
+          if (storedContext) {
+            try {
+              const ctx = await getContext();
+              if (!cancelled && ctx) {
+                setContext(ctx);
+              }
+            } catch {
+              // Context no crítico
+            }
           }
         }
       } catch {
         if (!cancelled) {
-          setUser(null);
+          setUserState(null);
           setContext(null);
         }
       } finally {

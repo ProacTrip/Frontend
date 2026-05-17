@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Loader from '@/components/ui/Loader';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { getContext } from '@/app/lib/api/context';
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -14,9 +15,7 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const { setUser, setContext, refreshUser } = useAuthContext();
-  const refreshUserRef = useRef(refreshUser);
-  refreshUserRef.current = refreshUser;
+  const { setUser, setContext } = useAuthContext();
   const setUserRef = useRef(setUser);
   setUserRef.current = setUser;
   const setContextRef = useRef(setContext);
@@ -49,23 +48,18 @@ function VerifyEmailContent() {
         if (response.ok) {
           setStatus('success');
           setMessage('Email verificado exitosamente. Redirigiendo...');
-          
+
           if (data.user) {
             setUserRef.current(data.user);
           }
-          if (data.context) {
-            setContextRef.current(data.context);
-            localStorage.setItem('user_context', JSON.stringify(data.context));
-            localStorage.setItem('user_location', JSON.stringify({
-              currency: data.context.location.currency,
-              gl: data.context.location.country_code,
-              hl: data.context.location.language,
-              timezone: data.context.location.timezone,
-              country: data.context.location.country,
-              city: data.context.location.city,
-            }));
-          } else {
-            await refreshUserRef.current();
+
+          // El backend NO devuelve context en verify-email.
+          // Cargamos el contexto por separado vía GET /v1/environment.
+          try {
+            const ctx = await getContext();
+            if (ctx) setContextRef.current(ctx);
+          } catch {
+            // Context no crítico
           }
 
           setTimeout(() => {

@@ -13,11 +13,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getErrorMessage } from '@/app/lib/utils/errors';
 import type { LoginSuccessResponse, LoginMfaResponse, AuthError } from '@/app/lib/types/auth';
+import { getContext } from '@/app/lib/api/context';
 
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setContext, refreshUser } = useAuthContext();
+  const { setUser, setContext } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -65,31 +66,22 @@ export default function LoginPage() {
       if (response.ok) {
         if (data.mfa_required) {
           const mfaData = data as LoginMfaResponse;
-          console.log('[Login] MFA requerido, métodos:', mfaData.mfa_methods);
           // TODO: Redirigir a página de MFA cuando esté implementada
           setError('MFA no está implementado aún en el frontend');
           setIsLoading(false);
           return;
         }
 
-        console.log('Login exitoso :D');
-
         const loginData = data as LoginSuccessResponse;
         setUser(loginData.user);
 
-        if (loginData.context) {
-          setContext(loginData.context);
-          localStorage.setItem('user_context', JSON.stringify(loginData.context));
-          localStorage.setItem('user_location', JSON.stringify({
-            currency: loginData.context.location.currency,
-            gl: loginData.context.location.country_code,
-            hl: loginData.context.location.language,
-            timezone: loginData.context.location.timezone,
-            country: loginData.context.location.country,
-            city: loginData.context.location.city,
-          }));
-        } else {
-          await refreshUser();
+        // El backend NO devuelve context en login.
+        // Cargamos el contexto por separado vía GET /v1/environment.
+        try {
+          const ctx = await getContext();
+          if (ctx) setContext(ctx);
+        } catch {
+          // Context no crítico — no bloqueamos el login si falla
         }
 
         setTimeout(() => {
@@ -124,8 +116,21 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/google`;
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/oauth/google`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.auth_url;
+      } else {
+        setError('Error al iniciar autenticación con Google. Intenta de nuevo.');
+      }
+    } catch {
+      setError('Error al conectar con el servidor. Intenta de nuevo.');
+    }
   };
 
   return (

@@ -41,9 +41,5 @@ export async function getContext(lang?: string): Promise<ContextResponse> {
   }
 
   const data = await res.json();
-
-  console.log('[Context] Location:', data.location);
-  console.log('[Context] Weather:', data.weather);
-
   return data;
 }

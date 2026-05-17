@@ -1,18 +1,22 @@
-import type { ContextResponse } from '@/app/lib/api/context';
-
-export type { ContextResponse, LocationData, WeatherData } from '@/app/lib/api/context';
-
 export interface AuthUser {
+  id: string;
   email: string;
   email_verified: boolean;
   role_name: string;
 }
 
+/**
+ * POST /v1/auth/login — Sin MFA
+ * El backend NO devuelve context en login. El frontend debe llamar GET /v1/environment por separado.
+ */
 export interface LoginSuccessResponse {
   user: AuthUser;
-  context: ContextResponse;
 }
 
+/**
+ * POST /v1/auth/login — Con MFA requerido
+ * No se establecen cookies hasta completar /login/mfa.
+ */
 export interface LoginMfaResponse {
   user: { email: string };
   mfa_required: true;
@@ -20,13 +24,29 @@ export interface LoginMfaResponse {
   session_id: string;
 }
 
+/**
+ * POST /v1/auth/register
+ * El backend NO devuelve context en register. El frontend debe llamar GET /v1/environment por separado.
+ */
 export interface RegisterResponse {
   message: string;
+  user?: AuthUser;
 }
 
+/**
+ * POST /v1/auth/verify-email
+ * El backend NO devuelve context en verify-email. El frontend debe llamar GET /v1/environment por separado.
+ */
 export interface VerifyEmailResponse {
   user: AuthUser;
-  context: ContextResponse;
+}
+
+/**
+ * GET /v1/auth/me
+ * Retorna los datos del usuario autenticado usando la cookie __Secure-access_token.
+ */
+export interface MeResponse {
+  user: AuthUser;
 }
 
 export interface LogoutResponse {

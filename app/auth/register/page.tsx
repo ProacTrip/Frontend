@@ -14,10 +14,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getErrorMessage } from '@/app/lib/utils/errors';
 import type { RegisterResponse, AuthError } from '@/app/lib/types/auth';
+import { getContext } from '@/app/lib/api/context';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser, setContext, refreshUser } = useAuthContext();
+  const { setUser, setContext } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -75,22 +76,18 @@ export default function RegisterPage() {
       if (response.ok) {
         const registerData = data as RegisterResponse;
 
-        if (data.user) {
-          setUser(data.user);
+        // El backend puede devolver el user en el registro (sesión pre-verificada)
+        if (registerData.user) {
+          setUser(registerData.user);
         }
-        if (data.context) {
-          setContext(data.context);
-          localStorage.setItem('user_context', JSON.stringify(data.context));
-          localStorage.setItem('user_location', JSON.stringify({
-            currency: data.context.location.currency,
-            gl: data.context.location.country_code,
-            hl: data.context.location.language,
-            timezone: data.context.location.timezone,
-            country: data.context.location.country,
-            city: data.context.location.city,
-          }));
-        } else {
-          await refreshUser();
+
+        // El backend NO devuelve context en register.
+        // Cargamos el contexto por separado vía GET /v1/environment.
+        try {
+          const ctx = await getContext();
+          if (ctx) setContext(ctx);
+        } catch {
+          // Context no crítico — no bloqueamos el registro si falla
         }
 
         setSuccess(true);
@@ -114,8 +111,21 @@ export default function RegisterPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/google`;
+  const handleGoogleLogin = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/oauth/google`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.auth_url;
+      } else {
+        setError('Error al iniciar autenticación con Google. Intenta de nuevo.');
+      }
+    } catch {
+      setError('Error al conectar con el servidor. Intenta de nuevo.');
+    }
   };
 
   return (

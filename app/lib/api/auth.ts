@@ -86,7 +86,35 @@ export interface UserProfile {
 }
 
 // ==========================================
-// 4. LOGOUT
+// 4. AUTH ME
+// ==========================================
+
+/**
+ * GET /v1/auth/me
+ * Obtiene los datos del usuario autenticado usando la cookie __Secure-access_token.
+ * El backend maneja el refresco de tokens transparentemente vía middleware.
+ * Retorna null si no hay sesión activa (401).
+ */
+export async function getCurrentUser(): Promise<{ id: string; email: string; email_verified: boolean; role_name: string } | null> {
+  try {
+    const response = await fetch(`${API_URL}/v1/auth/me`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ==========================================
+// 6. LOGOUT
 // ==========================================
 
 /**
@@ -110,7 +138,7 @@ export async function logoutAllSessions(): Promise<void> {
 }
 
 // ==========================================
-// 5. USUARIO (User Profile)
+// 7. USUARIO (User Profile)
 // ==========================================
 
 /**

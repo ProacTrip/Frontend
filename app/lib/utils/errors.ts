@@ -1,32 +1,69 @@
 import type { AuthError, RateLimitError as RateLimitErrorType } from '@/app/lib/types/auth';
 
+/**
+ * El backend usa RFC 9457 Problem Details.
+ * El campo `type` es una URL completa, por ejemplo:
+ *   "https://api.proactrip.com/errors/email-not-verified"
+ * Esta función extrae el último segmento del path para usarlo como clave.
+ */
+function extractErrorCode(type: string): string {
+  if (!type) return '';
+  try {
+    // Si es una URL válida, extraemos el último segmento del path
+    const url = new URL(type);
+    const segments = url.pathname.split('/').filter(Boolean);
+    return segments[segments.length - 1] ?? '';
+  } catch {
+    // Si no es una URL, lo usamos tal cual (compatibilidad con entornos de desarrollo)
+    return type.toLowerCase().replace(/ /g, '-');
+  }
+}
+
 const ERROR_MAP: Record<string, string> = {
-  email_not_verified: 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
-  invalid_credentials: 'Email o contraseña incorrectos.',
-  email_already_exists: 'Este email ya está registrado.',
-  account_locked: 'Cuenta bloqueada temporalmente. Intenta de nuevo más tarde.',
-  validation_error: 'Datos inválidos.',
-  internal_error: 'Error del servidor. Intenta de nuevo.',
-  too_many_requests: 'Demasiados intentos. Espera un momento.',
-  rate_limit: 'Demasiadas peticiones. Intenta más tarde.',
-  unauthorized: 'No autorizado. Inicia sesión para continuar.',
-  forbidden: 'No tienes permisos para esta acción.',
-  not_found: 'El recurso solicitado no existe.',
-  conflict: 'El recurso ya existe.',
+  'email-not-verified': 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
+  'email_not_verified': 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
+  'invalid-credentials': 'Email o contraseña incorrectos.',
+  'invalid_credentials': 'Email o contraseña incorrectos.',
+  'email-already-exists': 'Este email ya está registrado.',
+  'email_already_exists': 'Este email ya está registrado.',
+  'account-locked': 'Cuenta bloqueada temporalmente. Intenta de nuevo más tarde.',
+  'account_locked': 'Cuenta bloqueada temporalmente. Intenta de nuevo más tarde.',
+  'account-suspended': 'Tu cuenta ha sido suspendida. Contacta al soporte.',
+  'account_suspended': 'Tu cuenta ha sido suspendida. Contacta al soporte.',
+  'account-inactive': 'Tu cuenta está inactiva. Contacta al soporte.',
+  'account_inactive': 'Tu cuenta está inactiva. Contacta al soporte.',
+  'validation-error': 'Datos inválidos.',
+  'validation_error': 'Datos inválidos.',
+  'invalid-email': 'El formato del email es inválido.',
+  'invalid_email': 'El formato del email es inválido.',
+  'weak-password': 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un dígito y un carácter especial.',
+  'weak_password': 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un dígito y un carácter especial.',
+  'invalid-input': 'Faltan campos requeridos.',
+  'invalid_input': 'Faltan campos requeridos.',
+  'token-invalid': 'El token es inválido o ha expirado.',
+  'token_invalid': 'El token es inválido o ha expirado.',
+  'token-expired': 'El token ha expirado. Solicita uno nuevo.',
+  'token_expired': 'El token ha expirado. Solicita uno nuevo.',
+  'internal-error': 'Error del servidor. Intenta de nuevo.',
+  'internal_error': 'Error del servidor. Intenta de nuevo.',
+  'rate-limit-exceeded': 'Demasiadas peticiones. Intenta más tarde.',
+  'rate_limit_exceeded': 'Demasiadas peticiones. Intenta más tarde.',
+  'conflict': 'El recurso ya existe.',
+  'oauth-provider-not-found': 'Proveedor OAuth no soportado.',
+  'oauth_provider_not_found': 'Proveedor OAuth no soportado.',
 };
 
 export function parseApiError(response: Response): Promise<string> {
   return response.json().then((data: AuthError | RateLimitErrorType) => {
-    const type = (data.type || '').toLowerCase();
-
     if (response.status === 429) {
       const rd = data as RateLimitErrorType;
       if (rd.detail) return rd.detail;
       return 'Demasiadas peticiones. Intenta más tarde.';
     }
 
-    if (type && type in ERROR_MAP) {
-      const base = ERROR_MAP[type];
+    const code = extractErrorCode(data.type || '');
+    if (code && code in ERROR_MAP) {
+      const base = ERROR_MAP[code];
       if (data.detail && data.detail !== base) {
         return data.detail;
       }
@@ -43,8 +80,11 @@ export function parseApiError(response: Response): Promise<string> {
   });
 }
 
-export function getErrorMessage(data: AuthError | RateLimitErrorType, status?: number): { message: string; action: 'verify_email' | 'none' } {
-  const type = (data.type || '').toLowerCase();
+export function getErrorMessage(
+  data: AuthError | RateLimitErrorType,
+  status?: number
+): { message: string; action: 'verify_email' | 'none' } {
+  const code = extractErrorCode(data.type || '');
 
   if (status === 429) {
     const rd = data as RateLimitErrorType;
@@ -52,10 +92,11 @@ export function getErrorMessage(data: AuthError | RateLimitErrorType, status?: n
     return { message: detail, action: 'none' };
   }
 
-  if (type && type in ERROR_MAP) {
-    const base = ERROR_MAP[type];
+  if (code && code in ERROR_MAP) {
+    const base = ERROR_MAP[code];
     const message = (data.detail && data.detail !== base) ? data.detail : base;
-    return { message, action: type === 'email_not_verified' ? 'verify_email' : 'none' };
+    const action = (code === 'email-not-verified' || code === 'email_not_verified') ? 'verify_email' : 'none';
+    return { message, action };
   }
 
   if (data.detail) return { message: data.detail, action: 'none' };
