@@ -31,27 +31,38 @@ export default function RegisterPage() {
 
   // Detectar cuando el usuario verifica su email en la pestaña del enlace.
   // La página verify-email escribe en localStorage como señal cross-tab.
+  // Usamos dos mecanismos porque el evento 'storage' no siempre es confiable
+  // (WebViews de clientes de email, throttling de tabs en background, etc.).
   useEffect(() => {
+    if (!success) return;
+
     const STORAGE_KEY = 'proactrip_email_verified';
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        localStorage.removeItem(STORAGE_KEY);
-        // Full page load — necesario para que el server layout re-lea las cookies
-        // y pase serverAuthenticated=true al AuthProvider.
-        window.location.href = '/home';
-      }
+    const redirectToHome = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      window.location.href = '/home';
     };
 
+    // Mecanismo 1: evento 'storage' (instantáneo, mejor caso)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        redirectToHome();
+      }
+    };
     window.addEventListener('storage', handleStorage);
+
+    // Mecanismo 2: polling cada 2s (fallback confiable)
+    const interval = setInterval(() => {
+      if (localStorage.getItem(STORAGE_KEY)) {
+        redirectToHome();
+      }
+    }, 2000);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
     };
-  }, []);
-
-  // Si el usuario verificó en otra pestaña y recarga manualmente esta página,
-  // el AuthProvider ya restaura la sesión. Acá solo manejamos la señal del evento.
+  }, [success]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
