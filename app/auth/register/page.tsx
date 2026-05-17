@@ -3,7 +3,6 @@
 
 import Image from "next/image";
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
@@ -19,7 +18,6 @@ import { useRateLimit } from '@/hooks/useRateLimit';
 import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { setUser, setContext } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '' });
@@ -95,10 +93,8 @@ export default function RegisterPage() {
       setSuccess(true);
       setFormData({ email: '', password: '', confirmPassword: '', first_name: '' });
       setPasswordErrors([]);
-
-      setTimeout(() => {
-        router.push('/home');
-      }, 2000);
+      // NO redirigir a /home — el usuario debe verificar su email primero.
+      // El enlace de verificación abre en una pestaña nueva desde el email.
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
@@ -223,7 +219,7 @@ export default function RegisterPage() {
                 transition={{ duration: 0.3 }}
                 className="mb-6 p-4 bg-green-50 text-green-600 border-l-4 border-green-500 text-sm"
               >
-                ¡Cuenta creada! Ya puedes empezar a usar ProacTrip. Redirigiendo al home...
+                ¡Cuenta creada! Revisá tu correo electrónico para verificar tu cuenta.
               </motion.div>
             )}
           </AnimatePresence>
