@@ -29,6 +29,21 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_KEY = 'user_session';
+
+/**
+ * Recupera la sesión del usuario desde sessionStorage.
+ * Retorna null si no existe o si el JSON está corrupto.
+ */
+function getStoredSession(): AuthUser | null {
+  try {
+    const stored = sessionStorage.getItem(SESSION_KEY);
+    return stored ? (JSON.parse(stored) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({
   children,
   serverAuthenticated,
@@ -44,12 +59,22 @@ export function AuthProvider({
   const router = useRouter();
 
   /**
-   * Establece el usuario en memoria solamente.
+   * Establece el usuario en memoria y en sessionStorage.
+   * sessionStorage permite restaurar la sesión sin llamar a /v1/auth/me en page refresh.
    * Las cookies HttpOnly son gestionadas exclusivamente por el backend.
-   * El frontend NO almacena tokens ni datos de sesión en localStorage.
+   * El frontend NO almacena tokens ni datos sensibles.
    */
   const setUser = useCallback((user: AuthUser | null) => {
     setUserState(user);
+    try {
+      if (user) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+      } else {
+        sessionStorage.removeItem(SESSION_KEY);
+      }
+    } catch {
+      // sessionStorage puede fallar en modo privado
+    }
   }, []);
 
   /**
@@ -95,6 +120,7 @@ export function AuthProvider({
     } finally {
       setUserState(null);
       setContext(null);
+      try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
       router.push('/auth/login');
     }
   }, [router]);
@@ -107,6 +133,7 @@ export function AuthProvider({
     } finally {
       setUserState(null);
       setContext(null);
+      try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
       router.push('/auth/login');
     }
   }, [router]);
@@ -114,12 +141,13 @@ export function AuthProvider({
   /**
    * Al montar, restaura la sesión y carga el environment.
    *
-   * Si el server (layout.tsx) ya confirmó que NO hay cookies de auth,
-   * nos saltamos GET /v1/auth/me — sería un 401 garantizado.
-   * Solo cargamos el environment (público, cache-first).
+   * Según AUTH_API.md, /v1/auth/me solo se necesita después de OAuth callback.
+   * Login, register y verify-email ya devuelven los datos del usuario.
    *
-   * Si hay cookies de auth, validamos la sesión y cargamos ambos en paralelo.
-   * Auth y environment son módulos independientes según ENVIRONMENT_API.md.
+   * Estrategia:
+   * 1. Sin cookies de auth → anónimo: solo cargar environment (público)
+   * 2. Con cookies + sessionStorage → restaurar de sessionStorage (0 HTTP)
+   * 3. Con cookies + sin sessionStorage → GET /v1/auth/me (OAuth callback)
    */
   useEffect(() => {
     let cancelled = false;
@@ -127,23 +155,36 @@ export function AuthProvider({
     async function restoreAuth() {
       try {
         if (!serverAuthenticated) {
-          // Sin cookies de auth → no llamar /v1/auth/me (sería 401 garantizado)
-          // El environment es público: cargarlo con cache-first
+          // Sin cookies de auth → anónimo. Solo cargar environment (público, cache-first).
           const env = await fetchAndStoreEnvironment();
           if (cancelled) return;
           setUserState(null);
           if (env) setContext(env);
         } else {
-          // Hay cookies de auth → cargar usuario y environment en paralelo
-          const [currentUser, env] = await Promise.all([
-            getCurrentUser(),
-            fetchAndStoreEnvironment(),
-          ]);
+          // Hay cookies de auth → ¿tenemos datos en sessionStorage?
+          const stored = getStoredSession();
+          if (stored) {
+            // Restaurar desde sessionStorage — sin llamada HTTP
+            setUserState(stored);
+            const env = await fetchAndStoreEnvironment();
+            if (cancelled) return;
+            if (env) setContext(env);
+          } else {
+            // sessionStorage vacío → OAuth callback o primera visita.
+            // Único caso donde /v1/auth/me está justificado según AUTH_API.md.
+            const [currentUser, env] = await Promise.all([
+              getCurrentUser(),
+              fetchAndStoreEnvironment(),
+            ]);
 
-          if (cancelled) return;
+            if (cancelled) return;
 
-          setUserState(currentUser);
-          if (env) setContext(env);
+            setUserState(currentUser);
+            if (currentUser) {
+              try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser)); } catch { /* noop */ }
+            }
+            if (env) setContext(env);
+          }
         }
       } catch {
         if (!cancelled) {
