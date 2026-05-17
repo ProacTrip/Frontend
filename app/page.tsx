@@ -45,6 +45,7 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
                 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#d4542a] text-center"
+                suppressHydrationWarning
               >
                 ProacTrip
                 <span className="block text-lg font-medium text-gray-700 mt-1">
