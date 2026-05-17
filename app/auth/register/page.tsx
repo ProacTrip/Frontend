@@ -39,7 +39,8 @@ export default function RegisterPage() {
     const STORAGE_KEY = 'proactrip_email_verified';
 
     const redirectToHome = () => {
-      localStorage.removeItem(STORAGE_KEY);
+      // NO limpiamos localStorage acá — AuthProvider lo lee después del redirect
+      // para forzar /v1/auth/me aunque el server no detecte cookies (localhost issue).
       window.location.href = '/home';
     };
 

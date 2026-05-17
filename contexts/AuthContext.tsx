@@ -148,20 +148,35 @@ export function AuthProvider({
    * 1. Sin cookies de auth → anónimo: solo cargar environment (público)
    * 2. Con cookies + sessionStorage → restaurar de sessionStorage (0 HTTP)
    * 3. Con cookies + sin sessionStorage → GET /v1/auth/me (OAuth callback)
+   *
+   * EXCEPCIÓN — Verificación de email cross-tab:
+   * En desarrollo, las cookies pueden tener Domain=.proactrip.com y no ser
+   * visibles para el server de Next.js en localhost. La página register
+   * escribe una señal en localStorage que forzamos a leer acá.
    */
   useEffect(() => {
     let cancelled = false;
 
     async function restoreAuth() {
       try {
-        if (!serverAuthenticated) {
+        // Señal cross-tab: el usuario acaba de verificar su email.
+        // Forzamos /v1/auth/me aunque serverAuthenticated sea false
+        // (las cookies pueden no ser visibles para el server en localhost).
+        const justVerified = localStorage.getItem('proactrip_email_verified');
+        const effectiveAuth = serverAuthenticated || !!justVerified;
+
+        if (justVerified) {
+          localStorage.removeItem('proactrip_email_verified');
+        }
+
+        if (!effectiveAuth) {
           // Sin cookies de auth → anónimo. Solo cargar environment (público, cache-first).
           const env = await fetchAndStoreEnvironment();
           if (cancelled) return;
           setUserState(null);
           if (env) setContext(env);
         } else {
-          // Hay cookies de auth → ¿tenemos datos en sessionStorage?
+          // Hay cookies de auth (o señal de verificación) → ¿tenemos datos en sessionStorage?
           const stored = getStoredSession();
           if (stored) {
             // Restaurar desde sessionStorage — sin llamada HTTP
@@ -170,8 +185,7 @@ export function AuthProvider({
             if (cancelled) return;
             if (env) setContext(env);
           } else {
-            // sessionStorage vacío → OAuth callback o primera visita.
-            // Único caso donde /v1/auth/me está justificado según AUTH_API.md.
+            // sessionStorage vacío → OAuth callback, primera visita, o post-verificación.
             const [currentUser, env] = await Promise.all([
               getCurrentUser(),
               fetchAndStoreEnvironment(),
