@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, DollarSign } from 'lucide-react';
+import { getUserPreferences, storeEnvironment, getStoredContext } from '@/app/lib/utils/location';
 
 const CURRENCIES = [
   { code: 'EUR', symbol: '€', name: 'Euro' },
@@ -19,16 +20,9 @@ export default function CurrencySelector() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Leer moneda actual al cargar
-    try {
-      const saved = localStorage.getItem('user_location');
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.currency) setCurrentCurrency(data.currency);
-      }
-    } catch (e) {
-      console.warn('Error leyendo moneda:', e);
-    }
+    // Leer moneda del environment almacenado (user_environment)
+    const prefs = getUserPreferences();
+    if (prefs.currency) setCurrentCurrency(prefs.currency);
   }, []);
 
   const handleChange = (currencyCode: string) => {
@@ -37,20 +31,20 @@ export default function CurrencySelector() {
       return;
     }
 
-    // Guardar en localStorage (sobrescribiendo solo la moneda)
+    // Actualizar la moneda dentro del objeto user_environment almacenado
     try {
-      const saved = localStorage.getItem('user_location');
-      const data = saved ? JSON.parse(saved) : {};
-      data.currency = currencyCode;
-      localStorage.setItem('user_location', JSON.stringify(data));
-      
-      console.log(`💱 Moneda cambiada a ${currencyCode}`);
-    } catch (e) {
-      console.error('Error guardando moneda:', e);
+      const env = getStoredContext();
+      if (env) {
+        const updated = { ...env, location: { ...env.location, currency: currencyCode } };
+        storeEnvironment(updated);
+      }
+    } catch {
+      // localStorage puede estar bloqueado en modo privado
     }
 
+    setCurrentCurrency(currencyCode);
     setIsOpen(false);
-    
+
     // Recargar para aplicar la nueva moneda en la próxima búsqueda
     window.location.reload();
   };

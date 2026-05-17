@@ -11,17 +11,17 @@ import {
 import { useRouter } from 'next/navigation';
 import type { AuthUser } from '@/app/lib/types/auth';
 import { logoutUser, logoutAllSessions, getCurrentUser } from '@/app/lib/api/auth';
-import { getContext, type ContextResponse } from '@/app/lib/api/context';
-import { getStoredContext } from '@/app/lib/utils/location';
+import { type EnvironmentResponse } from '@/app/lib/api/context';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 export interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
-  context: ContextResponse | null;
+  context: EnvironmentResponse | null;
   setUser: (user: AuthUser | null) => void;
-  setContext: (context: ContextResponse | null) => void;
+  setContext: (context: EnvironmentResponse | null) => void;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -31,7 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
-  const [context, setContext] = useState<ContextResponse | null>(null);
+  const [context, setContext] = useState<EnvironmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -46,9 +46,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
+   * Carga el environment usando cache-first (10 min localStorage).
+   * Si el cache es válido no hace ninguna llamada de red.
+   * Si expiró o no existe llama GET /v1/environment y cachea la respuesta.
+   */
+  const loadEnvironment = useCallback(async () => {
+    try {
+      const env = await fetchAndStoreEnvironment();
+      if (env) setContext(env);
+    } catch {
+      // Environment no es crítico — no bloqueamos la sesión si falla
+    }
+  }, []);
+
+  /**
    * Refresca el usuario llamando a GET /v1/auth/me.
    * El backend valida la cookie __Secure-access_token automáticamente.
-   * También recarga el contexto de ubicación/clima si hay sesión activa.
+   * Si hay sesión activa también recarga el environment con cache-first.
    */
   const refreshUser = useCallback(async () => {
     try {
@@ -56,14 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserState(currentUser);
 
       if (currentUser) {
-        try {
-          const ctx = await getContext();
-          if (ctx) {
-            setContext(ctx);
-          }
-        } catch {
-          // Context no crítico — no bloqueamos la sesión si falla
-        }
+        await loadEnvironment();
       } else {
         setContext(null);
       }
@@ -71,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserState(null);
       setContext(null);
     }
-  }, []);
+  }, [loadEnvironment]);
 
   const logout = useCallback(async () => {
     try {
@@ -99,38 +106,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Al montar, valida la sesión activa usando GET /v1/auth/me.
-   * Si el backend devuelve 401, no hay sesión y el usuario no está autenticado.
-   * No se lee ningún dato de localStorage para determinar autenticación.
+   * Independientemente del resultado, también carga el environment (cache-first).
+   * Auth y environment son módulos independientes — se cargan en paralelo.
    */
   useEffect(() => {
     let cancelled = false;
 
     async function restoreAuth() {
       try {
-        const currentUser = await getCurrentUser();
+        // Auth y environment son independientes: cargar en paralelo
+        const [currentUser, env] = await Promise.all([
+          getCurrentUser(),
+          fetchAndStoreEnvironment(),
+        ]);
 
         if (cancelled) return;
 
-        if (currentUser) {
-          setUserState(currentUser);
-
-          // Cargar contexto si hay sesión activa
-          const storedContext = getStoredContext();
-          if (storedContext) {
-            try {
-              const ctx = await getContext();
-              if (!cancelled && ctx) {
-                setContext(ctx);
-              }
-            } catch {
-              // Context no crítico
-            }
-          }
-        }
+        setUserState(currentUser);
+        if (env) setContext(env);
       } catch {
         if (!cancelled) {
           setUserState(null);
-          setContext(null);
         }
       } finally {
         if (!cancelled) {

@@ -56,10 +56,10 @@ export {
 } from './notifications';
 
 // ==========================================
-// 7. CONTEXTO (ubicación + clima)
+// 7. ENVIRONMENT (ubicación GeoIP + clima)
 // ==========================================
-export { getContext } from './context';
-export type { ContextResponse, LocationData, WeatherData } from './context';
+export { getEnvironment, getContext } from './context';
+export type { EnvironmentResponse, ContextResponse, LocationData, WeatherData } from './context';
 
 // ==========================================
 // 8. USER PROFILE (NUEVO)

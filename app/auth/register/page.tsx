@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getErrorMessage } from '@/app/lib/utils/errors';
 import type { RegisterResponse, AuthError } from '@/app/lib/types/auth';
-import { getContext } from '@/app/lib/api/context';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -81,13 +81,13 @@ export default function RegisterPage() {
           setUser(registerData.user);
         }
 
-        // El backend NO devuelve context en register.
-        // Cargamos el contexto por separado vía GET /v1/environment.
+        // El backend NO devuelve environment en register.
+        // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
         try {
-          const ctx = await getContext();
-          if (ctx) setContext(ctx);
+          const env = await fetchAndStoreEnvironment();
+          if (env) setContext(env);
         } catch {
-          // Context no crítico — no bloqueamos el registro si falla
+          // Environment no crítico — no bloqueamos el registro si falla
         }
 
         setSuccess(true);

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Loader from '@/components/ui/Loader';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getContext } from '@/app/lib/api/context';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -53,13 +53,13 @@ function VerifyEmailContent() {
             setUserRef.current(data.user);
           }
 
-          // El backend NO devuelve context en verify-email.
-          // Cargamos el contexto por separado vía GET /v1/environment.
+          // El backend NO devuelve environment en verify-email.
+          // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
           try {
-            const ctx = await getContext();
-            if (ctx) setContextRef.current(ctx);
+            const env = await fetchAndStoreEnvironment();
+            if (env) setContextRef.current(env);
           } catch {
-            // Context no crítico
+            // Environment no crítico
           }
 
           setTimeout(() => {

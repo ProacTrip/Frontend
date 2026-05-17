@@ -7,8 +7,8 @@ import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
 import { searchHotels, RateLimitError } from '@/app/lib/api';
-import { getStoredContext } from '@/app/lib/utils/location';
-import type { ContextResponse } from '@/app/lib/api/context';
+import { getStoredEnvironment } from '@/app/lib/utils/location';
+import type { EnvironmentResponse } from '@/app/lib/api/context';
 
 function HotelesContent() {
   const router = useRouter();
@@ -17,12 +17,12 @@ function HotelesContent() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [displayedHotels, setDisplayedHotels] = useState<any[]>([]);
-  const [locationContext, setLocationContext] = useState<ContextResponse | null>(null);
+  const [locationContext, setLocationContext] = useState<EnvironmentResponse | null>(null);
 
   useEffect(() => {
-    const ctx = getStoredContext();
-    if (ctx) {
-      setLocationContext(ctx);
+    const env = getStoredEnvironment();
+    if (env) {
+      setLocationContext(env);
     }
   }, []);
   

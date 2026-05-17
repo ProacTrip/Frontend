@@ -6,7 +6,7 @@ import Loader from '@/components/ui/Loader';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getCurrentUser } from '@/app/lib/api/auth';
-import { getContext } from '@/app/lib/api/context';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 const OAUTH_ERROR_MAP: Record<string, string> = {
   OAUTH_CODE_MISSING: 'Error al procesar la autenticación con Google. Intenta de nuevo.',
@@ -76,12 +76,12 @@ function GoogleCallbackContent() {
 
         setUser(currentUser);
 
-        // Cargar contexto por separado (el backend no lo devuelve en OAuth callback)
+        // Cargar environment por separado (el backend no lo devuelve en OAuth callback)
         try {
-          const ctx = await getContext();
-          if (ctx) setContext(ctx);
+          const env = await fetchAndStoreEnvironment();
+          if (env) setContext(env);
         } catch {
-          // Context no crítico
+          // Environment no crítico
         }
 
         setStatus('success');

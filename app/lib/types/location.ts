@@ -1,8 +1,3 @@
-import type { LocationData, WeatherData } from './auth';
+export type { EnvironmentResponse as Context, ContextResponse, LocationData, WeatherData } from '@/app/lib/api/context';
 
-export interface UserContext {
-  location: LocationData;
-  weather: WeatherData;
-}
-
-export type { ContextResponse as Context, LocationData, WeatherData } from '@/app/lib/api/context';
+export type { EnvironmentResponse as UserContext } from '@/app/lib/api/context';

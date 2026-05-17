@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getErrorMessage } from '@/app/lib/utils/errors';
 import type { LoginSuccessResponse, LoginMfaResponse, AuthError } from '@/app/lib/types/auth';
-import { getContext } from '@/app/lib/api/context';
+import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 
 export default function LoginPage() {
@@ -75,13 +75,13 @@ export default function LoginPage() {
         const loginData = data as LoginSuccessResponse;
         setUser(loginData.user);
 
-        // El backend NO devuelve context en login.
-        // Cargamos el contexto por separado vía GET /v1/environment.
+        // El backend NO devuelve environment en login.
+        // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
         try {
-          const ctx = await getContext();
-          if (ctx) setContext(ctx);
+          const env = await fetchAndStoreEnvironment();
+          if (env) setContext(env);
         } catch {
-          // Context no crítico — no bloqueamos el login si falla
+          // Environment no crítico — no bloqueamos el login si falla
         }
 
         setTimeout(() => {
