@@ -11,8 +11,7 @@ import GoogleIcon from '@/components/iconos/GoogleIcon';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getErrorMessage } from '@/app/lib/utils/errors';
-import type { LoginSuccessResponse, LoginMfaResponse, AuthError } from '@/app/lib/types/auth';
+import { loginUser, resendVerification, FEATURE_PASSWORD_RESET, RateLimitError, AuthApiError } from '@/app/lib/api';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 
@@ -49,55 +48,42 @@ export default function LoginPage() {
 
     setIsLoading(true);
     setError('');
+    setErrorAction('none');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
+      const data = await loginUser(formData.email, formData.password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        if (data.mfa_required) {
-          const mfaData = data as LoginMfaResponse;
-          // TODO: Redirigir a página de MFA cuando esté implementada
-          setError('MFA no está implementado aún en el frontend');
-          setIsLoading(false);
-          return;
-        }
-
-        const loginData = data as LoginSuccessResponse;
-        setUser(loginData.user);
-
-        // El backend NO devuelve environment en login.
-        // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
-        try {
-          const env = await fetchAndStoreEnvironment();
-          if (env) setContext(env);
-        } catch {
-          // Environment no crítico — no bloqueamos el login si falla
-        }
-
-        setTimeout(() => {
-          router.push('/home');
-        }, 800);
-      } else {
-        const errData = data as AuthError;
-        const { message, action } = getErrorMessage(errData, response.status);
-        setError(message);
-        setErrorAction(action);
+      if (data.mfa_required) {
+        // TODO: Redirigir a página de MFA cuando esté implementada
+        setError('MFA no está implementado aún en el frontend');
         setIsLoading(false);
+        return;
       }
 
+      setUser(data.user);
+
+      // El backend NO devuelve environment en login.
+      // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
+      try {
+        const env = await fetchAndStoreEnvironment();
+        if (env) setContext(env);
+      } catch {
+        // Environment no crítico — no bloqueamos el login si falla
+      }
+
+      setTimeout(() => {
+        router.push('/home');
+      }, 800);
     } catch (err) {
-      console.error('Error en login:', err);
-      setError('Error al conectar con el servidor. Intenta de nuevo.');
+      if (err instanceof RateLimitError) {
+        setError(err.message);
+      } else if (err instanceof AuthApiError) {
+        setError(err.message);
+        setErrorAction(err.action);
+      } else {
+        console.error('Error en login:', err);
+        setError('Error al conectar con el servidor. Intenta de nuevo.');
+      }
       setIsLoading(false);
     }
   };
@@ -105,14 +91,14 @@ export default function LoginPage() {
   const handleResendVerification = async () => {
     setResendSent(false);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/resend-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email }),
-      });
+      await resendVerification(formData.email);
       setResendSent(true);
-    } catch {
-      setError('Error al reenviar el correo. Intenta de nuevo.');
+    } catch (err) {
+      if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else {
+        setError('Error al reenviar el correo. Intenta de nuevo.');
+      }
     }
   };
 
@@ -244,11 +230,13 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 showPasswordToggle
               />
-              <div className="text-right">
-                <Link href="/auth/forgot-password" className="text-sm text-[#8d6e63] hover:underline font-medium">
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
+              {FEATURE_PASSWORD_RESET && (
+                <div className="text-right">
+                  <Link href="/auth/forgot-password" className="text-sm text-[#8d6e63] hover:underline font-medium">
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+              )}
             </motion.div>
             <motion.div
               whileTap={{ scale: 0.98 }}

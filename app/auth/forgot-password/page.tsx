@@ -2,14 +2,21 @@
 
 import Image from "next/image";
 import { useState, FormEvent } from 'react'; 
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField'; 
 import Button from '@/components/ui/Button'; 
 import Loader from '@/components/ui/Loader'; 
 import { motion, AnimatePresence } from 'framer-motion'; 
+import { FEATURE_PASSWORD_RESET } from '@/app/lib/api';
 
 export default function ForgotPasswordPage() 
 {
+  // Guard: redirigir si el feature no está habilitado (backend no implementa forgot-password aún)
+  if (!FEATURE_PASSWORD_RESET) {
+    redirect('/auth/login');
+  }
+
   //estados email/loader/error/success
   const [email, setEmail] = useState(''); 
   const [isLoading, setIsLoading] = useState(false); 

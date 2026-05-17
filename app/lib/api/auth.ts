@@ -2,15 +2,58 @@
 // 1. CONFIGURACIÓN
 // ==========================================
 
+import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, AuthError } from '@/app/lib/types/auth';
+import { getErrorMessage } from '@/app/lib/utils/errors';
+import { generateUUIDv7 } from '@/app/lib/utils/uuid';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+/**
+ * Feature flag para forgot/reset password.
+ * Se activa con NEXT_PUBLIC_FEATURE_PASSWORD_RESET=true.
+ * Por defecto false (funcionalidad oculta hasta que el backend la implemente).
+ */
+export const FEATURE_PASSWORD_RESET =
+  process.env.NEXT_PUBLIC_FEATURE_PASSWORD_RESET === 'true';
 
 export class RateLimitError extends Error {
   retryAfter: number;
+  /** Límite total de peticiones en la ventana (header RateLimit-Limit) */
+  limit?: number;
+  /** Peticiones restantes en la ventana (header RateLimit-Remaining) */
+  remaining?: number;
+  /** Timestamp Unix cuando se resetea la ventana (header RateLimit-Reset) */
+  reset?: number;
 
-  constructor(message: string, retryAfter: number) {
+  constructor(
+    message: string,
+    retryAfter: number,
+    limit?: number,
+    remaining?: number,
+    reset?: number
+  ) {
     super(message);
     this.name = 'RateLimitError';
     this.retryAfter = retryAfter;
+    this.limit = limit;
+    this.remaining = remaining;
+    this.reset = reset;
+  }
+}
+
+export class AuthApiError extends Error {
+  action: 'verify_email' | 'none';
+  status: number;
+
+  constructor(
+    message: string,
+    status: number,
+    action: 'verify_email' | 'none' = 'none'
+  ) {
+    super(message);
+    this.name = 'AuthApiError';
+    this.action = action;
+    this.status = status;
   }
 }
 
@@ -22,19 +65,28 @@ export class RateLimitError extends Error {
  * Wrapper de fetch que envía cookies automáticamente.
  * El backend maneja el refresco de tokens transparentemente.
  * Si el backend responde 401, tiramos el error y la app redirige al login.
- * Si el backend responde 429, tiramos RateLimitError con el Retry-After.
+ * Si el backend responde 429, tiramos RateLimitError con Retry-After y rate limit headers.
+ *
+ * Content-Type solo se envía cuando hay body (evita header innecesario en GET y body-less POST como logout).
  */
 export async function apiFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
+  // Construir headers: solo Content-Type cuando hay body y no lo especifica el caller
+  const baseHeaders: Record<string, string> = {};
+  if (options.body) {
+    baseHeaders['Content-Type'] = 'application/json';
+  }
+  const mergedHeaders: Record<string, string> = {
+    ...baseHeaders,
+    ...(options.headers as Record<string, string> || {}),
+  };
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers: mergedHeaders,
   });
 
   if (response.status === 401) {
@@ -43,6 +95,10 @@ export async function apiFetch(
 
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
+    const limit = parseInt(response.headers.get('RateLimit-Limit') || '') || undefined;
+    const remaining = parseInt(response.headers.get('RateLimit-Remaining') || '') || undefined;
+    const reset = parseInt(response.headers.get('RateLimit-Reset') || '') || undefined;
+
     let detail = `Demasiadas peticiones${retryAfter > 0 ? `. Intenta de nuevo en ${retryAfter} segundos.` : '. Intenta más tarde.'}`;
 
     try {
@@ -56,7 +112,7 @@ export async function apiFetch(
       // body no es JSON, usamos el mensaje por defecto
     }
 
-    throw new RateLimitError(detail, retryAfter);
+    throw new RateLimitError(detail, retryAfter, limit, remaining, reset);
   }
 
   return response;
@@ -95,7 +151,7 @@ export interface UserProfile {
  * El backend maneja el refresco de tokens transparentemente vía middleware.
  * Retorna null si no hay sesión activa (401).
  */
-export async function getCurrentUser(): Promise<{ id: string; email: string; email_verified: boolean; role_name: string } | null> {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const response = await fetch(`${API_URL}/v1/auth/me`, {
       method: 'GET',
@@ -111,6 +167,114 @@ export async function getCurrentUser(): Promise<{ id: string; email: string; ema
   } catch {
     return null;
   }
+}
+
+// ==========================================
+// 5. AUTH — Funciones centralizadas
+// ==========================================
+
+/**
+ * POST /v1/auth/login
+ * Inicia sesión con email y contraseña.
+ * Retorna LoginSuccessResponse (user) o LoginMfaResponse (mfa_required).
+ * Throws AuthApiError en errores de dominio (credenciales inválidas, email no verificado, etc.).
+ * Throws RateLimitError cuando se excede el límite de peticiones.
+ */
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<LoginSuccessResponse | LoginMfaResponse> {
+  const response = await apiFetch('/v1/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message, action } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status, action);
+  }
+
+  return data;
+}
+
+/**
+ * POST /v1/auth/register
+ *
+ * Backend AUTH_API.md § Register: el ejemplo 201 muestra solo {message} (sin campo user),
+ * pero las líneas 669/704 indican que register devuelve datos del usuario.
+ * La documentación del backend es contradictoria.
+ * El código maneja ambos casos defensivamente: si user está presente → usarlo; si no → ignorar.
+ */
+export async function registerUser(
+  email: string,
+  password: string,
+  first_name?: string
+): Promise<RegisterResponse> {
+  const body: Record<string, string> = { email, password };
+  if (first_name) {
+    body.first_name = first_name;
+  }
+
+  const response = await apiFetch('/v1/auth/register', {
+    method: 'POST',
+    headers: {
+      'Idempotency-Key': generateUUIDv7(),
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
+}
+
+/**
+ * POST /v1/auth/verify-email
+ * Verifica el email del usuario usando el token enviado por correo.
+ */
+export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
+  const response = await apiFetch('/v1/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
+}
+
+/**
+ * POST /v1/auth/resend-verification
+ * Reenvía el email de verificación al usuario.
+ */
+export async function resendVerification(
+  email: string
+): Promise<ResendVerificationResponse> {
+  const response = await apiFetch('/v1/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
 }
 
 // ==========================================

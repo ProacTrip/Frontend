@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Loader from '@/components/ui/Loader';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { verifyEmail, AuthApiError } from '@/app/lib/api';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 function VerifyEmailContent() {
@@ -31,52 +32,41 @@ function VerifyEmailContent() {
       return;
     }
 
-    const verifyEmail = async () => {
+    const verifyEmailToken = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/verify-email`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ token }),
-          }
-        );
+        const data = await verifyEmail(token);
 
-        const data = await response.json();
+        setStatus('success');
+        setMessage('Email verificado exitosamente. Redirigiendo...');
 
-        if (response.ok) {
-          setStatus('success');
-          setMessage('Email verificado exitosamente. Redirigiendo...');
-
-          if (data.user) {
-            setUserRef.current(data.user);
-          }
-
-          // El backend NO devuelve environment en verify-email.
-          // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
-          try {
-            const env = await fetchAndStoreEnvironment();
-            if (env) setContextRef.current(env);
-          } catch {
-            // Environment no crítico
-          }
-
-          setTimeout(() => {
-            router.push('/home');
-          }, 3000);
-        } else {
-          setStatus('error');
-          setMessage(data.detail || data.title || 'Token inválido o expirado');
+        if (data.user) {
+          setUserRef.current(data.user);
         }
+
+        // El backend NO devuelve environment en verify-email.
+        // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
+        try {
+          const env = await fetchAndStoreEnvironment();
+          if (env) setContextRef.current(env);
+        } catch {
+          // Environment no crítico
+        }
+
+        setTimeout(() => {
+          router.push('/home');
+        }, 3000);
       } catch (err) {
         console.error('Error verificando email:', err);
         setStatus('error');
-        setMessage('Error al verificar el email. Intenta de nuevo.');
+        if (err instanceof AuthApiError) {
+          setMessage(err.message);
+        } else {
+          setMessage('Error al verificar el email. Intenta de nuevo.');
+        }
       }
     };
 
-    verifyEmail();
+    verifyEmailToken();
   }, [token, router]);
 
   return (

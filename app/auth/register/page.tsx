@@ -12,23 +12,30 @@ import GoogleIcon from '@/components/iconos/GoogleIcon';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getErrorMessage } from '@/app/lib/utils/errors';
-import type { RegisterResponse, AuthError } from '@/app/lib/types/auth';
+import { registerUser, RateLimitError, AuthApiError } from '@/app/lib/api';
+import { validatePassword } from '@/app/lib/utils/validation';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { setUser, setContext } = useAuthContext();
 
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(previo => ({ ...previo, [name]: value }));
     if (error) setError('');
+
+    // Validación en tiempo real para el campo de contraseña
+    if (name === 'password') {
+      const result = validatePassword(value);
+      setPasswordErrors(result.valid ? [] : result.errors);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -44,8 +51,10 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
+    // Validación de contraseña contra política del backend
+    const validation = validatePassword(formData.password);
+    if (!validation.valid) {
+      setError(validation.errors.join('. '));
       return;
     }
 
@@ -58,55 +67,43 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': crypto.randomUUID(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
+      const registerData = await registerUser(
+        formData.email,
+        formData.password,
+        formData.first_name.trim() || undefined
+      );
 
-      const data = await response.json();
-
-      if (response.ok) {
-        const registerData = data as RegisterResponse;
-
-        // El backend puede devolver el user en el registro (sesión pre-verificada)
-        if (registerData.user) {
-          setUser(registerData.user);
-        }
-
-        // El backend NO devuelve environment en register.
-        // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
-        try {
-          const env = await fetchAndStoreEnvironment();
-          if (env) setContext(env);
-        } catch {
-          // Environment no crítico — no bloqueamos el registro si falla
-        }
-
-        setSuccess(true);
-        setFormData({ email: '', password: '', confirmPassword: '' });
-
-        setTimeout(() => {
-          router.push('/home');
-        }, 2000);
-      } else {
-        const errData = data as AuthError;
-        const { message } = getErrorMessage(errData, response.status);
-        setError(message);
+      // El backend puede devolver el user en el registro (sesión pre-verificada)
+      if (registerData.user) {
+        setUser(registerData.user);
       }
-    }
-    catch (err) {
-      console.error('Error en registro:', err);
-      setError('Error al conectar con el servidor. Intenta de nuevo.');
-    }
-    finally {
+
+      // El backend NO devuelve environment en register.
+      // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
+      try {
+        const env = await fetchAndStoreEnvironment();
+        if (env) setContext(env);
+      } catch {
+        // Environment no crítico — no bloqueamos el registro si falla
+      }
+
+      setSuccess(true);
+      setFormData({ email: '', password: '', confirmPassword: '', first_name: '' });
+      setPasswordErrors([]);
+
+      setTimeout(() => {
+        router.push('/home');
+      }, 2000);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        setError(err.message);
+      } else if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else {
+        console.error('Error en registro:', err);
+        setError('Error al conectar con el servidor. Intenta de nuevo.');
+      }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -164,8 +161,8 @@ export default function RegisterPage() {
               fill
               sizes="50vw"
               className="object-cover"
-            />
-          </motion.div>
+              />
+            </motion.div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-12 pointer-events-none">
             <motion.h2
               initial={{ x: -20, opacity: 0 }}
@@ -224,6 +221,23 @@ export default function RegisterPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
             >
+              {/* Input Nombre (opcional) */}
+              <InputField
+                label="Nombre (opcional)"
+                name="first_name"
+                type="text"
+                id="first_name"
+                value={formData.first_name}
+                onChange={handleInputChange}
+                placeholder="Tu nombre"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+            >
               {/* Input Email */}
               <InputField
                 label="Email"
@@ -252,6 +266,27 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 showPasswordToggle
               />
+              {passwordErrors.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-red-500">
+                  {[
+                    { met: formData.password.length >= 8, text: 'Mínimo 8 caracteres' },
+                    { met: /[A-Z]/.test(formData.password), text: 'Al menos una mayúscula' },
+                    { met: /[a-z]/.test(formData.password), text: 'Al menos una minúscula' },
+                    { met: /[0-9]/.test(formData.password), text: 'Al menos un dígito' },
+                    { met: /[!@#$%^&*]/.test(formData.password), text: 'Al menos un carácter especial (!@#$%^&*)' },
+                  ].map((req, i) => (
+                    <li key={i} className="flex items-center gap-1">
+                      <span className={req.met ? 'text-green-500' : 'text-red-400'}>
+                        {req.met ? '✓' : '✗'}
+                      </span>
+                      {req.text}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {formData.password.length > 0 && passwordErrors.length === 0 && (
+                <p className="mt-1 text-xs text-green-500">✓ Contraseña segura</p>
+              )}
             </motion.div>
 
             <motion.div

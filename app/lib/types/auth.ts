@@ -11,6 +11,7 @@ export interface AuthUser {
  */
 export interface LoginSuccessResponse {
   user: AuthUser;
+  mfa_required?: false;
 }
 
 /**
@@ -79,6 +80,15 @@ export interface AuthError {
 
 export interface ResendVerificationResponse {
   message: string;
+}
+
+/**
+ * Resultado de validación de contraseña.
+ * Usado por validatePassword() para feedback en tiempo real en el formulario de registro.
+ */
+export interface PasswordValidationResult {
+  valid: boolean;
+  errors: string[];
 }
 
 export interface ForgotPasswordResponse {

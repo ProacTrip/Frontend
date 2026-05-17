@@ -7,6 +7,7 @@ import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
+import { resendVerification, AuthApiError } from '@/app/lib/api';
 
 export default function ResendVerificationPage() {
 
@@ -35,32 +36,21 @@ export default function ResendVerificationPage() {
 
     try 
     {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/resend-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email }) 
-      });
-
-      const data = await response.json();
-
-        if (response.ok) 
-        {
-            setSuccess(true);
-        } 
-        else 
-        {
-            setError(data.error || 'Error al reenviar el email. Intenta de nuevo.');
-        }
+      await resendVerification(email);
+      setSuccess(true);
     }
     catch (err) 
     {
-        console.error('Error en resend verification:', err); 
-        setError('Error al conectar con el servidor. Intenta de nuevo.'); 
+      console.error('Error en resend verification:', err); 
+      if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else {
+        setError('Error al conectar con el servidor. Intenta de nuevo.');
+      }
     } 
     finally 
     {
-        setIsLoading(false); //Desactivamos el loader
+      setIsLoading(false); //Desactivamos el loader
     }
   };
 

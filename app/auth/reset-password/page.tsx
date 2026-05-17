@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import { useState, FormEvent, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, redirect } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FEATURE_PASSWORD_RESET } from '@/app/lib/api';
+import { validatePassword } from '@/app/lib/utils/validation';
 
 //dejo de poner tantos comentarios en router , searchParams etc pq en las otras page ps ya s sabe lo q es
 function ResetPasswordForm() {
@@ -38,9 +40,10 @@ function ResetPasswordForm() {
       setError('Por favor, completa todos los campos');
       return; 
     }
-    if (formData.newPassword.length < 6) 
+    const passwordCheck = validatePassword(formData.newPassword);
+    if (!passwordCheck.valid) 
     {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError(passwordCheck.errors[0]);
       return;
     }
     if (formData.newPassword !== formData.confirmPassword) 
@@ -256,6 +259,11 @@ function ResetPasswordForm() {
 }
 //pagina principal
 export default function ResetPasswordPage() {
+  // Guard: redirigir si el feature no está habilitado (backend no implementa reset-password aún)
+  if (!FEATURE_PASSWORD_RESET) {
+    redirect('/auth/login');
+  }
+
   return (
     <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gray-900">
       <div className="absolute inset-0 z-0">
