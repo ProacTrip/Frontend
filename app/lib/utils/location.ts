@@ -1,24 +1,5 @@
-import { TIMEZONE_CURRENCY_MAP } from '../constants/currencies';
 import { getEnvironment, type EnvironmentResponse } from '@/app/lib/api/context';
-
-// ==========================================
-// TYPES
-// ==========================================
-
-export interface UserLocationData {
-  timezone: string;
-  currency: string;
-  language: string;
-  location?: {
-    city: string;
-    region: string;
-    country: string;
-    country_name: string;
-    latitude: number;
-    longitude: number;
-    postal: string;
-  };
-}
+import { RateLimitError } from '@/app/lib/api/auth';
 
 // ==========================================
 // localStorage KEYS (alineados con docs)
@@ -27,31 +8,6 @@ export interface UserLocationData {
 const ENV_STORAGE_KEY = 'user_environment';
 const ENV_STORED_AT_KEY = 'user_environment_stored_at';
 const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
-
-// ==========================================
-// BROWSER UTILS
-// ==========================================
-
-export function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  } catch {
-    return 'UTC';
-  }
-}
-
-export function detectLanguage(): string {
-  try {
-    const lang = navigator.language || navigator.languages?.[0] || 'en';
-    return lang.split('-')[0].toLowerCase();
-  } catch {
-    return 'en';
-  }
-}
-
-export function getCurrencyFromTimezone(timezone: string): string {
-  return TIMEZONE_CURRENCY_MAP[timezone] || 'USD';
-}
 
 // ==========================================
 // CACHE VALIDATION
@@ -103,19 +59,6 @@ export function getStoredEnvironment(): EnvironmentResponse | null {
   }
 }
 
-/**
- * @deprecated Usar getStoredEnvironment().
- * Alias de compatibilidad — NO valida TTL, usar sólo si se necesita el último valor sin importar la edad.
- */
-export function getStoredContext(): EnvironmentResponse | null {
-  try {
-    const stored = localStorage.getItem(ENV_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as EnvironmentResponse) : null;
-  } catch {
-    return null;
-  }
-}
-
 // ==========================================
 // MAIN FETCH + CACHE FUNCTION
 // ==========================================
@@ -139,17 +82,12 @@ export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | 
     storeEnvironment(env);
     return env;
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error; // re-throw for component-level handling (retryAfter)
+    }
     console.error('[Environment] Failed to fetch environment:', error);
     return null;
   }
-}
-
-/**
- * @deprecated Usar fetchAndStoreEnvironment().
- * Alias de compatibilidad para código que todavía llama a fetchAndStoreContext().
- */
-export async function fetchAndStoreContext(): Promise<EnvironmentResponse | null> {
-  return fetchAndStoreEnvironment();
 }
 
 // ==========================================
@@ -180,20 +118,4 @@ export function getUserPreferences(): { currency: string; gl: string; hl: string
   }
 
   return { currency: 'EUR', gl: 'ES', hl: 'es' };
-}
-
-export function formatLocationDisplay(data: UserLocationData): string {
-  const location = data.timezone.split('/')[1] || data.timezone;
-
-  const languageNames: Record<string, string> = {
-    es: 'Español',
-    en: 'English',
-    fr: 'Français',
-    de: 'Deutsch',
-    it: 'Italiano',
-    pt: 'Português',
-  };
-
-  const languageName = languageNames[data.language] || data.language.toUpperCase();
-  return `${location} - ${data.currency} - ${languageName}`;
 }
