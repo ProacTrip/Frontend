@@ -3,7 +3,6 @@
 
 import Image from "next/image";
 import { useState, FormEvent, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
@@ -19,7 +18,6 @@ import { useRateLimit } from '@/hooks/useRateLimit';
 import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { setUser, setContext } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '' });
@@ -39,7 +37,9 @@ export default function RegisterPage() {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         localStorage.removeItem(STORAGE_KEY);
-        router.push('/home');
+        // Full page load — necesario para que el server layout re-lea las cookies
+        // y pase serverAuthenticated=true al AuthProvider.
+        window.location.href = '/home';
       }
     };
 
@@ -48,7 +48,7 @@ export default function RegisterPage() {
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [router]);
+  }, []);
 
   // Si el usuario verificó en otra pestaña y recarga manualmente esta página,
   // el AuthProvider ya restaura la sesión. Acá solo manejamos la señal del evento.
