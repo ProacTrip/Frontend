@@ -43,9 +43,10 @@ function VerifyEmailContent() {
           setUserRef.current(data.user);
         }
 
+        // Señal cross-tab: notificar a la pestaña del registro que el email fue verificado
+        localStorage.setItem('proactrip_email_verified', Date.now().toString());
+
         // Cargamos environment para consistencia de sessionStorage.
-        // El usuario va a cerrar esta pestaña, pero el dato queda cacheado
-        // para cuando refresque la pestaña principal.
         try {
           const env = await fetchAndStoreEnvironment();
           if (env) setContextRef.current(env);
@@ -54,7 +55,6 @@ function VerifyEmailContent() {
         }
 
         // NO redirigir — esta pestaña se abrió desde el email.
-        // El usuario debe volver manualmente a la pestaña de la aplicación.
       } catch (err) {
         console.error('Error verificando email:', err);
         setStatus('error');
@@ -103,12 +103,6 @@ function VerifyEmailContent() {
             <div className="text-6xl mb-6">✅</div>
             <h2 className="text-2xl font-bold text-green-600 mb-4">¡Email verificado!</h2>
             <p className="text-gray-600 mb-6">{message}</p>
-            <Link
-              href="/auth/login"
-              className="inline-block mt-4 px-6 py-3 bg-[#8d6e63] text-white rounded-xl font-medium hover:bg-[#6d4c41] transition-colors"
-            >
-              Ir al inicio de sesión
-            </Link>
           </>
         )}
 

@@ -2,7 +2,8 @@
 'use client';
 
 import Image from "next/image";
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
@@ -18,6 +19,7 @@ import { useRateLimit } from '@/hooks/useRateLimit';
 import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const { setUser, setContext } = useAuthContext();
 
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '' });
@@ -28,6 +30,28 @@ export default function RegisterPage() {
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   const { isBlocked } = useRateLimit();
+
+  // Detectar cuando el usuario verifica su email en la pestaña del enlace.
+  // La página verify-email escribe en localStorage como señal cross-tab.
+  useEffect(() => {
+    const STORAGE_KEY = 'proactrip_email_verified';
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        localStorage.removeItem(STORAGE_KEY);
+        router.push('/home');
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [router]);
+
+  // Si el usuario verificó en otra pestaña y recarga manualmente esta página,
+  // el AuthProvider ya restaura la sesión. Acá solo manejamos la señal del evento.
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
