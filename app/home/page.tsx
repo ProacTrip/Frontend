@@ -90,7 +90,7 @@ export default function HomePage() {
                 {backgroundDestination.name}
               </p>
               
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white drop-shadow-2xl mb-3 md:mb-4 leading-tight uppercase font-serif">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white drop-shadow-2xl mb-3 md:mb-4 leading-tight uppercase font-serif" suppressHydrationWarning>
                 {backgroundDestination.place}
               </h1>
               
