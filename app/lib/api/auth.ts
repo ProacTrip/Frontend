@@ -2,9 +2,10 @@
 // 1. CONFIGURACIÓN
 // ==========================================
 
-import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, AuthError } from '@/app/lib/types/auth';
+import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthError } from '@/app/lib/types/auth';
 import { getErrorMessage } from '@/app/lib/utils/errors';
 import { generateUUIDv7 } from '@/app/lib/utils/uuid';
+import { rateLimitStore } from '@/app/lib/api/rate-limit';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -68,6 +69,9 @@ export class AuthApiError extends Error {
  * Si el backend responde 429, tiramos RateLimitError con Retry-After y rate limit headers.
  *
  * Content-Type solo se envía cuando hay body (evita header innecesario en GET y body-less POST como logout).
+ *
+ * En TODAS las respuestas exitosas, extrae RateLimit-* headers y actualiza el store
+ * para que los componentes puedan mostrar warnings preventivos.
  */
 export async function apiFetch(
   endpoint: string,
@@ -89,15 +93,32 @@ export async function apiFetch(
     headers: mergedHeaders,
   });
 
+  // Extraer rate limit headers de TODAS las respuestas (pre-429 warning)
+  const rlLimit = parseInt(response.headers.get('RateLimit-Limit') || '', 10);
+  const rlRemaining = parseInt(response.headers.get('RateLimit-Remaining') || '', 10);
+  const rlReset = parseInt(response.headers.get('RateLimit-Reset') || '', 10);
+
+  if (!Number.isNaN(rlLimit) && !Number.isNaN(rlRemaining) && !Number.isNaN(rlReset)) {
+    rateLimitStore.update({
+      limit: rlLimit,
+      remaining: rlRemaining,
+      reset: rlReset,
+      endpoint,
+      timestamp: Date.now(),
+    });
+  }
+
   if (response.status === 401) {
     throw new Error('[Auth] No autorizado. El usuario debe volver a iniciar sesión.');
   }
 
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
-    const limit = parseInt(response.headers.get('RateLimit-Limit') || '') || undefined;
-    const remaining = parseInt(response.headers.get('RateLimit-Remaining') || '') || undefined;
-    const reset = parseInt(response.headers.get('RateLimit-Reset') || '') || undefined;
+    rateLimitStore.block(retryAfter);
+
+    const limit = !Number.isNaN(rlLimit) ? rlLimit : undefined;
+    const remaining = !Number.isNaN(rlRemaining) ? rlRemaining : undefined;
+    const reset = !Number.isNaN(rlReset) ? rlReset : undefined;
 
     let detail = `Demasiadas peticiones${retryAfter > 0 ? `. Intenta de nuevo en ${retryAfter} segundos.` : '. Intenta más tarde.'}`;
 
@@ -265,6 +286,55 @@ export async function resendVerification(
   const response = await apiFetch('/v1/auth/resend-verification', {
     method: 'POST',
     body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
+}
+
+// ==========================================
+// 5. PASSWORD RESET (🚧 planificado en backend)
+// ==========================================
+
+/**
+ * POST /v1/auth/forgot-password
+ * Solicita un enlace de recuperación de contraseña.
+ * 🚧 Endpoint planificado — no implementado en backend aún.
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  const response = await apiFetch('/v1/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const { message } = getErrorMessage(data as AuthError, response.status);
+    throw new AuthApiError(message, response.status);
+  }
+
+  return data;
+}
+
+/**
+ * POST /v1/auth/reset-password
+ * Cambia la contraseña usando un token de recuperación.
+ * 🚧 Endpoint planificado — no implementado en backend aún.
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<ResetPasswordResponse> {
+  const response = await apiFetch('/v1/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, new_password: newPassword }),
   });
 
   const data = await response.json();

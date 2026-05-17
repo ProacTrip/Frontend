@@ -13,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { loginUser, resendVerification, FEATURE_PASSWORD_RESET, RateLimitError, AuthApiError } from '@/app/lib/api';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
 
 export default function LoginPage() {
@@ -24,6 +26,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [errorAction, setErrorAction] = useState<'verify_email' | 'none'>('none');
   const [resendSent, setResendSent] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  const { isBlocked } = useRateLimit();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -77,6 +82,7 @@ export default function LoginPage() {
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
+        setRateLimitError(err.message);
       } else if (err instanceof AuthApiError) {
         setError(err.message);
         setErrorAction(err.action);
@@ -170,8 +176,16 @@ export default function LoginPage() {
             <p className="text-gray-500 text-lg">Inicia sesión para continuar</p>
           </motion.div>
 
+          <RateLimitBanner
+            rateLimitError={rateLimitError}
+            onRetryReady={() => {
+              setRateLimitError(null);
+              setError('');
+            }}
+          />
+
           <AnimatePresence>
-            {error && (
+            {error && !isBlocked && (
               <motion.div
                 initial={{ opacity: 0, y: -10, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: 'auto' }}
@@ -244,7 +258,7 @@ export default function LoginPage() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
             >
-              <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading}>
+              <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading || isBlocked}>
                 Iniciar Sesión
               </Button>
             </motion.div>

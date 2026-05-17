@@ -15,6 +15,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { registerUser, RateLimitError, AuthApiError } from '@/app/lib/api';
 import { validatePassword } from '@/app/lib/utils/validation';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +27,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  const { isBlocked } = useRateLimit();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -97,6 +102,7 @@ export default function RegisterPage() {
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
+        setRateLimitError(err.message);
       } else if (err instanceof AuthApiError) {
         setError(err.message);
       } else {
@@ -189,8 +195,16 @@ export default function RegisterPage() {
           </motion.div>
 
           {/* ÁREA DE MENSAJES: Rojo para errores, Verde para éxito */}
+          <RateLimitBanner
+            rateLimitError={rateLimitError}
+            onRetryReady={() => {
+              setRateLimitError(null);
+              setError('');
+            }}
+          />
+
           <AnimatePresence>
-            {error && (
+            {error && !isBlocked && (
               <motion.div
                 initial={{ opacity: 0, y: -10, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: 'auto' }}
@@ -314,7 +328,7 @@ export default function RegisterPage() {
               transition={{ delay: 0.7 }}
             >
               {/* Botón de Registro */}
-              <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading}>
+              <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading || isBlocked}>
                 Crear Cuenta
               </Button>
             </motion.div>

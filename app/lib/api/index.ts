@@ -12,6 +12,8 @@ export {
   registerUser,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
   logoutUser,
   logoutAllSessions,
   FEATURE_PASSWORD_RESET,

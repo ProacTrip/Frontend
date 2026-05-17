@@ -8,7 +8,7 @@ import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button'; 
 import Loader from '@/components/ui/Loader'; 
 import { motion, AnimatePresence } from 'framer-motion'; 
-import { FEATURE_PASSWORD_RESET } from '@/app/lib/api';
+import { FEATURE_PASSWORD_RESET, forgotPassword, AuthApiError, RateLimitError } from '@/app/lib/api';
 
 export default function ForgotPasswordPage() 
 {
@@ -45,25 +45,19 @@ export default function ForgotPasswordPage()
 
         try 
         {
-            // Llamada a la API de recuperación de contraseña
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/forgot-password`, {
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email }) //pasamos el objeto texto a json
-            });
-
-            if (response.ok) {
-                setSuccess(true);
-            } else {
-                const data = await response.json().catch(() => ({}));
-                setError(data.detail || data.title || 'Error al procesar la solicitud. Intenta de nuevo.');
-            }
+            await forgotPassword(email);
+            setSuccess(true);
         } 
         catch (err) 
         {
-            console.error('Error en forgot password:', err);
-            setError('Error al conectar con el servidor. Intenta de nuevo.');
+            if (err instanceof AuthApiError) {
+                setError(err.message);
+            } else if (err instanceof RateLimitError) {
+                setError(err.message);
+            } else {
+                console.error('Error en forgot password:', err);
+                setError('Error al conectar con el servidor. Intenta de nuevo.');
+            }
         } 
         finally 
         {

@@ -8,7 +8,7 @@ import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FEATURE_PASSWORD_RESET } from '@/app/lib/api';
+import { FEATURE_PASSWORD_RESET, resetPassword, AuthApiError, RateLimitError } from '@/app/lib/api';
 import { validatePassword } from '@/app/lib/utils/validation';
 
 //dejo de poner tantos comentarios en router , searchParams etc pq en las otras page ps ya s sabe lo q es
@@ -63,39 +63,22 @@ function ResetPasswordForm() {
     //peticion al backend para cambiar contraseña
     try 
     {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          token: token,
-          new_password: formData.newPassword
-        })
-      });
-
-      //Convierte la respuesta del backend (que viene en formato JSON) en un objeto de JavaScript para poder usarlo.
-      const data = await response.json();
-
-      if (response.ok) {
-            setSuccess(true);
-            setTimeout(() => {
-            router.push('/auth/login');
-            }, 3000);
-        } else {
-            setError(data.detail || data.title || 'Token inválido o expirado. Solicita un nuevo link.');
-        }
-
+      await resetPassword(token, formData.newPassword);
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 3000);
     } 
     catch (err) 
     {
-      //Aquí entramos si hay fallo de red o backend apagado
-
-      console.error('Error en reset password:', err);
-      //Lo mostramos en consola para debug
-
-      setError('Error al conectar con el servidor. Intenta de nuevo.');
-      //Mensaje para el usuario
-
+      if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else if (err instanceof RateLimitError) {
+        setError(err.message);
+      } else {
+        console.error('Error en reset password:', err);
+        setError('Error al conectar con el servidor. Intenta de nuevo.');
+      }
     } 
     finally 
     {
