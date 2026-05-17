@@ -18,18 +18,30 @@ export { searchHotels, getHotelDetails, getHotelRooms } from './hotels';
 export { searchFlights, getFlightDetails } from './flights';
 
 // ==========================================
-// 4. MANAGEMENT (ADMIN)
+// 4. DASHBOARD (ADMIN)
 // ==========================================
 export {
+  // Users
   listUsers,
   getUserDetail,
+  updateAccountStatus,
+  // Feature limits — user
+  getUserFeatureLimits,
+  setUserFeatureLimit,
+  deleteUserFeatureLimit,
+  // Feature limits — role
+  getRoleFeatureLimits,
+  setRoleFeatureLimit,
+  deleteRoleFeatureLimit,
+  // Permission overrides
+  getPermissionOverrides,
+  createPermissionOverride,
+  deletePermissionOverride,
+  // Roles & permissions catalog (management)
   listRoles,
-  blockUser,
-  unblockUser,
   assignRole,
-  grantPermission,
-  revokePermission,
   listPermissions,
+  // Avatars & audit (management)
   listAvatars,
   uploadAvatar,
   queryAuditLogs,

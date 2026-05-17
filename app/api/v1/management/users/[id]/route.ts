@@ -1,7 +1,8 @@
 // app/api/v1/management/users/[id]/route.ts
 //Utilidad: Proxy: ver detalle completo de 1 usuario
 
-// Proxy: Detalle de usuario (GET /v1/management/users/:id)
+// Proxy: Detalle de usuario (GET /v1/dashboard/users/:id)
+// Responde: { user: UserAdminDetail, effective_permissions: string[] }
 
 import { NextRequest, NextResponse } from 'next/server';
 import { apiFetch } from '@/app/lib/api/auth';
@@ -13,7 +14,7 @@ export async function GET(
   try {
     const { id } = params;
 
-    const response = await apiFetch(`/v1/management/users/${id}`, {
+    const response = await apiFetch(`/v1/dashboard/users/${id}`, {
       method: 'GET',
     });
 

@@ -1,91 +1,118 @@
 // app/admin/users/page.tsx
-//Utilidad: Lista usuarios: tabla + buscar por email/filtrar por rol y estado
+// Lista usuarios con paginación por cursor y filtros combinables (Dashboard API)
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, Shield, UserCheck, UserX, Clock } from 'lucide-react';
+import { Search, Filter, Shield, UserCheck, UserX, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { listUsers } from '@/app/lib/api';
-import type { UserAdmin } from '@/app/lib/types/admin';
+import type { UserAdmin, UserListMeta } from '@/app/lib/types/admin';
 import DataTable, { Column } from '@/components/admin/DataTable';
 
-type UserStatus = 'active' | 'pending_verification' | 'suspended' | 'blocked' | '';
-type UserRole = 'user' | 'staff' | 'admin' | '';
+type UserStatus = 'active' | 'disabled' | 'suspended' | 'pending_verification' | '';
+type UserRole = 'user' | 'staff' | 'admin' | 'client' | '';
 
 export default function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserAdmin[]>([]);
-  const [total, setTotal] = useState(0);
+  const [meta, setMeta] = useState<UserListMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus>('');
   const [roleFilter, setRoleFilter] = useState<UserRole>('');
-  const [limit, setLimit] = useState(20);
-  const [offset, setOffset] = useState(0);
+  const [limit] = useState(20);
 
-  const loadUsers = useCallback(async () => {
+  // Cursor stack: index 0 = primera página (cursor vacío), cada push es la siguiente
+  const [cursorStack, setCursorStack] = useState<string[]>(['']);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadUsers = useCallback(async (cursor: string) => {
     setLoading(true);
     try {
-      const params: any = { limit, offset };
+      const params: Record<string, string | number> = { limit };
+      if (cursor) params.cursor = cursor;
       if (statusFilter) params.status = statusFilter;
       if (roleFilter) params.role = roleFilter;
-      // ✅ BÚSQUEDA SERVERSIDE: delegamos al backend el filtro por email
-      if (searchQuery.trim()) params.email = searchQuery.trim();
+      if (searchQuery.trim()) params.search = searchQuery.trim();
 
       const response = await listUsers(params);
       setUsers(response.users || []);
-      setTotal(response.total || 0);
+      setMeta(response.meta ?? null);
     } catch (error) {
       console.error('Error cargando usuarios:', error);
       setUsers([]);
-      setTotal(0);
+      setMeta(null);
     } finally {
       setLoading(false);
     }
-  }, [limit, offset, statusFilter, roleFilter, searchQuery]);
+  }, [limit, statusFilter, roleFilter, searchQuery]);
 
+  // Cargar la página actual al montar o cuando cambian filtros/búsqueda
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    loadUsers(cursorStack[currentPage] ?? '');
+  }, [loadUsers, currentPage, cursorStack]);
 
-  // Debounce para la búsqueda: no saturar al backend con cada tecla
+  // Debounce búsqueda — resetea a primera página
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setOffset(0); // Reset a página 1 al buscar
-      loadUsers();
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setCursorStack(['']);
+      setCurrentPage(0);
     }, 400);
-    return () => clearTimeout(timer);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
   }, [searchQuery]);
+
+  // Resetear paginación al cambiar filtros
+  useEffect(() => {
+    setCursorStack(['']);
+    setCurrentPage(0);
+  }, [statusFilter, roleFilter]);
+
+  const handleNextPage = () => {
+    if (!meta?.next_cursor) return;
+    const nextStack = [...cursorStack.slice(0, currentPage + 1), meta.next_cursor];
+    setCursorStack(nextStack);
+    setCurrentPage(currentPage + 1);
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage === 0) return;
+    setCurrentPage(currentPage - 1);
+  };
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { text: string; className: string; icon: React.ReactNode }> = {
-      active: { 
-        text: 'Activo', 
+      active: {
+        text: 'Activo',
         className: 'bg-green-100 text-green-700 border-green-200',
-        icon: <UserCheck className="w-3 h-3" />
+        icon: <UserCheck className="w-3 h-3" />,
       },
-      pending_verification: { 
-        text: 'Pendiente', 
+      pending_verification: {
+        text: 'Pendiente',
         className: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-        icon: <Clock className="w-3 h-3" />
+        icon: <Clock className="w-3 h-3" />,
       },
-      suspended: { 
-        text: 'Suspendido', 
+      suspended: {
+        text: 'Suspendido',
         className: 'bg-orange-100 text-orange-700 border-orange-200',
-        icon: <UserX className="w-3 h-3" />
+        icon: <UserX className="w-3 h-3" />,
       },
-      blocked: { 
-        text: 'Bloqueado', 
+      disabled: {
+        text: 'Deshabilitado',
         className: 'bg-red-100 text-red-700 border-red-200',
-        icon: <UserX className="w-3 h-3" />
+        icon: <UserX className="w-3 h-3" />,
       },
     };
 
-    const config = configs[status] || { 
-      text: status, 
+    const config = configs[status] ?? {
+      text: status,
       className: 'bg-gray-100 text-gray-700 border-gray-200',
-      icon: null 
+      icon: null,
     };
 
     return (
@@ -96,18 +123,19 @@ export default function AdminUsersPage() {
     );
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (roleName: string) => {
     const configs: Record<string, string> = {
       admin: 'bg-purple-100 text-purple-700 border-purple-200',
       staff: 'bg-blue-100 text-blue-700 border-blue-200',
+      client: 'bg-gray-100 text-gray-600 border-gray-200',
       user: 'bg-gray-100 text-gray-600 border-gray-200',
     };
 
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${configs[role] || configs.user}`}>
-        {role === 'admin' && <Shield className="w-3 h-3" />}
-        {role === 'staff' && <UserCheck className="w-3 h-3" />}
-        {role.charAt(0).toUpperCase() + role.slice(1)}
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${configs[roleName] ?? configs.user}`}>
+        {roleName === 'admin' && <Shield className="w-3 h-3" />}
+        {roleName === 'staff' && <UserCheck className="w-3 h-3" />}
+        {roleName.charAt(0).toUpperCase() + roleName.slice(1)}
       </span>
     );
   };
@@ -127,20 +155,30 @@ export default function AdminUsersPage() {
     {
       key: 'status',
       header: 'Estado',
-      width: 'w-32',
+      width: 'w-36',
       sortable: true,
       render: (row) => getStatusBadge(row.status),
     },
     {
-      key: 'role',
+      key: 'role_name',
       header: 'Rol',
       width: 'w-28',
       sortable: true,
-      render: (row) => getRoleBadge(row.role),
+      render: (row) => getRoleBadge(row.role_name),
+    },
+    {
+      key: 'email_verified',
+      header: 'Verificado',
+      width: 'w-24',
+      render: (row) => (
+        <span className={row.email_verified ? 'text-green-600 text-sm' : 'text-yellow-600 text-sm'}>
+          {row.email_verified ? 'Sí' : 'No'}
+        </span>
+      ),
     },
     {
       key: 'created_at',
-      header: 'Fecha registro',
+      header: 'Registro',
       sortable: true,
       render: (row) => (
         <span className="text-gray-500">
@@ -165,9 +203,8 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Search - ahora con debounce y búsqueda serverside */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -179,38 +216,30 @@ export default function AdminUsersPage() {
             />
           </div>
 
-          {/* Status filter */}
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <select
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as UserStatus);
-                setOffset(0);
-              }}
-              className="pl-10 pr-8 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent appearance-none bg-white min-w-[160px]"
+              onChange={(e) => setStatusFilter(e.target.value as UserStatus)}
+              className="pl-10 pr-8 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent appearance-none bg-white min-w-[170px]"
             >
               <option value="">Todos los estados</option>
               <option value="active">Activo</option>
+              <option value="disabled">Deshabilitado</option>
               <option value="pending_verification">Pendiente</option>
               <option value="suspended">Suspendido</option>
-              <option value="blocked">Bloqueado</option>
             </select>
           </div>
 
-          {/* Role filter */}
           <div className="relative">
             <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <select
               value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value as UserRole);
-                setOffset(0);
-              }}
+              onChange={(e) => setRoleFilter(e.target.value as UserRole)}
               className="pl-10 pr-8 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent appearance-none bg-white min-w-[140px]"
             >
               <option value="">Todos los roles</option>
-              <option value="user">Usuario</option>
+              <option value="client">Cliente</option>
               <option value="staff">Staff</option>
               <option value="admin">Admin</option>
             </select>
@@ -218,22 +247,49 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Table - ahora usa users directamente, sin filtrado en cliente */}
+      {/* Table */}
       <DataTable
         columns={columns}
         data={users}
-        total={total}
+        total={users.length}
         loading={loading}
         limit={limit}
-        offset={offset}
-        onPageChange={setOffset}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setOffset(0);
-        }}
+        offset={0}
+        onPageChange={() => {}}
+        onLimitChange={() => {}}
         onRowClick={(row) => router.push(`/admin/users/${row.id}`)}
-        emptyMessage={searchQuery.trim() ? `No se encontraron usuarios con email "${searchQuery}"` : 'No hay usuarios disponibles'}
+        emptyMessage={
+          searchQuery.trim()
+            ? `No se encontraron usuarios con email "${searchQuery}"`
+            : 'No hay usuarios disponibles'
+        }
       />
+
+      {/* Cursor pagination controls */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm text-gray-500">
+          Página {currentPage + 1}
+          {meta && ` · ${users.length} resultado${users.length !== 1 ? 's' : ''}`}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrevPage}
+            disabled={currentPage === 0 || loading}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Anterior
+          </button>
+          <button
+            onClick={handleNextPage}
+            disabled={!meta?.has_next || loading}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Siguiente
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

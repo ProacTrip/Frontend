@@ -51,6 +51,23 @@ const ERROR_MAP: Record<string, string> = {
   'conflict': 'El recurso ya existe.',
   'oauth-provider-not-found': 'Proveedor OAuth no soportado.',
   'oauth_provider_not_found': 'Proveedor OAuth no soportado.',
+
+  // Dashboard API errors (RFC 9457 type URLs)
+  'not-authenticated': 'No autenticado. Inicia sesion nuevamente.',
+  'token-version-stale': 'Tu sesion fue invalidada. Inicia sesion nuevamente.',
+  'account-disabled': 'Tu cuenta esta deshabilitada. Contacta al soporte.',
+  'missing-permission': 'No tienes permiso para realizar esta accion.',
+  'user-not-found': 'Usuario no encontrado.',
+  'cannot-disable-self': 'No puedes deshabilitar tu propia cuenta.',
+  'invalid-status': 'Estado invalido. Solo se permiten los valores active y disabled.',
+  'invalid-input': 'Datos de entrada invalidos.',
+  'feature-limit-already-exists': 'Ya existe un limite para ese feature y ventana.',
+  'feature-limit-not-found': 'Limite de feature no encontrado.',
+  'permission-override-already-exists': 'Ya existe un override para ese usuario y permiso.',
+  'permission-override-not-found': 'Override de permiso no encontrado.',
+  'invalid-reason': 'La razon del override debe tener entre 1 y 500 caracteres.',
+  'invalid-block-duration': 'Los denies no pueden exceder 365 dias de duracion.',
+  'forbidden': 'Acceso denegado.',
 };
 
 export function parseApiError(response: Response): Promise<string> {

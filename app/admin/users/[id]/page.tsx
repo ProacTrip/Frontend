@@ -1,5 +1,5 @@
 // app/admin/users/[id]/page.tsx
-// Detalle de usuario: bloquear/desbloquear + cambiar rol (por UUID) + permisos
+// Detalle de usuario: enable/disable (status toggle) + cambiar rol + permission overrides
 
 'use client';
 
@@ -11,8 +11,6 @@ import {
   Shield,
   UserCheck,
   UserX,
-  Lock,
-  Unlock,
   Key,
   Plus,
   Trash2,
@@ -21,19 +19,28 @@ import {
   Mail,
   Calendar,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Activity,
+  CheckCircle,
+  XCircle,
+  X,
 } from 'lucide-react';
 import {
   getUserDetail,
-  blockUser,
-  unblockUser,
+  updateAccountStatus,
   assignRole,
-  grantPermission,
-  revokePermission,
+  createPermissionOverride,
+  deletePermissionOverride,
+  getPermissionOverrides,
   listPermissions,
-  listRoles, // ← NUEVO: necesitas añadirlo en management.ts
+  listRoles,
 } from '@/app/lib/api';
-import type { UserAdminDetail, Permission, PermissionOverride, Role } from '@/app/lib/types/admin';
+import type {
+  UserAdminDetail,
+  Permission,
+  PermissionOverride,
+  Role,
+} from '@/app/lib/types/admin';
 
 export default function AdminUserDetailPage() {
   const router = useRouter();
@@ -41,38 +48,42 @@ export default function AdminUserDetailPage() {
   const userId = params.id as string;
 
   const [user, setUser] = useState<UserAdminDetail | null>(null);
+  const [effectivePermissions, setEffectivePermissions] = useState<string[]>([]);
+  const [overrides, setOverrides] = useState<PermissionOverride[]>([]);
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]); // ← NUEVO
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Modales
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [showUnblockModal, setShowUnblockModal] = useState(false); // ← NUEVO
-  const [blockDays, setBlockDays] = useState(30);
-  const [blockReason, setBlockReason] = useState('');
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<'active' | 'disabled' | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [selectedRoleId, setSelectedRoleId] = useState(''); // ← ahora guarda UUID
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [selectedPermission, setSelectedPermission] = useState('');
-  const [permissionReason, setPermissionReason] = useState('');
+  const [selectedPermissionId, setSelectedPermissionId] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(true);
+  const [permissionReason, setPermissionReason] = useState('');
+  const [permissionExpiresAt, setPermissionExpiresAt] = useState('');
 
   const loadUser = useCallback(async () => {
     setLoading(true);
     try {
-      const [userData, permsData, rolesData] = await Promise.all([
+      const [detailRes, overridesRes, permsData, rolesData] = await Promise.all([
         getUserDetail(userId),
+        getPermissionOverrides(userId),
         listPermissions(),
-        listRoles(), // ← NUEVO
+        listRoles(),
       ]);
-      setUser(userData);
-      setAllPermissions(permsData.permissions || []);
-      setRoles(rolesData.roles || []);
 
-      // Encontrar el UUID del rol actual para preseleccionar en el modal
-      const currentRole = rolesData.roles?.find((r: Role) => r.name === userData.role);
-      setSelectedRoleId(currentRole?.id || '');
+      setUser(detailRes.user);
+      setEffectivePermissions(detailRes.effective_permissions ?? []);
+      setOverrides(overridesRes.overrides ?? []);
+      setAllPermissions(permsData.permissions ?? []);
+      setRoles(rolesData.roles ?? []);
+
+      const currentRole = rolesData.roles?.find((r: Role) => r.name === detailRes.user.role_name);
+      setSelectedRoleId(currentRole?.id ?? '');
     } catch (error) {
       console.error('Error cargando usuario:', error);
     } finally {
@@ -86,74 +97,71 @@ export default function AdminUserDetailPage() {
 
   // ==================== ACCIONES ====================
 
-  const handleBlock = async () => {
-    setActionLoading('block');
+  const handleStatusChange = async () => {
+    if (!pendingStatus) return;
+    setActionLoading('status');
     try {
-      await blockUser(userId, blockDays, blockReason || 'Sin motivo especificado');
-      setShowBlockModal(false);
-      setBlockReason('');
+      await updateAccountStatus(userId, pendingStatus);
+      setShowStatusModal(false);
+      setPendingStatus(null);
       await loadUser();
-    } catch (error: any) {
-      alert(error.message || 'Error bloqueando usuario');
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Error actualizando estado');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleUnblock = async () => {
-    setActionLoading('unblock');
-    try {
-      await unblockUser(userId);
-      setShowUnblockModal(false); // ← cierra modal bonito
-      await loadUser();
-    } catch (error: any) {
-      alert(error.message || 'Error desbloqueando usuario');
-    } finally {
-      setActionLoading(null);
-    }
+  const openStatusModal = (targetStatus: 'active' | 'disabled') => {
+    setPendingStatus(targetStatus);
+    setShowStatusModal(true);
   };
 
   const handleAssignRole = async () => {
     setActionLoading('role');
     try {
-      // ← CORREGIDO: enviamos UUID directamente
       await assignRole(userId, selectedRoleId);
       setShowRoleModal(false);
       await loadUser();
-    } catch (error: any) {
-      alert(error.message || 'Error cambiando rol');
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Error cambiando rol');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleGrantPermission = async () => {
+  const handleCreateOverride = async () => {
+    if (!selectedPermissionId || !permissionReason.trim()) return;
     setActionLoading('permission');
     try {
-      await grantPermission(userId, {
-        permission_id: selectedPermission,
+      const body: { permission_id: string; granted: boolean; reason: string; expires_at?: string } = {
+        permission_id: selectedPermissionId,
         granted: permissionGranted,
-        reason: permissionReason || 'Sin motivo',
-      });
+        reason: permissionReason.trim(),
+      };
+      if (permissionExpiresAt) body.expires_at = new Date(permissionExpiresAt).toISOString();
+
+      await createPermissionOverride(userId, body);
       setShowPermissionModal(false);
       setPermissionReason('');
-      setSelectedPermission('');
+      setSelectedPermissionId('');
+      setPermissionExpiresAt('');
       await loadUser();
-    } catch (error: any) {
-      alert(error.message || 'Error concediendo permiso');
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Error creando override');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleRevokePermission = async (permissionId: string) => {
-    if (!confirm('¿Seguro que quieres revocar este permiso?')) return;
-    setActionLoading(`revoke-${permissionId}`);
+  const handleDeleteOverride = async (overrideId: string) => {
+    if (!confirm('¿Seguro que quieres eliminar este override?')) return;
+    setActionLoading(`delete-${overrideId}`);
     try {
-      await revokePermission(userId, permissionId);
+      await deletePermissionOverride(userId, overrideId);
       await loadUser();
-    } catch (error: any) {
-      alert(error.message || 'Error revocando permiso');
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Error eliminando override');
     } finally {
       setActionLoading(null);
     }
@@ -181,8 +189,17 @@ export default function AdminUserDetailPage() {
     );
   }
 
-  const isBlocked = user.status === 'blocked' || user.status === 'suspended';
-  const currentRoleId = roles.find(r => r.name === user.role)?.id || '';
+  const isDisabled = user.status === 'disabled';
+  const currentRoleId = roles.find((r) => r.name === user.role_name)?.id ?? '';
+
+  // Filter active overrides for display (expired ones are shown with an indicator)
+  const now = new Date();
+  const activeOverrides = overrides.filter(
+    (o) => !o.expires_at || new Date(o.expires_at) > now
+  );
+  const expiredOverrides = overrides.filter(
+    (o) => o.expires_at && new Date(o.expires_at) <= now
+  );
 
   return (
     <div className="space-y-6">
@@ -191,6 +208,7 @@ export default function AdminUserDetailPage() {
         <button
           onClick={() => router.push('/admin/users')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Volver a usuarios"
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
@@ -201,18 +219,18 @@ export default function AdminUserDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna izquierda: Info general */}
+        {/* Left: Info general + permissions */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Tarjeta de información */}
+          {/* Informacion general */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5 text-[#c54141]" />
-              Información General
+              Informacion General
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InfoItem icon={<Mail className="w-4 h-4" />} label="Email" value={user.email} />
-              <InfoItem icon={<Shield className="w-4 h-4" />} label="Rol" value={user.role} />
+              <InfoItem icon={<Shield className="w-4 h-4" />} label="Rol" value={user.role_name} />
               <InfoItem icon={<UserCheck className="w-4 h-4" />} label="Estado" value={user.status} />
               <InfoItem
                 icon={<Calendar className="w-4 h-4" />}
@@ -221,133 +239,134 @@ export default function AdminUserDetailPage() {
               />
               <InfoItem
                 icon={<Clock className="w-4 h-4" />}
-                label="Último login"
-                value={user.last_login_at ? new Date(user.last_login_at).toLocaleString('es-ES') : 'Nunca'}
+                label="Ultimo login"
+                value={
+                  user.last_login_at
+                    ? new Date(user.last_login_at).toLocaleString('es-ES')
+                    : 'Nunca'
+                }
+              />
+              <InfoItem
+                icon={<Activity className="w-4 h-4" />}
+                label="Total logins"
+                value={String(user.login_count)}
               />
               <InfoItem
                 icon={<Key className="w-4 h-4" />}
                 label="Email verificado"
-                value={user.email_verified ? 'Sí' : 'No'}
+                value={user.email_verified ? 'Si' : 'No'}
               />
               <InfoItem
                 icon={<ShieldAlert className="w-4 h-4" />}
                 label="MFA activado"
-                value={user.mfa_enabled ? 'Sí' : 'No'}
-              />
-              <InfoItem
-                icon={<AlertTriangle className="w-4 h-4" />}
-                label="Intentos fallidos"
-                value={String(user.failed_login_attempts)}
+                value={user.mfa_enabled ? 'Si' : 'No'}
               />
             </div>
+          </div>
 
-            {user.block_reason && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-800">Motivo de bloqueo:</p>
-                <p className="text-sm text-red-700 mt-1">{user.block_reason}</p>
-                {user.blocked_until && (
-                  <p className="text-xs text-red-600 mt-1">
-                    Hasta: {new Date(user.blocked_until).toLocaleString('es-ES')}
-                  </p>
-                )}
+          {/* Permisos efectivos */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-[#c54141]" />
+              Permisos Efectivos
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              Calculados como: (permisos del rol &cup; grants activos) &minus; denies activos
+            </p>
+            {effectivePermissions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {effectivePermissions.map((perm) => (
+                  <span
+                    key={perm}
+                    className="inline-flex items-center px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-mono"
+                  >
+                    {perm}
+                  </span>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-6">
+                Este usuario no tiene permisos efectivos.
+              </p>
             )}
           </div>
 
-          {/* Permisos del usuario */}
+          {/* Permission Overrides */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Key className="w-5 h-5 text-[#c54141]" />
-                Permisos Override
+                Permission Overrides
               </h2>
               <button
                 onClick={() => setShowPermissionModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-[#c54141] text-white rounded-lg text-sm font-medium hover:bg-[#a93535] transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                Añadir permiso
+                Nuevo override
               </button>
             </div>
 
-            {user.permissions && user.permissions.length > 0 ? (
+            {activeOverrides.length > 0 ? (
               <div className="space-y-3">
-                {user.permissions.map((perm: PermissionOverride) => (
-                  <div
-                    key={perm.permission_id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">
-                          {perm.resource}:{perm.action}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            perm.granted
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {perm.granted ? 'Concedido' : 'Denegado'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">{perm.reason}</p>
-                      {perm.expires_at && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Expira: {new Date(perm.expires_at).toLocaleDateString('es-ES')}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleRevokePermission(perm.permission_id)}
-                      disabled={actionLoading === `revoke-${perm.permission_id}`}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {actionLoading === `revoke-${perm.permission_id}` ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
+                {activeOverrides.map((o) => (
+                  <OverrideRow
+                    key={o.id}
+                    override={o}
+                    onDelete={() => handleDeleteOverride(o.id)}
+                    deleteLoading={actionLoading === `delete-${o.id}`}
+                    expired={false}
+                  />
                 ))}
               </div>
             ) : (
               <p className="text-gray-500 text-sm text-center py-8">
-                Este usuario no tiene permisos override asignados.
+                Este usuario no tiene overrides activos.
               </p>
+            )}
+
+            {expiredOverrides.length > 0 && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Expirados</p>
+                <div className="space-y-2">
+                  {expiredOverrides.map((o) => (
+                    <OverrideRow
+                      key={o.id}
+                      override={o}
+                      onDelete={() => handleDeleteOverride(o.id)}
+                      deleteLoading={actionLoading === `delete-${o.id}`}
+                      expired
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Columna derecha: Acciones */}
+        {/* Right: Actions + Summary */}
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
             <div className="space-y-3">
-              {/* Bloquear / Desbloquear */}
-              {isBlocked ? (
+              {/* Enable / Disable */}
+              {isDisabled ? (
                 <button
-                  onClick={() => setShowUnblockModal(true)} // ← NUEVO: abre modal
+                  onClick={() => openStatusModal('active')}
                   disabled={!!actionLoading}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {actionLoading === 'unblock' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Unlock className="w-4 h-4" />
-                  )}
-                  Desbloquear usuario
+                  <UserCheck className="w-4 h-4" />
+                  Habilitar cuenta
                 </button>
               ) : (
                 <button
-                  onClick={() => setShowBlockModal(true)}
+                  onClick={() => openStatusModal('disabled')}
                   disabled={!!actionLoading}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
-                  <Lock className="w-4 h-4" />
-                  Bloquear usuario
+                  <UserX className="w-4 h-4" />
+                  Deshabilitar cuenta
                 </button>
               )}
 
@@ -363,27 +382,33 @@ export default function AdminUserDetailPage() {
             </div>
           </div>
 
-          {/* Resumen de estado */}
+          {/* Resumen */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Resumen de estado</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Resumen</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">ID</span>
-                <span className="font-mono text-gray-700">{user.id.slice(0, 12)}...</span>
+                <span className="font-mono text-gray-700 text-xs">{user.id.slice(0, 12)}...</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Estado</span>
+                <span className={
+                  user.status === 'active'
+                    ? 'text-green-600 capitalize'
+                    : 'text-red-600 capitalize'
+                }>
+                  {user.status}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Verificado</span>
                 <span className={user.email_verified ? 'text-green-600' : 'text-yellow-600'}>
-                  {user.email_verified ? 'Sí' : 'No'}
+                  {user.email_verified ? 'Si' : 'No'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Bloqueado hasta</span>
-                <span className="text-gray-700">
-                  {user.blocked_until
-                    ? new Date(user.blocked_until).toLocaleDateString('es-ES')
-                    : '—'}
-                </span>
+                <span className="text-gray-500">Overrides activos</span>
+                <span className="text-gray-700">{activeOverrides.length}</span>
               </div>
             </div>
           </div>
@@ -392,82 +417,53 @@ export default function AdminUserDetailPage() {
 
       {/* ==================== MODALES ==================== */}
 
-      {/* Modal Bloquear */}
-      {showBlockModal && (
-        <Modal onClose={() => setShowBlockModal(false)} title="Bloquear usuario">
+      {/* Modal Cambiar Estado */}
+      {showStatusModal && pendingStatus && (
+        <Modal
+          onClose={() => { setShowStatusModal(false); setPendingStatus(null); }}
+          title={pendingStatus === 'disabled' ? 'Deshabilitar cuenta' : 'Habilitar cuenta'}
+        >
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Duración (días)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={blockDays}
-                onChange={(e) => setBlockDays(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141]"
-              />
-              <p className="text-xs text-gray-500 mt-1">0 = bloqueo permanente</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Motivo
-              </label>
-              <textarea
-                value={blockReason}
-                onChange={(e) => setBlockReason(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141]"
-                placeholder="Motivo del bloqueo..."
-              />
-            </div>
+            {pendingStatus === 'disabled' ? (
+              <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-red-700">
+                  <p className="font-medium mb-1">Efectos de deshabilitar:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-red-600">
+                    <li>Se incrementa el token_version del usuario</li>
+                    <li>Todas las sesiones activas quedan invalidadas</li>
+                    <li>El usuario recibira 401 en su proximo request</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">
+                La cuenta de <strong>{user?.email}</strong> sera habilitada. El usuario
+                podra acceder con sus tokens existentes sin necesidad de re-autenticarse.
+              </p>
+            )}
             <div className="flex gap-3 pt-2">
               <button
-                onClick={() => setShowBlockModal(false)}
+                onClick={() => { setShowStatusModal(false); setPendingStatus(null); }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleBlock}
-                disabled={!!actionLoading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                onClick={handleStatusChange}
+                disabled={actionLoading === 'status'}
+                className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 ${
+                  pendingStatus === 'disabled'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
-                {actionLoading === 'block' ? (
+                {actionLoading === 'status' ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                ) : pendingStatus === 'disabled' ? (
+                  'Deshabilitar'
                 ) : (
-                  'Bloquear'
-                )}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* ← NUEVO: Modal Desbloquear */}
-      {showUnblockModal && (
-        <Modal onClose={() => setShowUnblockModal(false)} title="Confirmar desbloqueo">
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              ¿Estás seguro de que quieres desbloquear a <strong>{user?.email}</strong>? 
-              Podrá acceder al sistema de inmediato.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowUnblockModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleUnblock}
-                disabled={!!actionLoading}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                {actionLoading === 'unblock' ? (
-                  <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                ) : (
-                  'Desbloquear'
+                  'Habilitar'
                 )}
               </button>
             </div>
@@ -481,7 +477,7 @@ export default function AdminUserDetailPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rol actual: <span className="font-semibold capitalize">{user.role}</span>
+                Rol actual: <span className="font-semibold capitalize">{user.role_name}</span>
               </label>
               <select
                 value={selectedRoleId}
@@ -504,7 +500,7 @@ export default function AdminUserDetailPage() {
               </button>
               <button
                 onClick={handleAssignRole}
-                disabled={!!actionLoading || selectedRoleId === currentRoleId}
+                disabled={actionLoading === 'role' || selectedRoleId === currentRoleId}
                 className="flex-1 px-4 py-2 bg-[#c54141] text-white rounded-lg hover:bg-[#a93535] disabled:opacity-50"
               >
                 {actionLoading === 'role' ? (
@@ -518,17 +514,17 @@ export default function AdminUserDetailPage() {
         </Modal>
       )}
 
-      {/* Modal Añadir Permiso */}
+      {/* Modal Nuevo Override */}
       {showPermissionModal && (
-        <Modal onClose={() => setShowPermissionModal(false)} title="Añadir permiso override">
+        <Modal onClose={() => setShowPermissionModal(false)} title="Nuevo permission override">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Permiso
+                Permiso (permission_id)
               </label>
               <select
-                value={selectedPermission}
-                onChange={(e) => setSelectedPermission(e.target.value)}
+                value={selectedPermissionId}
+                onChange={(e) => setSelectedPermissionId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141]"
               >
                 <option value="">Selecciona un permiso...</option>
@@ -539,31 +535,68 @@ export default function AdminUserDetailPage() {
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Acceso
-              </label>
-              <select
-                value={String(permissionGranted)}
-                onChange={(e) => setPermissionGranted(e.target.value === 'true')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141]"
-              >
-                <option value="true">Conceder</option>
-                <option value="false">Denegar</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPermissionGranted(true)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
+                    permissionGranted
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Grant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPermissionGranted(false)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 border-2 rounded-lg text-sm font-medium transition-colors ${
+                    !permissionGranted
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <XCircle className="w-4 h-4" />
+                  Deny
+                </button>
+              </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Motivo
+                Motivo <span className="text-gray-400">(1–500 caracteres)</span>
               </label>
-              <input
-                type="text"
+              <textarea
                 value={permissionReason}
                 onChange={(e) => setPermissionReason(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141]"
-                placeholder="Motivo del permiso..."
+                rows={2}
+                maxLength={500}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141] text-sm"
+                placeholder="Motivo del override..."
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Expira el <span className="text-gray-400">(opcional)</span>
+              </label>
+              {!permissionGranted && (
+                <p className="text-xs text-amber-600 mb-1">
+                  Para denies, la expiracion no puede exceder 365 dias.
+                </p>
+              )}
+              <input
+                type="datetime-local"
+                value={permissionExpiresAt}
+                onChange={(e) => setPermissionExpiresAt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141] text-sm"
+              />
+            </div>
+
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowPermissionModal(false)}
@@ -572,14 +605,14 @@ export default function AdminUserDetailPage() {
                 Cancelar
               </button>
               <button
-                onClick={handleGrantPermission}
-                disabled={!!actionLoading || !selectedPermission}
+                onClick={handleCreateOverride}
+                disabled={actionLoading === 'permission' || !selectedPermissionId || !permissionReason.trim()}
                 className="flex-1 px-4 py-2 bg-[#c54141] text-white rounded-lg hover:bg-[#a93535] disabled:opacity-50"
               >
                 {actionLoading === 'permission' ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                 ) : (
-                  'Añadir'
+                  'Crear override'
                 )}
               </button>
             </div>
@@ -606,8 +639,68 @@ function InfoItem({
       <div className="text-gray-400 mt-0.5">{icon}</div>
       <div>
         <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-medium text-gray-900 capitalize">{value}</p>
+        <p className="text-sm font-medium text-gray-900">{value}</p>
       </div>
+    </div>
+  );
+}
+
+function OverrideRow({
+  override,
+  onDelete,
+  deleteLoading,
+  expired,
+}: {
+  override: PermissionOverride;
+  onDelete: () => void;
+  deleteLoading: boolean;
+  expired: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between p-4 rounded-lg border ${
+        expired
+          ? 'bg-gray-50 border-gray-100 opacity-60'
+          : 'bg-white border-gray-200'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-sm font-medium text-gray-900">{override.permission}</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              override.granted
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {override.granted ? 'Grant' : 'Deny'}
+          </span>
+          {expired && (
+            <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">
+              Expirado
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-500 mt-1 truncate">{override.reason}</p>
+        {override.expires_at && (
+          <p className="text-xs text-gray-400 mt-0.5">
+            Expira: {new Date(override.expires_at).toLocaleDateString('es-ES')}
+          </p>
+        )}
+      </div>
+      <button
+        onClick={onDelete}
+        disabled={deleteLoading}
+        className="ml-3 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+        aria-label="Eliminar override"
+      >
+        {deleteLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Trash2 className="w-4 h-4" />
+        )}
+      </button>
     </div>
   );
 }
@@ -629,8 +722,9 @@ function Modal({
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Cerrar"
           >
-            <AlertTriangle className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
         {children}

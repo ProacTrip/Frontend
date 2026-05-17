@@ -1,20 +1,22 @@
 // app/lib/api/management.ts
-//Utilidad: Funciones para llamar al backend de Marco (bloquear, listar, etc.)
-
-// API del panel de administración (Management + Audit)
+// Dashboard API — Cookie-Based Authorization
+// Base URL: /v1/dashboard
 
 import { apiFetch } from './auth';
 import type {
   UserListResponse,
   UserListParams,
-  UserAdminDetail,
+  UserDetailResponse,
+  UpdateAccountStatusBody,
+  AccountStatusResponse,
+  FeatureLimitsResponse,
+  FeatureLimitBody,
+  FeatureLimit,
+  PermissionOverridesResponse,
+  CreateOverrideBody,
+  PermissionOverride,
   RoleListResponse,
-  BlockUserRequest,
-  BlockUserResponse,
-  UnblockUserRequest,
-  AssignRoleRequest,
   PermissionListResponse,
-  GrantPermissionRequest,
   AvatarListResponse,
   UploadAvatarRequest,
   UploadAvatarResponse,
@@ -27,205 +29,329 @@ import type {
 // ==========================================
 
 /**
- * 📋 Listar usuarios (con filtros y paginación)
+ * GET /v1/dashboard/users
+ * Lista usuarios con paginación por cursor y filtros combinables.
+ * Requiere permiso: users:read
  */
 export async function listUsers(params: UserListParams = {}): Promise<UserListResponse> {
   const query = new URLSearchParams();
-  if (params.status) query.set('status', params.status);
-  if (params.role) query.set('role', params.role);
-  if (params.email) query.set('email', params.email); // ← NUEVO
   if (params.limit) query.set('limit', String(params.limit));
-  if (params.offset) query.set('offset', String(params.offset));
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.role) query.set('role', params.role);
+  if (params.status) query.set('status', params.status);
+  if (params.search) query.set('search', params.search);
+  if (params.created_before) query.set('created_before', params.created_before);
+  if (params.created_after) query.set('created_after', params.created_after);
 
-  const response = await apiFetch(`/v1/management/users?${query.toString()}`, {
+  const response = await apiFetch(`/v1/dashboard/users?${query.toString()}`, {
     method: 'GET',
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();
 }
 
 /**
- * 🔍 Ver detalle de un usuario
+ * GET /v1/dashboard/users/:id
+ * Detalle de un usuario con permisos efectivos calculados.
+ * Requiere permiso: users:read
  */
-export async function getUserDetail(userId: string): Promise<UserAdminDetail> {
-  const response = await apiFetch(`/v1/management/users/${userId}`, {
+export async function getUserDetail(userId: string): Promise<UserDetailResponse> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}`, {
     method: 'GET',
   });
 
   if (!response.ok) {
     if (response.status === 404) throw new Error('Usuario no encontrado');
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
-  const data = await response.json();
-  return data;
+  return response.json();
 }
 
 // ==========================================
-// ROLES
+// ACCOUNT STATUS
 // ==========================================
 
 /**
- * 🎭 Listar roles del sistema
+ * PUT /v1/dashboard/users/:id/status
+ * Habilita o deshabilita una cuenta. Solo acepta active ↔ disabled.
+ * Deshabilitar incrementa token_version e invalida sesiones cacheadas.
+ * Requiere permiso: users:write
  */
-export async function listRoles(): Promise<RoleListResponse> {
-  const response = await apiFetch('/v1/management/roles', {
+export async function updateAccountStatus(
+  userId: string,
+  status: 'active' | 'disabled'
+): Promise<AccountStatusResponse> {
+  const body: UpdateAccountStatusBody = { status };
+
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// FEATURE LIMITS — Usuario
+// ==========================================
+
+/**
+ * GET /v1/dashboard/users/:id/feature-limits
+ * Requiere permiso: feature_limits:read
+ */
+export async function getUserFeatureLimits(userId: string): Promise<FeatureLimitsResponse> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits`, {
     method: 'GET',
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();
 }
 
 /**
- * 🎭 Asignar rol a usuario (por UUID de rol)
+ * POST /v1/dashboard/users/:id/feature-limits
+ * Crea o actualiza un límite de feature para el usuario.
+ * Requiere permiso: feature_limits:write
  */
-export async function assignRole(userId: string, roleId: string): Promise<{ message: string }> {
-  const body: AssignRoleRequest = { user_id: userId, role_id: roleId };
-
-  const response = await apiFetch(`/v1/management/users/${userId}/role`, {
+export async function setUserFeatureLimit(
+  userId: string,
+  body: FeatureLimitBody
+): Promise<FeatureLimit> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// ==========================================
-// BLOQUEO / DESBLOQUEO
-// ==========================================
-
-/**
- * 🚫 Bloquear usuario
- */
-export async function blockUser(userId: string, days: number, reason: string): Promise<BlockUserResponse> {
-  const body: BlockUserRequest = { user_id: userId, days, reason };
-
-  const response = await apiFetch(`/v1/management/users/${userId}/block`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();
 }
 
 /**
- * ✅ Desbloquear usuario
+ * DELETE /v1/dashboard/users/:id/feature-limits/:key
+ * Elimina un límite de feature del usuario.
+ * Requiere permiso: feature_limits:write
  */
-export async function unblockUser(userId: string): Promise<{ message: string }> {
-  const body: UnblockUserRequest = { user_id: userId };
-
-  const response = await apiFetch(`/v1/management/users/${userId}/unblock`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// ==========================================
-// PERMISOS
-// ==========================================
-
-/**
- * 📜 Listar todos los permisos del sistema
- */
-export async function listPermissions(): Promise<PermissionListResponse> {
-  const response = await apiFetch('/v1/management/permissions', {
-    method: 'GET',
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * ➕ Conceder/Revocar permiso override a usuario
- */
-export async function grantPermission(userId: string, data: Omit<GrantPermissionRequest, 'user_id'>): Promise<{ message: string }> {
-  const body: GrantPermissionRequest = { user_id: userId, ...data };
-
-  const response = await apiFetch(`/v1/management/users/${userId}/permissions`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * ➖ Revocar permiso override específico
- */
-export async function revokePermission(userId: string, permissionId: string): Promise<{ message: string }> {
-  const response = await apiFetch(`/v1/management/users/${userId}/permissions/${permissionId}`, {
+export async function deleteUserFeatureLimit(userId: string, key: string): Promise<void> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/feature-limits/${key}`, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
-
-  return response.json();
 }
 
 // ==========================================
-// AVATARES
+// FEATURE LIMITS — Rol
 // ==========================================
 
 /**
- * 🖼️ Listar avatares por defecto
+ * GET /v1/dashboard/roles/:id/feature-limits
+ * Requiere permiso: feature_limits:read
  */
-export async function listAvatars(): Promise<AvatarListResponse> {
-  const response = await apiFetch('/v1/management/avatars/default', {
+export async function getRoleFeatureLimits(roleId: string): Promise<FeatureLimitsResponse> {
+  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits`, {
     method: 'GET',
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();
 }
 
 /**
- * ⬆️ Generar URL para subir avatar (presigned URL)
+ * POST /v1/dashboard/roles/:id/feature-limits
+ * Crea o actualiza el default de feature para el rol.
+ * Requiere permiso: feature_limits:write
  */
+export async function setRoleFeatureLimit(
+  roleId: string,
+  body: FeatureLimitBody
+): Promise<FeatureLimit> {
+  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * DELETE /v1/dashboard/roles/:id/feature-limits/:key
+ * Requiere permiso: feature_limits:write
+ */
+export async function deleteRoleFeatureLimit(roleId: string, key: string): Promise<void> {
+  const response = await apiFetch(`/v1/dashboard/roles/${roleId}/feature-limits/${key}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+}
+
+// ==========================================
+// PERMISSION OVERRIDES
+// ==========================================
+
+/**
+ * GET /v1/dashboard/users/:id/permission-overrides
+ * Los overrides expirados se incluyen — el cliente o PermissionResolver los filtra.
+ * Requiere permiso: permissions:read
+ */
+export async function getPermissionOverrides(userId: string): Promise<PermissionOverridesResponse> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/permission-overrides`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * POST /v1/dashboard/users/:id/permission-overrides
+ * Crea un override (grant o deny). Invalida la sesión cacheada del usuario (best-effort).
+ * Requiere permiso: permissions:write
+ */
+export async function createPermissionOverride(
+  userId: string,
+  body: CreateOverrideBody
+): Promise<PermissionOverride> {
+  const response = await apiFetch(`/v1/dashboard/users/${userId}/permission-overrides`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * DELETE /v1/dashboard/users/:id/permission-overrides/:overrideId
+ * Invalida la sesión cacheada del usuario (best-effort).
+ * Requiere permiso: permissions:write
+ */
+export async function deletePermissionOverride(userId: string, overrideId: string): Promise<void> {
+  const response = await apiFetch(
+    `/v1/dashboard/users/${userId}/permission-overrides/${overrideId}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+}
+
+// ==========================================
+// ROLES (catálogo)
+// ==========================================
+
+/**
+ * GET /v1/management/roles
+ * Sigue usando la ruta de management para el catálogo de roles del sistema.
+ */
+export async function listRoles(): Promise<RoleListResponse> {
+  const response = await apiFetch('/v1/management/roles', { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * POST /v1/management/users/:id/role
+ * Asigna un rol a un usuario por UUID de rol.
+ */
+export async function assignRole(userId: string, roleId: string): Promise<{ message: string }> {
+  const response = await apiFetch(`/v1/management/users/${userId}/role`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, role_id: roleId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// PERMISOS (catálogo del sistema)
+// ==========================================
+
+/**
+ * GET /v1/management/permissions
+ * Catálogo completo de permisos disponibles en el sistema.
+ */
+export async function listPermissions(): Promise<PermissionListResponse> {
+  const response = await apiFetch('/v1/management/permissions', { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// AVATARES (Management — sin cambios de ruta)
+// ==========================================
+
+export async function listAvatars(): Promise<AvatarListResponse> {
+  const response = await apiFetch('/v1/management/avatars/default', { method: 'GET' });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function uploadAvatar(data: UploadAvatarRequest): Promise<UploadAvatarResponse> {
   const response = await apiFetch('/v1/management/avatars/default', {
     method: 'POST',
@@ -234,19 +360,16 @@ export async function uploadAvatar(data: UploadAvatarRequest): Promise<UploadAva
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();
 }
 
 // ==========================================
-// AUDIT LOGS
+// AUDIT LOGS (sin cambios de ruta)
 // ==========================================
 
-/**
- * 📋 Consultar logs de auditoría (con filtros)
- */
 export async function queryAuditLogs(params: AuditLogListParams = {}): Promise<AuditLogListResponse> {
   const query = new URLSearchParams();
   if (params.limit) query.set('limit', String(params.limit));
@@ -266,7 +389,7 @@ export async function queryAuditLogs(params: AuditLogListParams = {}): Promise<A
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Error ${response.status}`);
+    throw new Error(error.detail || error.title || `Error ${response.status}`);
   }
 
   return response.json();

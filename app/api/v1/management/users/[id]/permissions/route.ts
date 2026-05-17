@@ -1,40 +1,59 @@
 // app/api/v1/management/users/[id]/permissions/route.ts
-//Utilidad: Proxy: conceder permiso especial a usuario
-
-// Proxy: Conceder permiso override (POST /v1/management/users/:id/permissions)
+// Proxy: Permission Overrides
+//   GET    /v1/dashboard/users/:id/permission-overrides — listar overrides
+//   POST   /v1/dashboard/users/:id/permission-overrides — crear override
 
 import { NextRequest, NextResponse } from 'next/server';
 import { apiFetch } from '@/app/lib/api/auth';
 
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const body = await request.json();
+    const { id } = await params;
 
-    const response = await apiFetch(`/v1/management/users/${id}/permissions`, {
-      method: 'POST',
-      body: JSON.stringify(body),
+    const response = await apiFetch(`/v1/dashboard/users/${id}/permission-overrides`, {
+      method: 'GET',
     });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error concediendo permiso' },
-        { status: response.status }
-      );
+      return NextResponse.json(error, { status: response.status });
     }
 
     const data = await response.json();
     return NextResponse.json(data);
 
   } catch (error) {
-    console.error('Error proxy grantPermission:', error);
-    return NextResponse.json(
-      { message: 'Error interno' },
-      { status: 500 }
-    );
+    console.error('Error proxy getPermissionOverrides:', error);
+    return NextResponse.json({ title: 'Error interno', status: 500 }, { status: 500 });
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    const response = await apiFetch(`/v1/dashboard/users/${id}/permission-overrides`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(error, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: 201 });
+
+  } catch (error) {
+    console.error('Error proxy createPermissionOverride:', error);
+    return NextResponse.json({ title: 'Error interno', status: 500 }, { status: 500 });
   }
 }

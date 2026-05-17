@@ -1,52 +1,161 @@
 // app/lib/types/admin.ts
-//Utilidad: Define estructura de datos: usuarios, permisos, logs, avatares, roles
-
-// Tipos del módulo de administración (Management + Audit)
-// Basado en la API de Marco Aurelio
+// Tipos del módulo de administración — Dashboard API (Cookie-Based Authorization)
+// Base URL: /v1/dashboard
 
 // ==========================================
-// 1. USUARIOS (Management)
+// 1. USUARIOS — List Users
 // ==========================================
 
+/**
+ * Ítem devuelto por GET /v1/dashboard/users
+ * NUNCA incluye password_hash, locked_until, failed_attempts ni datos OAuth.
+ */
 export interface UserAdmin {
   id: string;
   email: string;
-  status: 'active' | 'pending_verification' | 'suspended' | 'blocked';
-  role: 'user' | 'staff' | 'admin';
+  status: 'active' | 'disabled' | 'suspended' | 'pending_verification' | string;
+  role_id: string;
+  role_name: string;
+  email_verified: boolean;
   created_at: string;
+  updated_at: string;
 }
 
-export interface UserAdminDetail {
-  id: string;
-  email: string;
-  status: string;
-  role: string;
-  email_verified: boolean;
-  mfa_enabled: boolean;
-  failed_login_attempts: number;
-  last_login_at: string | null;
-  locked_until: string | null;
-  blocked_until: string | null;
-  block_reason: string | null;
-  created_at: string;
-  permissions: PermissionOverride[];
+/**
+ * Paginación por cursor (opaco base64) devuelta por GET /v1/dashboard/users
+ */
+export interface UserListMeta {
+  next_cursor: string | null;
+  prev_cursor: string | null;
+  has_next: boolean;
+  limit: number;
 }
 
 export interface UserListResponse {
   users: UserAdmin[];
-  total: number;
+  meta: UserListMeta;
 }
 
 export interface UserListParams {
-  status?: string;
-  role?: string;
-  email?: string;   // ← NUEVO: búsqueda serverside por email
   limit?: number;
-  offset?: number;
+  cursor?: string;
+  role?: string;
+  status?: string;
+  /** Búsqueda por email (ILIKE en el backend) */
+  search?: string;
+  created_before?: string;
+  created_after?: string;
 }
 
 // ==========================================
-// 2. ROLES (Management)
+// 2. USUARIO — User Detail
+// ==========================================
+
+/**
+ * Detalle de un usuario devuelto por GET /v1/dashboard/users/:id
+ * Incluye permisos efectivos calculados: (rol ∪ grants) − denies
+ */
+export interface UserAdminDetail {
+  id: string;
+  email: string;
+  status: string;
+  role_id: string;
+  role_name: string;
+  email_verified: boolean;
+  mfa_enabled: boolean;
+  login_count: number;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserDetailResponse {
+  user: UserAdminDetail;
+  /** Permisos efectivos: (rol_permissions ∪ active_grants) − active_denies */
+  effective_permissions: string[];
+}
+
+// ==========================================
+// 3. ACCOUNT STATUS
+// ==========================================
+
+/**
+ * PUT /v1/dashboard/users/:id/status
+ * Solo acepta transiciones active ↔ disabled.
+ * Deshabilitar incrementa token_version e invalida sesiones cacheadas.
+ */
+export interface UpdateAccountStatusBody {
+  status: 'active' | 'disabled';
+}
+
+export interface AccountStatusResponse {
+  user_id: string;
+  previous_status: string;
+  new_status: string;
+  token_version: number;
+  sessions_invalidated: number;
+}
+
+// ==========================================
+// 4. FEATURE LIMITS — Usuario
+// ==========================================
+
+export interface FeatureLimit {
+  feature_key: string;
+  /** null = ilimitado, 0 = bloqueado, >0 = cuota */
+  limit_value: number | null;
+  /** "minute" | "hour" | "day" | "month" */
+  window: string;
+}
+
+export interface FeatureLimitsResponse {
+  limits: FeatureLimit[];
+}
+
+export interface FeatureLimitBody {
+  feature_key: string;
+  limit_value: number | null;
+  window?: string;
+}
+
+// ==========================================
+// 5. FEATURE LIMITS — Rol
+// ==========================================
+
+// Comparten los mismos tipos que Feature Limits de usuario
+// GET  /v1/dashboard/roles/:id/feature-limits  → FeatureLimitsResponse
+// POST /v1/dashboard/roles/:id/feature-limits  → FeatureLimit (201)
+// DELETE /v1/dashboard/roles/:id/feature-limits/:key → 204
+
+// ==========================================
+// 6. PERMISSION OVERRIDES
+// ==========================================
+
+export interface PermissionOverride {
+  id: string;
+  permission: string;
+  granted: boolean;
+  reason: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PermissionOverridesResponse {
+  overrides: PermissionOverride[];
+}
+
+export interface CreateOverrideBody {
+  permission_id: string;
+  granted: boolean;
+  /** 1–500 caracteres, no vacío, no solo whitespace */
+  reason: string;
+  /** ISO 8601. Para denies, no puede exceder 365 días. */
+  expires_at?: string;
+}
+
+// ==========================================
+// 7. ROLES (para el selector de roles)
 // ==========================================
 
 export interface Role {
@@ -60,7 +169,7 @@ export interface RoleListResponse {
 }
 
 // ==========================================
-// 3. PERMISOS (Management)
+// 8. PERMISOS (catálogo del sistema)
 // ==========================================
 
 export interface Permission {
@@ -70,53 +179,12 @@ export interface Permission {
   description: string;
 }
 
-export interface PermissionOverride {
-  permission_id: string;
-  resource: string;
-  action: string;
-  granted: boolean;
-  reason: string;
-  expires_at: string | null;
-}
-
 export interface PermissionListResponse {
   permissions: Permission[];
 }
 
-export interface GrantPermissionRequest {
-  user_id: string;
-  permission_id: string;
-  granted: boolean;
-  reason: string;
-  expires_at?: string;
-}
-
 // ==========================================
-// 4. BLOQUEO / DESBLOQUEO (Management)
-// ==========================================
-
-export interface BlockUserRequest {
-  user_id: string;
-  days: number;      // 0 = permanente
-  reason: string;
-}
-
-export interface BlockUserResponse {
-  message: string;
-  blocked_until?: string;
-}
-
-export interface UnblockUserRequest {
-  user_id: string;
-}
-
-export interface AssignRoleRequest {
-  user_id: string;
-  role_id: string;
-}
-
-// ==========================================
-// 5. AVATARES (Management)
+// 9. AVATARES (Management — sin cambios)
 // ==========================================
 
 export interface Avatar {
@@ -143,10 +211,10 @@ export interface UploadAvatarResponse {
 }
 
 // ==========================================
-// 6. AUDIT LOGS (Audit Module)
+// 10. AUDIT LOGS (sin cambios)
 // ==========================================
 
-export type AuditEventType = 
+export type AuditEventType =
   | 'http_request'
   | 'user_registered'
   | 'user_login'
@@ -181,11 +249,11 @@ export interface AuditLog {
     resource?: string;
     status_code?: number;
     duration_ms?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   metadata: {
     user_agent?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   created_at: string;
 }
@@ -209,7 +277,7 @@ export interface AuditLogListParams {
 }
 
 // ==========================================
-// 7. SSE (Audit Real-time)
+// 11. SSE (Audit Real-time)
 // ==========================================
 
 export interface AuditSSEEvent {
@@ -222,6 +290,6 @@ export interface AuditSSEEvent {
   resource: string;
   outcome: AuditOutcome;
   severity: AuditSeverity;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   timestamp: string;
 }
