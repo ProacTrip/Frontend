@@ -254,7 +254,7 @@ export async function getProfile(): Promise<ProfileResponse> {
       await parseUserError(response, endpoint);
     }
 
-    return await response.json();
+    return adaptProfileResponse(await response.json());
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
@@ -267,6 +267,27 @@ export async function getProfile(): Promise<ProfileResponse> {
 
     throw error;
   }
+}
+
+/** Adapta la respuesta plana del backend al formato ProfileResponse del frontend. */
+// deno-lint-ignore no-explicit-any
+function adaptProfileResponse(raw: any): ProfileResponse {
+  const loc = raw.location || {};
+  // Mapear location.timezone → timezone_name, etc.
+  const adapted = {
+    ...raw,
+    timezone_name: loc.timezone || raw.timezone_name || null,
+    language_code: loc.language || raw.language_code || null,
+    currency_code: loc.currency || raw.currency_code || null,
+  };
+  // Eliminar el objeto location anidado (ya mapeamos sus campos)
+  delete adapted.location;
+
+  return {
+    profile: adapted,
+    travel_preferences: raw.travel_preferences || null,
+    notification_preferences: raw.notification_preferences || [],
+  };
 }
 
 /**

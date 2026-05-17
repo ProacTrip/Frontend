@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { listFavorites, addFavorite, deleteFavorite } from '@/app/lib/api'; // ← Usando el barrel export
-import { Favorite, EntityType, CreateFavoriteBody } from '@/app/lib/types/user';
+import { Favorite, EntityType, CreateFavoriteBody, AddFavoriteResponse } from '@/app/lib/types/user';
 
 export function useFavorites(entityType?: EntityType) {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
@@ -57,8 +57,9 @@ export function useFavorites(entityType?: EntityType) {
           }
 
           // Construir localmente para evitar el GET extra (await load())
+          const addRes = res as AddFavoriteResponse;
           const newFavorite: Favorite = {
-            id: res.favorite_id,
+            id: addRes.favorite_id,
             entity_id: body.entity_id,
             entity_type: body.entity_type,
             title: body.title,
