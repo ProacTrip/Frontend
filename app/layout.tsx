@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import { Providers } from "./providers";
 
 //Configura la fuente principal (Geist Sans).
@@ -27,11 +28,16 @@ export const metadata: Metadata = {
 
 //COMPONENTE PRINCIPAL DEL LAYOUT
 // Providers es client component que wrappea AuthContext (necesario en Next.js 16 server layout)
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // El middleware ya validó las cookies — el server sabe si hay sesión.
+  // Pasamos este dato al cliente para evitar llamadas innecesarias a /v1/auth/me.
+  const cookieStore = await cookies();
+  const serverAuthenticated = cookieStore.has('__Secure-access_token') || cookieStore.has('__Secure-refresh_token');
+
   return (
     // Define que el idioma de la web es español
     <html lang="es">
@@ -40,7 +46,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* AuthProvider + cualquier provider futuro */}
-        <Providers>
+        <Providers serverAuthenticated={serverAuthenticated}>
           {/* AQUÍ es donde Next.js "pega" el contenido de tu page.tsx actual */}
           {children}
         </Providers>

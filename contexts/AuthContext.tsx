@@ -29,7 +29,14 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  serverAuthenticated,
+}: {
+  children: ReactNode;
+  /** Indica si el server detectó cookies de auth. Evita llamadas innecesarias a /v1/auth/me. */
+  serverAuthenticated: boolean;
+}) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [context, setContext] = useState<EnvironmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -105,25 +112,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   /**
-   * Al montar, valida la sesión activa usando GET /v1/auth/me.
-   * Independientemente del resultado, también carga el environment (cache-first).
-   * Auth y environment son módulos independientes — se cargan en paralelo.
+   * Al montar, restaura la sesión y carga el environment.
+   *
+   * Si el server (layout.tsx) ya confirmó que NO hay cookies de auth,
+   * nos saltamos GET /v1/auth/me — sería un 401 garantizado.
+   * Solo cargamos el environment (público, cache-first).
+   *
+   * Si hay cookies de auth, validamos la sesión y cargamos ambos en paralelo.
+   * Auth y environment son módulos independientes según ENVIRONMENT_API.md.
    */
   useEffect(() => {
     let cancelled = false;
 
     async function restoreAuth() {
       try {
-        // Auth y environment son independientes: cargar en paralelo
-        const [currentUser, env] = await Promise.all([
-          getCurrentUser(),
-          fetchAndStoreEnvironment(),
-        ]);
+        if (!serverAuthenticated) {
+          // Sin cookies de auth → no llamar /v1/auth/me (sería 401 garantizado)
+          // El environment es público: cargarlo con cache-first
+          const env = await fetchAndStoreEnvironment();
+          if (cancelled) return;
+          setUserState(null);
+          if (env) setContext(env);
+        } else {
+          // Hay cookies de auth → cargar usuario y environment en paralelo
+          const [currentUser, env] = await Promise.all([
+            getCurrentUser(),
+            fetchAndStoreEnvironment(),
+          ]);
 
-        if (cancelled) return;
+          if (cancelled) return;
 
-        setUserState(currentUser);
-        if (env) setContext(env);
+          setUserState(currentUser);
+          if (env) setContext(env);
+        }
       } catch {
         if (!cancelled) {
           setUserState(null);
@@ -140,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [serverAuthenticated]);
 
   return (
     <AuthContext.Provider
