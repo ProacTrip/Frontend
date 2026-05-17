@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   getUploadAvatarUrl,
   uploadAvatarToR2,
   confirmAvatarUpload,
-  listDefaultAvatars,
-  selectDefaultAvatar,
 } from '@/app/lib/api';
-import { DefaultAvatar } from '@/app/lib/types/user';
-import { Upload, Image as ImageIcon, Check, AlertCircle, Loader } from 'lucide-react';
+import { Upload, Image as ImageIcon, AlertCircle, Loader } from 'lucide-react';
 
 interface Props {
   currentUrl: string | null;
@@ -22,26 +19,9 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 export function AvatarForm({ currentUrl, onSave }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [defaults, setDefaults] = useState<DefaultAvatar[]>([]);
-  const [isLoadingDefaults, setIsLoadingDefaults] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSelectingDefault, setIsSelectingDefault] = useState<string | null>(null);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    async function loadDefaults() {
-      try {
-        const avatars = await listDefaultAvatars();
-        setDefaults(avatars);
-      } catch (err: any) {
-        console.warn('Error cargando avatares por defecto:', err.message);
-      } finally {
-        setIsLoadingDefaults(false);
-      }
-    }
-    loadDefaults();
-  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -79,20 +59,6 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
       setError(err.message);
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleSelectDefault = async (avatarName: string) => {
-    setIsSelectingDefault(avatarName);
-    setError('');
-
-    try {
-      await selectDefaultAvatar(avatarName);
-      onSave();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsSelectingDefault(null);
     }
   };
 
@@ -194,54 +160,6 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
             <Upload className="w-6 h-6" />
             <span className="text-sm font-medium">Haz click para seleccionar una imagen</span>
           </button>
-        )}
-      </div>
-
-      {/* Avatares por defecto */}
-      <div>
-        <p className="font-medium text-gray-800 mb-3">Avatares por defecto</p>
-
-        {isLoadingDefaults ? (
-          <div className="flex items-center gap-2 text-gray-500">
-            <Loader className="w-4 h-4 animate-spin" /> Cargando...
-          </div>
-        ) : defaults.length === 0 ? (
-          <p className="text-sm text-gray-400">No hay avatares por defecto disponibles.</p>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
-            {defaults.map((avatar) => (
-              <button
-                key={avatar.name}
-                type="button"
-                onClick={() => handleSelectDefault(avatar.name)}
-                disabled={isSelectingDefault === avatar.name}
-                className={`relative group rounded-xl overflow-hidden border-2 transition-all ${
-                  currentUrl === avatar.url
-                    ? 'border-[#FF6B6B] ring-2 ring-[#FF6B6B]/20'
-                    : 'border-transparent hover:border-gray-300'
-                }`}
-              >
-                <img
-                  src={avatar.url}
-                  alt={avatar.label}
-                  className="w-full aspect-square object-cover"
-                />
-                {isSelectingDefault === avatar.name && (
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <Loader className="w-5 h-5 text-white animate-spin" />
-                  </div>
-                )}
-                {currentUrl === avatar.url && (
-                  <div className="absolute top-1 right-1 bg-[#FF6B6B] text-white rounded-full p-0.5">
-                    <Check className="w-3 h-3" />
-                  </div>
-                )}
-                <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] py-1 text-center truncate px-1">
-                  {avatar.label}
-                </span>
-              </button>
-            ))}
-          </div>
         )}
       </div>
     </div>
