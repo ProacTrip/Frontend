@@ -8,7 +8,6 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
 import type { AuthUser } from '@/app/lib/types/auth';
 import { logoutUser, logoutAllSessions, getCurrentUser } from '@/app/lib/api/auth';
 import { type EnvironmentResponse } from '@/app/lib/api/context';
@@ -56,7 +55,6 @@ export function AuthProvider({
   const [context, setContext] = useState<EnvironmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   /**
    * Establece el usuario en memoria y en sessionStorage.
@@ -121,9 +119,10 @@ export function AuthProvider({
       setUserState(null);
       setContext(null);
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      router.push('/auth/login');
+      // Full page reload para que el server re-evalúe serverAuthenticated
+      window.location.href = '/auth/login';
     }
-  }, [router]);
+  }, []);
 
   const logoutAll = useCallback(async () => {
     try {
@@ -134,9 +133,9 @@ export function AuthProvider({
       setUserState(null);
       setContext(null);
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      router.push('/auth/login');
+      window.location.href = '/auth/login';
     }
-  }, [router]);
+  }, []);
 
   /**
    * Al montar, restaura la sesión y carga el environment.
