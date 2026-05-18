@@ -120,7 +120,7 @@ export function AuthProvider({
       setContext(null);
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
       // Full page reload para que el server re-evalúe serverAuthenticated
-      window.location.href = '/auth/login';
+      window.location.href = '/home';
     }
   }, []);
 
@@ -133,7 +133,7 @@ export function AuthProvider({
       setUserState(null);
       setContext(null);
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      window.location.href = '/auth/login';
+      window.location.href = '/home';
     }
   }, []);
 
