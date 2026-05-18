@@ -101,20 +101,8 @@ export async function apiFetch(
     headers: mergedHeaders,
   });
 
-  // Extraer rate limit headers de TODAS las respuestas (pre-429 warning)
-  const rlLimit = parseInt(response.headers.get('RateLimit-Limit') || '', 10);
-  const rlRemaining = parseInt(response.headers.get('RateLimit-Remaining') || '', 10);
-  const rlReset = parseInt(response.headers.get('RateLimit-Reset') || '', 10);
-
-  if (!Number.isNaN(rlLimit) && !Number.isNaN(rlRemaining) && !Number.isNaN(rlReset)) {
-    rateLimitStore.update({
-      limit: rlLimit,
-      remaining: rlRemaining,
-      reset: rlReset,
-      endpoint,
-      timestamp: Date.now(),
-    });
-  }
+  // Extract rate limit headers from ALL responses for pre-429 warning
+  extractRateLimitHeaders(response, endpoint);
 
   if (response.status === 401) {
     throw new Error('[Auth] No autorizado. El usuario debe volver a iniciar sesión.');
@@ -123,6 +111,10 @@ export async function apiFetch(
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
     rateLimitStore.block(retryAfter);
+
+    const rlLimit = parseInt(response.headers.get('RateLimit-Limit') || '', 10);
+    const rlRemaining = parseInt(response.headers.get('RateLimit-Remaining') || '', 10);
+    const rlReset = parseInt(response.headers.get('RateLimit-Reset') || '', 10);
 
     const limit = !Number.isNaN(rlLimit) ? rlLimit : undefined;
     const remaining = !Number.isNaN(rlRemaining) ? rlRemaining : undefined;
@@ -185,19 +177,22 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
 
   let code: AuthApiErrorCode;
 
-  // 1. Rate limit — highest priority
-  if (status === 429 || type.includes('rate_limit') || type.includes('rate-limit')) {
+  // 1. Account locked — must be checked before rate limit (backend may return 429 status
+  //    for account-locked errors, which would be misclassified as RATE_LIMIT_EXCEEDED)
+  if (type.includes('account-locked') || type.includes('account_locked')) {
+    code = 'ACCOUNT_LOCKED';
+  }
+  // 2. Rate limit
+  else if (status === 429 || type.includes('rate_limit') || type.includes('rate-limit')) {
     code = 'RATE_LIMIT_EXCEEDED';
   }
-  // 2. Type URI-based mapping (last path segment)
+  // 3. Type URI-based mapping (last path segment)
   else if (type.includes('invalid-credentials') || type.includes('invalid_credentials')) {
     code = 'INVALID_CREDENTIALS';
   } else if (type.includes('email-not-verified') || type.includes('email_not_verified')) {
     code = 'EMAIL_NOT_VERIFIED';
   } else if (type.includes('email-already-exists') || type.includes('email_already_exists')) {
     code = 'EMAIL_ALREADY_EXISTS';
-  } else if (type.includes('account-locked') || type.includes('account_locked')) {
-    code = 'ACCOUNT_LOCKED';
   } else if (type.includes('account-suspended') || type.includes('account_suspended')) {
     code = 'ACCOUNT_SUSPENDED';
   } else if (type.includes('account-inactive') || type.includes('account_inactive')) {
@@ -214,6 +209,16 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
     code = 'INVALID_INPUT';
   } else if (type.includes('oauth-provider-not-found') || type.includes('oauth_provider_not_found')) {
     code = 'OAUTH_PROVIDER_NOT_FOUND';
+  } else if (type.includes('oauth-code-missing') || type.includes('oauth_code_missing')) {
+    code = 'OAUTH_CODE_MISSING';
+  } else if (type.includes('oauth-state-missing') || type.includes('oauth_state_missing')) {
+    code = 'OAUTH_STATE_MISSING';
+  } else if (type.includes('oauth-state-invalid') || type.includes('oauth_state_invalid')) {
+    code = 'OAUTH_STATE_INVALID';
+  } else if (type.includes('oauth-access-denied') || type.includes('oauth_access_denied')) {
+    code = 'OAUTH_ACCESS_DENIED';
+  } else if (type.includes('oauth-exchange-failed') || type.includes('oauth_exchange_failed')) {
+    code = 'OAUTH_EXCHANGE_FAILED';
   } else if (type.includes('conflict')) {
     code = 'CONFLICT';
   } else if (type.includes('user-not-found') || type.includes('user_not_found')) {
@@ -298,6 +303,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       credentials: 'include',
     });
 
+    extractRateLimitHeaders(response, '/v1/auth/me');
+
     if (!response.ok) {
       return null;
     }
@@ -361,10 +368,10 @@ export async function loginUser(
 /**
  * POST /v1/auth/register
  *
- * Backend AUTH_API.md § Register: el ejemplo 201 muestra solo {message} (sin campo user),
- * pero las líneas 669/704 indican que register devuelve datos del usuario.
- * La documentación del backend es contradictoria.
- * El código maneja ambos casos defensivamente: si user está presente → usarlo; si no → ignorar.
+ * Registers a new user account.
+ * The `user` field in the response is intentionally optional: the backend only
+ * includes it when the account is pre-verified (auto-login). In the default
+ * flow (email verification required), only `message` is returned.
  */
 export async function registerUser(
   email: string,
@@ -603,7 +610,6 @@ export async function getOAuthUrl(provider: string): Promise<OAuthUrlResponse> {
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
-      credentials: 'include',
       signal: controller.signal,
     });
 

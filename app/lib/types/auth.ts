@@ -3,6 +3,7 @@ export interface AuthUser {
   email: string;
   email_verified: boolean;
   role_name: string;
+  avatar_url?: string | null;
 }
 
 /**
@@ -50,15 +51,7 @@ export interface MeResponse {
   user: AuthUser;
 }
 
-export interface LogoutResponse {
-  message: string;
-}
-
-export interface LogoutAllResponse {
-  message: string;
-}
-
-export interface RateLimitError {
+export interface RateLimitErrorBody {
   type: string;
   title: string;
   status: 429;
@@ -119,6 +112,11 @@ export type AuthApiErrorCode =
   | 'INVALID_INPUT'
   | 'RATE_LIMIT_EXCEEDED'
   | 'OAUTH_PROVIDER_NOT_FOUND'
+  | 'OAUTH_CODE_MISSING'
+  | 'OAUTH_STATE_MISSING'
+  | 'OAUTH_STATE_INVALID'
+  | 'OAUTH_ACCESS_DENIED'
+  | 'OAUTH_EXCHANGE_FAILED'
   | 'CONFLICT'
   | 'USER_NOT_FOUND'
   | 'INTERNAL_ERROR';

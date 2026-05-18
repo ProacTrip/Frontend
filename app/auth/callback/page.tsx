@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Loader from '@/components/ui/Loader';
-import { motion } from 'framer-motion';
+import AuthPageLayout from '@/components/layout/AuthPageLayout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getCurrentUser } from '@/app/lib/api/auth';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
@@ -76,6 +76,11 @@ function GoogleCallbackContent() {
 
         setUser(currentUser);
 
+        // Persist avatar_url for Navbar (it reads from localStorage)
+        if (currentUser.avatar_url) {
+          localStorage.setItem('user_avatar_url', currentUser.avatar_url);
+        }
+
         // Cargar environment por separado (el backend no lo devuelve en OAuth callback)
         try {
           const env = await fetchAndStoreEnvironment();
@@ -100,55 +105,37 @@ function GoogleCallbackContent() {
 
   if (status === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md"
-        >
+      <AuthPageLayout title="Error de autenticación" subtitle="" variant="card">
+        <div className="text-center">
           <div className="text-6xl mb-4">&#x274C;</div>
-          <h2 className="text-2xl font-bold text-red-600 mb-4">
-            Error de autenticación
-          </h2>
           <p className="text-gray-600 mb-4">{errorMessage}</p>
           <p className="text-sm text-gray-500">Redirigiendo al inicio de sesión...</p>
-        </motion.div>
-      </div>
+        </div>
+      </AuthPageLayout>
     );
   }
 
   if (status === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-8 rounded-lg shadow-xl text-center"
-        >
+      <AuthPageLayout title="¡Autenticación exitosa!" subtitle="" variant="card">
+        <div className="text-center">
           <div className="text-6xl mb-6">&#x2705;</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-4">
-            ¡Autenticación exitosa!
-          </h2>
           <p className="text-gray-600">Redirigiendo al home...</p>
-        </motion.div>
-      </div>
+        </div>
+      </AuthPageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white p-8 rounded-lg shadow-xl text-center"
-      >
+    <AuthPageLayout title="Google" subtitle="Iniciando sesión con Google" variant="card">
+      <div className="text-center">
         <div className="text-5xl mb-6">&#x1F510;</div>
         <div className="mb-6">
           <Loader text="Completando autenticación con Google..." />
         </div>
         <p className="text-gray-600 text-sm">Iniciando tu sesión...</p>
-      </motion.div>
-    </div>
+      </div>
+    </AuthPageLayout>
   );
 }
 

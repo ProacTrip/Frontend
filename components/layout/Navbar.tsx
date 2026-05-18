@@ -82,14 +82,17 @@ export default function Navbar(){
     }
   };
 
-  const navLinks = [
+  const publicLinks = [
     { href: '/home', label: 'Home' },
     { href: '/home/hoteles', label: 'Hoteles' },
     { href: '/home/vuelos', label: 'Vuelos' },
+    { href: '/home/contactanos', label: 'Contáctanos' },
+  ];
+
+  const authenticatedLinks = [
     { href: '/home/documentos', label: 'Documentos' },
     { href: '/home/busquedas', label: 'Búsquedas' },
     { href: '/home/busqueda-ai', label: 'Buscar con IA  ✦' },
-    { href: '/home/contactanos', label: 'Contáctanos' },
   ];
 
   return (
@@ -105,7 +108,19 @@ export default function Navbar(){
 
             {/* NAVEGACIÓN DESKTOP */}
             <div className="hidden md:flex items-center gap-8">
-              {navLinks.map((link) => (
+              {publicLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="relative text-white font-medium uppercase text-sm group"
+                >
+                  {link.label}
+                  
+                  {/* Línea animada */}
+                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-white transition-all duration-500 ease-out group-hover:w-full"></span>
+                </Link>
+              ))}
+              {isAuthenticated && authenticatedLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -285,7 +300,7 @@ export default function Navbar(){
         {menuAbiertoMovil && (
           <div className="md:hidden bg-[#FF6B6B] border-t border-white/20">
             <div className="px-4 py-4 space-y-2">
-              {navLinks.map((link) => (
+              {publicLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -375,6 +390,17 @@ export default function Navbar(){
                     <div className="flex items-center gap-3">
                       <Search className="w-5 h-5" />
                       Búsquedas
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/home/busqueda-ai"
+                    onClick={() => setMenuAbiertoMovil(false)}
+                    className="block py-2 text-white hover:text-red-800 transition-colors font-medium"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-5 h-5" />
+                      Buscar con IA ✦
                     </div>
                   </Link>
 

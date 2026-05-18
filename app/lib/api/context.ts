@@ -2,7 +2,7 @@
 //
 // GET /v1/environment — GeoIP location + weather.
 // Switched from apiFetch to raw fetch (two-tier pattern from anti-fron search.ts).
-// SessionStorage cache with 10min TTL.
+// localStorage cache with 10min TTL (shared keys with app/lib/utils/location.ts).
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -44,46 +44,43 @@ export interface EnvironmentResponse {
 }
 
 // ==========================================
-// SESSION STORAGE CACHE
+// localStorage CACHE (shared keys with location.ts)
 // ==========================================
 
-const CACHE_KEY = 'environment-v1';
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const ENV_STORAGE_KEY = 'user_environment';
+const ENV_STORED_AT_KEY = 'user_environment_stored_at';
+const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-interface CachedEnvironment {
-  data: EnvironmentResponse;
-  cachedAt: number;
+function isEnvCacheValid(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const storedAt = localStorage.getItem(ENV_STORED_AT_KEY);
+    if (!storedAt) return false;
+    const age = Date.now() - new Date(storedAt).getTime();
+    return age < ENV_CACHE_TTL_MS;
+  } catch {
+    return false;
+  }
 }
 
 function getCachedEnvironment(): EnvironmentResponse | null {
   if (typeof window === 'undefined') return null;
-
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-
-    const cached: CachedEnvironment = JSON.parse(raw);
-    if (Date.now() - cached.cachedAt > CACHE_TTL_MS) {
-      sessionStorage.removeItem(CACHE_KEY);
-      return null;
-    }
-
-    return cached.data;
+    if (!isEnvCacheValid()) return null;
+    const stored = localStorage.getItem(ENV_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as EnvironmentResponse) : null;
   } catch {
-    // Corrupted cache — clear it
-    sessionStorage.removeItem(CACHE_KEY);
     return null;
   }
 }
 
 function setCachedEnvironment(data: EnvironmentResponse): void {
   if (typeof window === 'undefined') return;
-
   try {
-    const cached: CachedEnvironment = { data, cachedAt: Date.now() };
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    localStorage.setItem(ENV_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(ENV_STORED_AT_KEY, new Date().toISOString());
   } catch {
-    // Quota exceeded or private browsing — silently skip caching
+    // localStorage may be blocked in private mode
   }
 }
 
@@ -97,12 +94,12 @@ function setCachedEnvironment(data: EnvironmentResponse): void {
  * Returns GeoIP location and current weather for the client.
  * - IP detected automatically by the backend.
  * - Backend caches 10 minutes in Redis per IP.
- * - Frontend caches 10 minutes in sessionStorage.
+ * - Frontend caches 10 minutes in localStorage (shared with fetchAndStoreEnvironment).
  * - weather may be null (graceful degradation — no full failure).
  * - Uses raw fetch with credentials:"include" for cookie-based auth.
  */
 export async function getEnvironment(): Promise<EnvironmentResponse> {
-  // Check sessionStorage cache first
+  // Check localStorage cache first
   const cached = getCachedEnvironment();
   if (cached) return cached;
 

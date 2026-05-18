@@ -1,17 +1,18 @@
 'use client'; 
 
-import Image from "next/image";
 import { useState, FormEvent, Suspense } from 'react';
-import { useRouter, useSearchParams, redirect } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import InputField from '@/components/ui/InputField';
 import Button from '@/components/ui/Button';
 import Loader from '@/components/ui/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FEATURE_PASSWORD_RESET, resetPassword, AuthApiError, RateLimitError } from '@/app/lib/api';
+import AuthPageLayout from '@/components/layout/AuthPageLayout';
+import { resetPassword, AuthApiError, RateLimitError } from '@/app/lib/api';
 import { validatePassword } from '@/app/lib/utils/validation';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
-//dejo de poner tantos comentarios en router , searchParams etc pq en las otras page ps ya s sabe lo q es
 function ResetPasswordForm() {
 
   const router = useRouter();
@@ -23,6 +24,9 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  const { isBlocked } = useRateLimit();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -71,9 +75,10 @@ function ResetPasswordForm() {
     } 
     catch (err) 
     {
-      if (err instanceof AuthApiError) {
+      if (err instanceof RateLimitError) {
         setError(err.message);
-      } else if (err instanceof RateLimitError) {
+        setRateLimitError(err.message);
+      } else if (err instanceof AuthApiError) {
         setError(err.message);
       } else {
         console.error('Error en reset password:', err);
@@ -89,7 +94,6 @@ function ResetPasswordForm() {
   };
 
   //si no tiene token la url, mostramos directamente error
-  //Aparte los svg q se vean dentro no los metemos en components pq son muy simples y ps seria hacer archivos extra q se usaran poco.
   if (!token) 
     {
         return (
@@ -124,16 +128,15 @@ function ResetPasswordForm() {
             {/*Si no se reseteo la contraseña*/}
         {!success && (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-10">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-3">
-                    Nueva contraseña
-                    </h1>
-                    <p className="text-gray-500">
-                    Introduce tu nueva contraseña. Debe tener al menos 6 caracteres.
-                    </p>
-                </div>
+                <RateLimitBanner
+                  rateLimitError={rateLimitError}
+                  onRetryReady={() => {
+                    setRateLimitError(null);
+                    setError('');
+                  }}
+                />
                 <AnimatePresence>
-                    {error && (
+                    {error && !isBlocked && (
                     <motion.div
                         initial={{ opacity: 0, y: -10, height: 0 }}
                         animate={{ opacity: 1, y: 0, height: 'auto' }}
@@ -191,7 +194,7 @@ function ResetPasswordForm() {
                             type="submit"
                             variant="primary"
                             className="w-full py-4 text-lg"
-                            disabled={isLoading}
+                            disabled={isLoading || isBlocked}
                         >
                             Cambiar Contraseña
                         </Button>
@@ -240,60 +243,24 @@ function ResetPasswordForm() {
     </AnimatePresence>
   );
 }
-//pagina principal
+
 export default function ResetPasswordPage() {
-  // Guard: redirigir si el feature no está habilitado (backend no implementa reset-password aún)
-  if (!FEATURE_PASSWORD_RESET) {
-    redirect('/auth/login');
-  }
-
   return (
-    <main className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gray-900">
-      <div className="absolute inset-0 z-0">
-        {/*inset-0 hace q ocupe toda la pantalla */}
-
-        <Image
-          src="/assets/loginRegister/background-travel.png"
-          alt="Background"
-          fill //q ocupe todo el contenedor
-          sizes="100vw"
-          className="object-cover brightness-[0.7]"
-          priority
-        />
-      </div>
-
-      {/* TARJETA PRINCIPAL */}
-      <motion.div
-        initial={{ opacity: 0, y: 50, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 md:p-12"
+    <AuthPageLayout
+      title="Nueva contraseña"
+      subtitle="Introduce tu nueva contraseña. Debe tener al menos 6 caracteres."
+      variant="card"
+      backHref="/auth/login"
+    >
+      <Suspense
+        fallback={
+          <div className="flex justify-center">
+            <Loader text="Cargando..." />
+          </div>
+        }
       >
-            <Link
-            href="/auth/login"
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors mb-8"
-            >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {/* icono flecha */}
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Volver al login
-            </Link>
-
-            {/* SUSPENSE PARA QUE useSearchParams funcione bien*/}
-            <Suspense
-                fallback={
-                    // mientras carga ResetPasswordForm mostramos un loader
-                    <div className="flex justify-center">
-                        <Loader text="Cargando..." />
-                    </div>
-                }
-            >
-                <ResetPasswordForm />
-                {/*Aquí se renderiza el formulario*/}
-            </Suspense>
-
-      </motion.div>
-    </main>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthPageLayout>
   );
 }

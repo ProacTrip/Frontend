@@ -1,4 +1,4 @@
-import type { AuthError, RateLimitError as RateLimitErrorType } from '@/app/lib/types/auth';
+import type { AuthError, RateLimitErrorBody } from '@/app/lib/types/auth';
 
 /**
  * El backend usa RFC 9457 Problem Details.
@@ -70,9 +70,9 @@ const ERROR_MAP: Record<string, string> = {
 };
 
 export function parseApiError(response: Response): Promise<string> {
-  return response.json().then((data: AuthError | RateLimitErrorType) => {
+  return response.json().then((data: AuthError | RateLimitErrorBody) => {
     if (response.status === 429) {
-      const rd = data as RateLimitErrorType;
+      const rd = data as RateLimitErrorBody;
       if (rd.detail) return rd.detail;
       return 'Demasiadas peticiones. Intenta más tarde.';
     }
@@ -97,13 +97,13 @@ export function parseApiError(response: Response): Promise<string> {
 }
 
 export function getErrorMessage(
-  data: AuthError | RateLimitErrorType,
+  data: AuthError | RateLimitErrorBody,
   status?: number
 ): { message: string; action: 'verify_email' | 'none' } {
   const code = extractErrorCode(data.type || '');
 
   if (status === 429) {
-    const rd = data as RateLimitErrorType;
+    const rd = data as RateLimitErrorBody;
     const detail = rd.detail || 'Demasiadas peticiones. Intenta más tarde.';
     return { message: detail, action: 'none' };
   }

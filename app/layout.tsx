@@ -36,7 +36,7 @@ export default async function RootLayout({
   // El middleware ya validó las cookies — el server sabe si hay sesión.
   // Pasamos este dato al cliente para evitar llamadas innecesarias a /v1/auth/me.
   const cookieStore = await cookies();
-  const serverAuthenticated = cookieStore.has('__Secure-access_token') || cookieStore.has('__Secure-refresh_token');
+  const serverAuthenticated = cookieStore.has('__Secure-access_token') || cookieStore.has('__Secure-refresh_token') || cookieStore.has('access_token') || cookieStore.has('refresh_token');
 
   return (
     // Define que el idioma de la web es español
