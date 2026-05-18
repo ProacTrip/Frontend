@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
-import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, ShieldAlert, FileText, Search, Sparkles } from 'lucide-react';
+import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, FileText, Search, Sparkles } from 'lucide-react';
 import CurrencySelector from '@/components/layout/CurrencySelector';
 import NotificationBell from '@/components/notifications/NotificationBell';
 
@@ -18,7 +18,6 @@ export default function Navbar(){
   const [menuAbiertoMovil, setMenuAbiertoMovil] = useState(false);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -51,35 +50,15 @@ export default function Navbar(){
     // El array vacío significa que este efecto solo se configura una vez al inicio
   }, []);
   
-  // Manejamos el cierre de sesión — cookie-based: el backend lee las cookies automáticamente, sin body
+  // Manejamos el cierre de sesión con spinner local.
+  // La redirección y limpieza de estado la maneja AuthContext.logout()
   const handleLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
-    try {
-      await logout();
-    } catch (err) {
-      console.error('Error en logout:', err);
-    } finally {
-      setIsLoggingOut(false);
-      localStorage.removeItem('user_avatar_url');
-      setAvatarUrl(null);
-      router.push('/auth/login');
-    }
-  };
-
-  const handleLogoutAll = async () => {
-    if (isLoggingOutAll) return;
-    setIsLoggingOutAll(true);
-    try {
-      await logoutAll();
-    } catch (err) {
-      console.error('Error en logout all:', err);
-    } finally {
-      setIsLoggingOutAll(false);
-      localStorage.removeItem('user_avatar_url');
-      setAvatarUrl(null);
-      router.push('/auth/login');
-    }
+    localStorage.removeItem('user_avatar_url');
+    setAvatarUrl(null);
+    await logout();
+    // AuthContext.logout() hace window.location.href → full page reload
   };
 
   const publicLinks = [
@@ -227,36 +206,18 @@ export default function Navbar(){
                       <hr className="my-2 border-gray-200" />
 
                       <button
-                        onClick={handleLogout}
+                        onClick={logout}
                         disabled={isLoggingOut}
                         className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
                           {isLoggingOut ? (
-                            // RUEDA GIRANDO = CERRANDO SESION (LOADER PERO EN ROJO)
                             <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                           ) : (
                             <LogOut className="w-5 h-5" />
                           )}
                           <span className="font-medium">
                             {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-                          </span>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={handleLogoutAll}
-                        disabled={isLoggingOutAll}
-                        className="w-full text-left px-4 py-3 text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-50"
-                      >
-                        <div className="flex items-center gap-3">
-                          {isLoggingOutAll ? (
-                            <div className="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <ShieldAlert className="w-5 h-5" />
-                          )}
-                          <span className="font-medium">
-                            {isLoggingOutAll ? 'Cerrando...' : 'Cerrar todas las sesiones'}
                           </span>
                         </div>
                       </button>
@@ -405,7 +366,7 @@ export default function Navbar(){
                   </Link>
 
                   <button
-                    onClick={handleLogout}
+                    onClick={logout}
                     disabled={isLoggingOut}
                     className="w-full text-left py-2 text-white hover:text-gray-200 transition-colors font-medium disabled:opacity-50"
                   >
@@ -413,25 +374,9 @@ export default function Navbar(){
                       {isLoggingOut ? (
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        // ICONO CERRAR SESIÓN (LOADER PERO EN ROJO)
                         <LogOut className="w-5 h-5" />
                       )}
                       {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={handleLogoutAll}
-                    disabled={isLoggingOutAll}
-                    className="w-full text-left py-2 text-orange-400 hover:text-orange-200 transition-colors font-medium disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isLoggingOutAll ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <ShieldAlert className="w-5 h-5" />
-                      )}
-                      {isLoggingOutAll ? 'Cerrando...' : 'Cerrar todas las sesiones'}
                     </div>
                   </button>
                 </>

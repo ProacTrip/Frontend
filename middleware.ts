@@ -17,8 +17,8 @@ const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password', '
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const accessToken = request.cookies.get('__Secure-access_token') || request.cookies.get('access_token');
-  const refreshToken = request.cookies.get('__Secure-refresh_token') || request.cookies.get('refresh_token');
+  const accessToken = request.cookies.get('__Secure-access_token')?.value || request.cookies.get('access_token')?.value || '';
+  const refreshToken = request.cookies.get('__Secure-refresh_token')?.value || request.cookies.get('refresh_token')?.value || '';
   const isAuthenticated = !!accessToken || !!refreshToken;
 
   // Redirect authenticated users away from auth pages
