@@ -5,7 +5,7 @@
 // Paginación por cursor — params: limit, cursor, role, status, search, created_before, created_after
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const query = new URLSearchParams();
     searchParams.forEach((value, key) => query.set(key, value));
 
-    const response = await apiFetch(`/v1/dashboard/users?${query.toString()}`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users?${query.toString()}`, {
       method: 'GET',
     });
 

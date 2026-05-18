@@ -9,7 +9,12 @@ export default function CookieBanner() {
 
   useEffect(() => {
     //Verificamos si ya aceptó anteriormente
-    const consent = localStorage.getItem('cookies_accepted');
+    let consent: string | null = null;
+    try {
+      consent = localStorage.getItem('cookies_accepted');
+    } catch {
+      // localStorage bloqueado — mostrar banner por defecto
+    }
     
     if (!consent) {
       setShowBanner(true);
@@ -28,7 +33,11 @@ export default function CookieBanner() {
   }, []);
 
   const acceptCookies = () => {
-    localStorage.setItem('cookies_accepted', 'true');
+    try {
+      localStorage.setItem('cookies_accepted', 'true');
+    } catch {
+      // localStorage bloqueado
+    }
     setShowBanner(false);
   };
 

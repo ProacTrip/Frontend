@@ -37,3 +37,12 @@ export interface ToggleAlertResponse {
   alert_enabled: boolean;
   message: string;
 }
+
+export interface CreateSavedSearchResponse {
+  search_id: string;
+  message: string;
+}
+
+export interface UpdateSavedSearchResponse {
+  message: string;
+}

@@ -41,28 +41,35 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function loadStats() {
       try {
-        // Cargar usuarios (sin filtros para contar totales)
-        const usersResponse = await listUsers({ limit: 1000, offset: 0 });
+        // Cargar usuarios (sin filtros para contar totales, max 100 por spec)
+        const usersResponse = await listUsers({ limit: 100 });
         const users = usersResponse.users || [];
         
         // Contar por estado y rol
         const activeUsers = users.filter(u => u.status === 'active').length;
-        const blockedUsers = users.filter(u => u.status === 'blocked' || u.status === 'suspended').length;
-        const adminUsers = users.filter(u => u.role === 'admin').length;
+        const blockedUsers = users.filter(u => u.status === 'disabled' || u.status === 'suspended').length;
+        const adminUsers = users.filter(u => u.role_name === 'admin').length;
 
-        // Cargar logs de hoy (aproximado)
-        const today = new Date().toISOString().split('T')[0];
-        const logsResponse = await queryAuditLogs({ 
-          date_from: `${today}T00:00:00Z`,
-          limit: 1 
-        });
+        // Audit logs: no bloqueante — el endpoint /v1/management/audit-logs
+        // no está implementado en backend aún. Si falla, mostramos 0.
+        let todayLogs = 0;
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const logsResponse = await queryAuditLogs({ 
+            date_from: `${today}T00:00:00Z`,
+            limit: 1 
+          });
+          todayLogs = logsResponse.total || 0;
+        } catch {
+          // audit-logs no disponible — ignorar silenciosamente
+        }
 
         setStats({
           totalUsers: usersResponse.total || users.length,
           activeUsers,
           blockedUsers,
           adminUsers,
-          todayLogs: logsResponse.total || 0,
+          todayLogs,
           loading: false,
         });
       } catch (error) {
@@ -89,7 +96,7 @@ export default function AdminDashboardPage() {
       icon: <UserCheck className="w-6 h-6 text-green-600" />,
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
-      href: '/admin/users',
+      href: '/admin/users?status=active',
     },
     {
       title: 'Bloqueados',
@@ -97,7 +104,7 @@ export default function AdminDashboardPage() {
       icon: <UserX className="w-6 h-6 text-red-600" />,
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
-      href: '/admin/users',
+      href: '/admin/users?status=disabled',
     },
     {
       title: 'Administradores',
@@ -105,7 +112,7 @@ export default function AdminDashboardPage() {
       icon: <ShieldAlert className="w-6 h-6 text-purple-600" />,
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
-      href: '/admin/users',
+      href: '/admin/users?role=admin',
     },
     {
       title: 'Logs Hoy',

@@ -1,32 +1,4 @@
-import { getEnvironment, type EnvironmentResponse } from '@/app/lib/api/context';
-import { RateLimitError } from '@/app/lib/api/auth';
-
-// ==========================================
-// localStorage KEYS (alineados con docs)
-// ==========================================
-
-const ENV_STORAGE_KEY = 'user_environment';
-const ENV_STORED_AT_KEY = 'user_environment_stored_at';
-const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
-
-// ==========================================
-// CACHE VALIDATION
-// ==========================================
-
-/**
- * Verifica si el cache del environment en localStorage sigue siendo válido (< 10 min).
- * Lógica extraída de la documentación de environment API.
- */
-function isEnvCacheValid(): boolean {
-  try {
-    const storedAt = localStorage.getItem(ENV_STORED_AT_KEY);
-    if (!storedAt) return false;
-    const age = Date.now() - new Date(storedAt).getTime();
-    return age < ENV_CACHE_TTL_MS;
-  } catch {
-    return false;
-  }
-}
+import { getEnvironment, type EnvironmentResponse, ENV_STORAGE_KEY, ENV_STORED_AT_KEY, isEnvCacheValid } from '@/app/lib/api/context';
 
 // ==========================================
 // STORAGE HELPERS
@@ -82,9 +54,6 @@ export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | 
     storeEnvironment(env);
     return env;
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      throw error; // re-throw for component-level handling (retryAfter)
-    }
     console.error('[Environment] Failed to fetch environment:', error);
     return null;
   }
@@ -103,19 +72,27 @@ export function getUserPreferences(): { currency: string; gl: string; hl: string
     return { currency: 'EUR', gl: 'ES', hl: 'es' };
   }
 
+  // Use getStoredEnvironment() for TTL validation (cache < 10 min)
+  const env = getStoredEnvironment();
+
+  // User's explicit currency choice (set via CurrencySelector) takes priority
+  let currency = 'EUR';
   try {
-    const stored = localStorage.getItem(ENV_STORAGE_KEY);
-    if (stored) {
-      const env = JSON.parse(stored) as EnvironmentResponse;
-      return {
-        currency: env.location.currency,
-        gl: env.location.country_code,
-        hl: env.location.language,
-      };
-    }
-  } catch {
-    // fallback
+    const savedPref = localStorage.getItem('user_currency_preference');
+    if (savedPref) currency = savedPref;
+  } catch { /* noop */ }
+  // Fallback to environment currency if no explicit preference
+  if (currency === 'EUR' && env?.location?.currency) {
+    currency = env.location.currency;
   }
 
-  return { currency: 'EUR', gl: 'ES', hl: 'es' };
+  if (env) {
+    return {
+      currency,
+      gl: env.location.country_code,
+      hl: env.location.language,
+    };
+  }
+
+  return { currency, gl: 'ES', hl: 'es' };
 }

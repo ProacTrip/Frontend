@@ -3,10 +3,14 @@
 // Base URL: /v1/dashboard
 //
 // Rewritten to use direct fetch() with AbortController, rate limit extraction,
-// and typed UserApiError via parseUserError from user.ts.
+// and typed DashboardApiError with ERROR_MAP Spanish translations.
 // Follows the canonical pattern established in user.ts.
 
-import { API_URL, extractRateLimitHeaders, parseUserError, UserApiError } from './user';
+import { API_URL, extractRateLimitHeaders } from './user';
+import { ERROR_MAP } from '@/app/lib/utils/errors';
+import { parseProblemDetails } from '@/app/lib/utils/problem-details';
+import type { DashboardApiErrorCode } from '@/app/lib/types/auth';
+import { rateLimitStore } from './rate-limit';
 import type {
   UserListResponse,
   UserListParams,
@@ -27,6 +31,115 @@ import type {
   AuditLogListResponse,
   AuditLogListParams,
 } from '@/app/lib/types/admin';
+
+// ==========================================
+// TYPED ERROR — DashboardApiError
+// ==========================================
+
+/**
+ * Typed error class for dashboard/management API errors.
+ * Follows DashboardApiError pattern: machine-readable code, HTTP status,
+ * human detail, trace ID, and optional retry-after for rate limiting.
+ */
+export class DashboardApiError extends Error {
+  constructor(
+    public readonly code: DashboardApiErrorCode,
+    public readonly status: number,
+    public readonly detail: string,
+    public readonly traceId?: string,
+    public readonly retryAfter?: number,
+  ) {
+    super(`[${code}] ${detail}`);
+    this.name = 'DashboardApiError';
+  }
+}
+
+/**
+ * Extracts the error type segment from a type URI and maps it to a
+ * DashboardApiErrorCode. Falls back to status-based mapping.
+ */
+function extractDashboardErrorCode(type: string, status: number): DashboardApiErrorCode {
+  if (!type) {
+    if (status === 403) return 'FORBIDDEN';
+    return 'INTERNAL_ERROR';
+  }
+
+  // Type URI-based mapping — match against known dashboard error type segments
+  if (type.includes('not-authenticated')) return 'NOT_AUTHENTICATED';
+  if (type.includes('token-version-stale')) return 'TOKEN_VERSION_STALE';
+  if (type.includes('account-disabled')) return 'ACCOUNT_DISABLED';
+  if (type.includes('missing-permission')) return 'MISSING_PERMISSION';
+  if (type.includes('user-not-found') || type.includes('user_not_found')) return 'USER_NOT_FOUND';
+  if (type.includes('cannot-disable-self')) return 'CANNOT_DISABLE_SELF';
+  if (type.includes('invalid-status')) return 'INVALID_STATUS';
+  if (type.includes('forbidden')) return 'FORBIDDEN';
+  if (type.includes('feature-limit-already-exists')) return 'FEATURE_LIMIT_ALREADY_EXISTS';
+  if (type.includes('feature-limit-not-found')) return 'FEATURE_LIMIT_NOT_FOUND';
+  if (type.includes('permission-override-already-exists')) return 'PERMISSION_OVERRIDE_ALREADY_EXISTS';
+  if (type.includes('permission-override-not-found')) return 'PERMISSION_OVERRIDE_NOT_FOUND';
+  if (type.includes('invalid-reason')) return 'INVALID_REASON';
+  if (type.includes('invalid-block-duration')) return 'INVALID_BLOCK_DURATION';
+
+  // Status-based fallback
+  if (status === 403) return 'FORBIDDEN';
+  return 'INTERNAL_ERROR';
+}
+
+/**
+ * Parse a non-ok Response into a typed DashboardApiError.
+ * Uses shared parseProblemDetails for RFC 9457 body parsing.
+ * Maps problem.type URI → DashboardApiErrorCode.
+ * Uses ERROR_MAP for Spanish user-facing messages.
+ * On 429, calls rateLimitStore.block() with Retry-After.
+ * Always calls extractRateLimitHeaders before throwing.
+ */
+async function parseDashboardError(response: Response, endpoint: string): Promise<never> {
+  const problem = await parseProblemDetails(response);
+  const status = problem.status;
+
+  let code: DashboardApiErrorCode;
+
+  // 1. Rate limit
+  if (status === 429 || problem.type.includes('rate-limit') || problem.type.includes('rate_limit')) {
+    code = 'RATE_LIMIT_EXCEEDED';
+  }
+  // 2. Type URI-based mapping for dashboard codes
+  else {
+    code = extractDashboardErrorCode(problem.type, status);
+  }
+
+  const retryAfterHeader = response.headers.get('Retry-After');
+
+  // On 429, block the rate limit store for the specified duration
+  if (code === 'RATE_LIMIT_EXCEEDED' && retryAfterHeader) {
+    rateLimitStore.block(parseInt(retryAfterHeader, 10));
+  }
+
+  // Always extract rate limit headers from error responses too
+  extractRateLimitHeaders(response, endpoint);
+
+  // Get Spanish message from ERROR_MAP
+  let message: string;
+  if (code in ERROR_MAP) {
+    message = ERROR_MAP[code];
+  } else {
+    // Try converting UPPER_SNAKE_CASE to kebab-case for ERROR_MAP lookup
+    const kebabKey = code.toLowerCase().replace(/_/g, '-');
+    if (kebabKey in ERROR_MAP) {
+      message = ERROR_MAP[kebabKey];
+    } else {
+      message = problem.detail || problem.title || `Error ${status}`;
+    }
+  }
+
+  throw new DashboardApiError(
+    code,
+    status,
+    message,
+    problem.trace_id,
+    retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined,
+  );
+}
 
 // ==========================================
 // USUARIOS
@@ -62,14 +175,14 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -100,14 +213,14 @@ export async function getUserDetail(userId: string): Promise<UserDetailResponse>
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -149,14 +262,14 @@ export async function updateAccountStatus(
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -190,14 +303,14 @@ export async function getUserFeatureLimits(userId: string): Promise<FeatureLimit
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -233,14 +346,14 @@ export async function setUserFeatureLimit(
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -271,12 +384,12 @@ export async function deleteUserFeatureLimit(userId: string, key: string): Promi
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -310,14 +423,14 @@ export async function getRoleFeatureLimits(roleId: string): Promise<FeatureLimit
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -353,14 +466,14 @@ export async function setRoleFeatureLimit(
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -390,12 +503,12 @@ export async function deleteRoleFeatureLimit(roleId: string, key: string): Promi
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -430,14 +543,14 @@ export async function getPermissionOverrides(userId: string): Promise<Permission
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -473,14 +586,14 @@ export async function createPermissionOverride(
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -511,12 +624,12 @@ export async function deletePermissionOverride(userId: string, overrideId: strin
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -550,14 +663,14 @@ export async function listRoles(): Promise<RoleListResponse> {
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -589,14 +702,14 @@ export async function assignRole(userId: string, roleId: string): Promise<{ mess
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -630,14 +743,14 @@ export async function listPermissions(): Promise<PermissionListResponse> {
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -667,14 +780,14 @@ export async function listAvatars(): Promise<AvatarListResponse> {
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -702,14 +815,14 @@ export async function uploadAvatar(data: UploadAvatarRequest): Promise<UploadAva
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');
@@ -751,14 +864,14 @@ export async function queryAuditLogs(params: AuditLogListParams = {}): Promise<A
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseUserError(response, endpoint);
+      await parseDashboardError(response, endpoint);
     }
 
     return await response.json();
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    if (error instanceof UserApiError) throw error;
+    if (error instanceof DashboardApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('La petición ha excedido el tiempo de espera.');

@@ -4,8 +4,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, Filter, Shield, UserCheck, UserX, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, Filter, Shield, UserCheck, UserX, Clock, CalendarDays } from 'lucide-react';
 import { listUsers } from '@/app/lib/api';
 import type { UserAdmin, UserListMeta } from '@/app/lib/types/admin';
 import DataTable, { Column } from '@/components/admin/DataTable';
@@ -15,12 +15,21 @@ type UserRole = 'user' | 'staff' | 'admin' | 'client' | '';
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState<UserAdmin[]>([]);
   const [meta, setMeta] = useState<UserListMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<UserStatus>('');
-  const [roleFilter, setRoleFilter] = useState<UserRole>('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<UserStatus>(
+    (searchParams.get('status') as UserStatus) || ''
+  );
+  const [roleFilter, setRoleFilter] = useState<UserRole>(
+    (searchParams.get('role') as UserRole) || ''
+  );
+  const [createdBefore, setCreatedBefore] = useState('');
+  const [createdAfter, setCreatedAfter] = useState('');
   const [limit] = useState(20);
 
   // Cursor stack: index 0 = primera página (cursor vacío), cada push es la siguiente
@@ -36,7 +45,9 @@ export default function AdminUsersPage() {
       if (cursor) params.cursor = cursor;
       if (statusFilter) params.status = statusFilter;
       if (roleFilter) params.role = roleFilter;
-      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (createdBefore) params.created_before = createdBefore;
+      if (createdAfter) params.created_after = createdAfter;
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
 
       const response = await listUsers(params);
       setUsers(response.users || []);
@@ -48,19 +59,27 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [limit, statusFilter, roleFilter, searchQuery]);
+  }, [limit, statusFilter, roleFilter, debouncedSearch, createdBefore, createdAfter]);
 
   // Cargar la página actual al montar o cuando cambian filtros/búsqueda
   useEffect(() => {
     loadUsers(cursorStack[currentPage] ?? '');
   }, [loadUsers, currentPage, cursorStack]);
 
-  // Debounce búsqueda — resetea a primera página
+  // Debounce búsqueda — actualiza debouncedSearch después de 400ms sin cambios
+  // Solo el valor debounced dispara la API call (no cada keystroke)
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (searchQuery !== debouncedSearch) {
+      setSearchLoading(true);
+    }
+
     searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
       setCursorStack(['']);
       setCurrentPage(0);
+      setSearchLoading(false);
     }, 400);
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -71,7 +90,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     setCursorStack(['']);
     setCurrentPage(0);
-  }, [statusFilter, roleFilter]);
+  }, [statusFilter, roleFilter, createdBefore, createdAfter]);
 
   const handleNextPage = () => {
     if (!meta?.next_cursor) return;
@@ -212,8 +231,13 @@ export default function AdminUsersPage() {
               placeholder="Buscar por email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent"
             />
+            {searchLoading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-[#c54141] rounded-full animate-spin" />
+              </div>
+            )}
           </div>
 
           <div className="relative">
@@ -244,6 +268,36 @@ export default function AdminUsersPage() {
               <option value="admin">Admin</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="date"
+                value={createdAfter}
+                onChange={(e) => setCreatedAfter(e.target.value)}
+                title="Usuarios creados después de esta fecha (created_after)"
+                className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent min-w-[170px]"
+              />
+            </div>
+            <span className="text-xs text-gray-500 hidden xl:inline">hasta</span>
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="date"
+                value={createdBefore}
+                onChange={(e) => setCreatedBefore(e.target.value)}
+                title="Usuarios creados antes de esta fecha (created_before)"
+                className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent min-w-[170px]"
+              />
+            </div>
+            <span
+              className="text-xs text-gray-400 cursor-help hidden 2xl:inline"
+              title="Desde = created_after: usuarios creados DESPUÉS de esa fecha | Hasta = created_before: usuarios creados ANTES de esa fecha"
+            >
+              &#x2139;
+            </span>
+          </div>
         </div>
       </div>
 
@@ -252,11 +306,12 @@ export default function AdminUsersPage() {
         columns={columns}
         data={users}
         total={users.length}
-        loading={loading}
-        limit={limit}
-        offset={0}
-        onPageChange={() => {}}
-        onLimitChange={() => {}}
+        loading={loading || searchLoading}
+        paginationMode="cursor"
+        hasNext={meta?.has_next ?? false}
+        hasPrev={currentPage > 0}
+        onNextPage={handleNextPage}
+        onPrevPage={handlePrevPage}
         onRowClick={(row) => router.push(`/admin/users/${row.id}`)}
         emptyMessage={
           searchQuery.trim()
@@ -264,32 +319,6 @@ export default function AdminUsersPage() {
             : 'No hay usuarios disponibles'
         }
       />
-
-      {/* Cursor pagination controls */}
-      <div className="flex items-center justify-between px-1">
-        <p className="text-sm text-gray-500">
-          Página {currentPage + 1}
-          {meta && ` · ${users.length} resultado${users.length !== 1 ? 's' : ''}`}
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage === 0 || loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Anterior
-          </button>
-          <button
-            onClick={handleNextPage}
-            disabled={!meta?.has_next || loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Siguiente
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

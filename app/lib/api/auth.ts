@@ -5,6 +5,7 @@
 import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthApiErrorCode } from '@/app/lib/types/auth';
 import { generateUUIDv7 } from '@/app/lib/utils/uuid';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
+import { parseProblemDetails, type ProblemDetails } from '@/app/lib/utils/problem-details';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -108,6 +109,29 @@ export async function apiFetch(
     throw new Error('[Auth] No autorizado. El usuario debe volver a iniciar sesión.');
   }
 
+  if (response.status === 403) {
+    try {
+      const problem = await parseProblemDetails(response.clone());
+      // Redirect inmediato si la cuenta fue deshabilitada — no importa
+      // qué componente hizo la llamada, el usuario debe ver la página.
+      if (problem.type.includes('account-disabled') ||
+          (problem.type.includes('forbidden') && problem.detail?.toLowerCase().includes('deshabilitada'))) {
+        window.location.href = '/auth/account-disabled';
+        throw new AuthApiError('ACCOUNT_DISABLED', 403, problem.detail || 'Cuenta deshabilitada', 'none', problem.trace_id);
+      }
+      if (problem.type.includes('missing-permission')) {
+        throw new AuthApiError('MISSING_PERMISSION', 403, problem.detail || 'Permiso denegado', 'none', problem.trace_id);
+      }
+      if (problem.type.includes('forbidden')) {
+        throw new AuthApiError('FORBIDDEN', 403, problem.detail || 'Acceso denegado', 'none', problem.trace_id);
+      }
+      throw new AuthApiError('FORBIDDEN', 403, problem.detail || 'Acceso denegado', 'none', problem.trace_id);
+    } catch (e: unknown) {
+      if (e instanceof AuthApiError) throw e;
+      throw new AuthApiError('FORBIDDEN', 403, 'Acceso denegado', 'none');
+    }
+  }
+
   if (response.status === 429) {
     const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
     rateLimitStore.block(retryAfter);
@@ -166,14 +190,15 @@ function extractRateLimitHeaders(response: Response, endpoint: string): void {
 
 /**
  * Parse a non-ok Response into a typed AuthApiError.
- * Maps RFC 9457 type URI → AuthApiErrorCode.
+ * Uses shared parseProblemDetails for RFC 9457 body parsing.
+ * Maps problem.type URI → AuthApiErrorCode via post-processing.
  * On 429, calls rateLimitStore.block() with Retry-After.
  * Always calls extractRateLimitHeaders before throwing.
  */
 async function parseAuthError(response: Response, endpoint: string): Promise<never> {
-  const body = await response.json().catch(() => ({}));
-  const type: string = body?.type || '';
-  const status = response.status;
+  const problem = await parseProblemDetails(response);
+  const type = problem.type;
+  const status = problem.status;
 
   let code: AuthApiErrorCode;
 
@@ -226,7 +251,36 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
   } else if (type.includes('validation')) {
     code = 'VALIDATION_ERROR';
   }
-  // 3. Status-based fallback
+  // Dashboard error codes — MUST be checked before status-based fallback
+  // to prevent ACCOUNT_DISABLED/MISSING_PERMISSION from falling to INTERNAL_ERROR.
+  else if (type.includes('not-authenticated')) {
+    code = 'NOT_AUTHENTICATED';
+  } else if (type.includes('token-version-stale')) {
+    code = 'TOKEN_VERSION_STALE';
+  } else if (type.includes('account-disabled')) {
+    code = 'ACCOUNT_DISABLED';
+  } else if (type.includes('missing-permission')) {
+    code = 'MISSING_PERMISSION';
+  } else if (type.includes('cannot-disable-self')) {
+    code = 'CANNOT_DISABLE_SELF';
+  } else if (type.includes('invalid-status')) {
+    code = 'INVALID_STATUS';
+  } else if (type.includes('forbidden')) {
+    code = 'FORBIDDEN';
+  } else if (type.includes('feature-limit-already-exists')) {
+    code = 'FEATURE_LIMIT_ALREADY_EXISTS';
+  } else if (type.includes('feature-limit-not-found')) {
+    code = 'FEATURE_LIMIT_NOT_FOUND';
+  } else if (type.includes('permission-override-already-exists')) {
+    code = 'PERMISSION_OVERRIDE_ALREADY_EXISTS';
+  } else if (type.includes('permission-override-not-found')) {
+    code = 'PERMISSION_OVERRIDE_NOT_FOUND';
+  } else if (type.includes('invalid-reason')) {
+    code = 'INVALID_REASON';
+  } else if (type.includes('invalid-block-duration')) {
+    code = 'INVALID_BLOCK_DURATION';
+  }
+  // 4. Status-based fallback
   else if (status === 400) {
     code = 'VALIDATION_ERROR';
   } else if (status === 401) {
@@ -235,6 +289,8 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
     code = 'USER_NOT_FOUND';
   } else if (status === 409) {
     code = 'CONFLICT';
+  } else if (status === 403) {
+    code = 'FORBIDDEN';
   } else {
     code = 'INTERNAL_ERROR';
   }
@@ -256,34 +312,11 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
   throw new AuthApiError(
     code,
     status,
-    body?.detail || body?.title || `Error ${status}`,
+    problem.detail || problem.title || `Error ${status}`,
     action,
-    body?.trace_id || undefined,
+    problem.trace_id,
     retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined,
   );
-}
-
-// ==========================================
-// 3. USUARIO (User Profile)
-// ==========================================
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  display_name: string | null;
-  date_of_birth: string | null;
-  nationality: string | null;
-  phone: string | null;
-  preferred_language: string | null;
-  preferred_currency: string | null;
-  timezone: string | null;
-  avatar_url: string | null;
-  travel_preferences: Record<string, any> | null;
-  created_at: string;
-  updated_at: string;
-  role?: string;
 }
 
 // ==========================================
@@ -294,25 +327,49 @@ export interface UserProfile {
  * GET /v1/auth/me
  * Obtiene los datos del usuario autenticado usando la cookie __Secure-access_token.
  * El backend maneja el refresco de tokens transparentemente vía middleware.
- * Retorna null si no hay sesión activa (401).
+ *
+ * Throws AuthApiError con status 401 cuando no hay sesión activa.
+ * Throws AuthApiError para otros errores del backend.
+ * Los callers deben distinguir: 401 = "no autenticado" (no es error), otros = error real.
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  const endpoint = '/v1/auth/me';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const response = await fetch(`${API_URL}/v1/auth/me`, {
+    const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
       credentials: 'include',
+      signal: controller.signal,
     });
 
-    extractRateLimitHeaders(response, '/v1/auth/me');
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      return null;
+      // 401 = no session cookie or expired — typed error so callers can distinguish
+      if (response.status === 401) {
+        throw new AuthApiError('NOT_AUTHENTICATED', 401, 'No autenticado');
+      }
+      // Other errors — parse via standard error handler
+      await parseAuthError(response, endpoint);
     }
 
     const data = await response.json();
     return data.user ?? null;
-  } catch {
-    return null;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    // Re-throw typed errors as-is
+    if (error instanceof AuthApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    // Network errors, JSON parse errors, etc. — propagate
+    throw error;
   }
 }
 
@@ -705,31 +762,5 @@ export async function logoutAllSessions(): Promise<void> {
     }
 
     throw error;
-  }
-}
-
-// ==========================================
-// 7. USUARIO (User Profile)
-// ==========================================
-
-/**
- * Obtiene el perfil del usuario autenticado desde el backend.
- */
-export async function getUserProfile(): Promise<UserProfile | null> {
-  try {
-    const response = await apiFetch('/v1/user/profile', {
-      method: 'GET',
-    });
-
-    if (response.ok) {
-      const profile = await response.json();
-      return profile;
-    }
-
-    console.error('[API] Error obteniendo perfil:', response.status);
-    return null;
-  } catch (error) {
-    console.error('[API] Error en getUserProfile:', error);
-    return null;
   }
 }

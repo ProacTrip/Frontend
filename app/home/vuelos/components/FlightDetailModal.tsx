@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   X, 
   Plane, 
@@ -15,10 +16,11 @@ import {
   LogIn
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import type { FlightOfferUI } from '@/app/lib/types/flight';
+import type { FlightOfferUI, FlightDetailsResponse } from '@/app/lib/types/flight';
 
 interface FlightDetailModalProps {
   offer: FlightOfferUI | null;
+  flightDetails?: FlightDetailsResponse | null;
   isOpen: boolean;
   onClose: () => void;
   onSelect?: (offer: FlightOfferUI) => void;
@@ -59,11 +61,13 @@ const formatPrice = (amount: number | undefined, currency: string = 'EUR'): stri
 
 export default function FlightDetailModal({
   offer,
+  flightDetails,
   isOpen,
   onClose,
   onSelect
 }: FlightDetailModalProps) {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
   
   useEffect(() => {
     if (isOpen) {
@@ -195,7 +199,7 @@ export default function FlightDetailModal({
                             <div className="font-semibold text-gray-900">{leg.flightNumber}</div>
                             <div className="text-sm text-gray-500">
                               {offer.airline.name}
-                              {offer.operatedBy && <span className="text-amber-600"> · Operado por {offer.operatedBy}</span>}
+                              {leg.operatingCarrier && <span className="text-amber-600"> · Operado por {leg.operatingCarrier}</span>}
                             </div>
                           </div>
                         </div>
@@ -275,28 +279,18 @@ export default function FlightDetailModal({
               <Luggage className="w-5 h-5 text-[#c54141]" /> Equipaje incluido
             </h4>
             
-            {!offer.baggage ? (
-              <div className="text-sm text-gray-500 italic">
-                La información detallada de maletas y facturación se confirmará en el paso final de reserva.
+            {flightDetails?.booking_options?.[0]?.together?.baggage_prices?.length ? (
+              <div className="space-y-2 text-sm">
+                {flightDetails.booking_options[0].together.baggage_prices.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-gray-700">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span>{item}</span>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>Artículo personal incluido</span>
-                </div>
-                {offer.baggage.carryOnIncluded && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>Equipaje de mano incluido</span>
-                  </div>
-                )}
-                {offer.baggage.checkedIncluded && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>1 pieza de facturación incluida</span>
-                  </div>
-                )}
+              <div className="text-sm text-gray-500 italic">
+                La información detallada de maletas y facturación se confirmará en el paso final de reserva.
               </div>
             )}
           </div>
@@ -322,16 +316,40 @@ export default function FlightDetailModal({
             </div>
           )}
 
-          {/* Políticas */}
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-            <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
-              <Info className="w-4 h-4" /> Política de cambios
-            </h4>
-            <div className="text-sm text-blue-800 space-y-1">
-              <p>• Cambios permitidos según tarifa</p>
-              <p>• Cancelación sujeta a penalización</p>
+          {/* Políticas / Opciones de reserva */}
+          {flightDetails?.booking_options?.length ? (
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4" /> Opciones de reserva
+              </h4>
+              <div className="space-y-3">
+                {flightDetails.booking_options.map((option, i) => (
+                  <div key={i} className="text-sm text-blue-800 border-b border-blue-100 last:border-0 pb-2 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{option.together.option_title}</span>
+                      <span className="font-semibold">{formatPrice(option.together.price, 'EUR')}</span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1 flex flex-wrap gap-2">
+                      <span>Reservá con {option.together.book_with}</span>
+                      {option.together.marketed_as?.length > 0 && (
+                        <span>· Comercializado como: {option.together.marketed_as.join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <h4 className="font-semibold text-blue-900 flex items-center gap-2 mb-2">
+                <Info className="w-4 h-4" /> Política de cambios
+              </h4>
+              <div className="text-sm text-blue-800 space-y-1">
+                <p>• Cambios permitidos según tarifa</p>
+                <p>• Cancelación sujeta a penalización</p>
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -354,7 +372,7 @@ export default function FlightDetailModal({
               </button>
             ) : (
               <button
-                onClick={() => { onClose(); window.location.href = '/auth/login'; }}
+                onClick={() => { onClose(); router.push('/auth/login'); }}
                 className="px-8 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2"
               >
                 <LogIn className="w-5 h-5" />

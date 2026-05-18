@@ -4,7 +4,7 @@
 // Proxy: Listar avatares (GET) + Generar URL subida (POST)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 /**
  * GET /api/v1/management/avatars/default
@@ -17,16 +17,16 @@ export async function GET(request: NextRequest) {
 
     const query = ttl ? `?ttl_minutes=${ttl}` : '';
 
-    const response = await apiFetch(`/v1/management/avatars/default${query}`, {
+    const response = await proxyFetch(request, `/v1/management/avatars/default${query}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error obteniendo avatares' },
-        { status: response.status }
-      );
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody) {
+        return NextResponse.json(errorBody, { status: response.status });
+      }
+      return new NextResponse(null, { status: response.status });
     }
 
     const data = await response.json();
@@ -49,17 +49,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const response = await apiFetch('/v1/management/avatars/default', {
+    const response = await proxyFetch(request, '/v1/management/avatars/default', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body,
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error generando URL de subida' },
-        { status: response.status }
-      );
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody) {
+        return NextResponse.json(errorBody, { status: response.status });
+      }
+      return new NextResponse(null, { status: response.status });
     }
 
     const data = await response.json();

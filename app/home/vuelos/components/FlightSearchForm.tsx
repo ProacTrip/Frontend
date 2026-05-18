@@ -211,12 +211,7 @@ export default function FlightSearchForm({
               departure: leg.departure.toUpperCase().trim(),
               arrival: leg.arrival.toUpperCase().trim(),
               date: leg.date,
-              ...(leg.times && (leg.times.start !== 0 || leg.times.end !== 23) && {
-                times: {
-                  departure_from: leg.times.start,
-                  departure_to: leg.times.end,
-                },
-              }),
+              ...(leg.times ? { times: leg.times } : {}),
             })),
             adults: formState.passengers.adults,
             children: formState.passengers.children,
@@ -270,10 +265,6 @@ export default function FlightSearchForm({
           };
 
       const response = await searchFlights(searchRequest);
-
-      if (response.results_state === 'empty') {
-        return;
-      }
 
       if (onSearch) {
         onSearch(response, searchRequest);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getMedicalProfile, updateMedicalProfile, listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
+import { getMedicalProfile, updateMedicalProfile, listMedicalConflicts, resolveMedicalConflict, adaptMedicalProfile } from '@/app/lib/api';
 import { MedicalProfile, BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
 import { UserApiError } from '@/app/lib/api/user';
 import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info, AlertTriangle } from 'lucide-react';
@@ -53,15 +53,16 @@ export function MedicalForm({ onSave }: Props) {
       const data = await getMedicalProfile();
       if (data) {
         setProfile(data);
+        const adapted = adaptMedicalProfile(data as unknown as Record<string, unknown>);
         setForm({
-          blood_type: data.blood_type ?? '',
-          allergies: data.allergies ?? '',
-          medications: data.medications ?? '',
-          conditions: data.conditions ?? '',
-          vaccinations: data.vaccinations ?? '',
-          emergency_contact: data.emergency_contact ?? '',
-          insurance_info: data.insurance_info ?? '',
-          is_shared: data.is_shared ?? false,
+          blood_type: (adapted.blood_type as string) ?? '',
+          allergies: (adapted.allergies as string) ?? '',
+          medications: (adapted.medications as string) ?? '',
+          conditions: (adapted.conditions as string) ?? '',
+          vaccinations: (adapted.vaccinations as string) ?? '',
+          emergency_contact: (adapted.emergency_contact as string) ?? '',
+          insurance_info: (adapted.insurance_info as string) ?? '',
+          is_shared: (adapted.is_shared as boolean) ?? false,
         });
       }
     } catch (err: any) {

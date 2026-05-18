@@ -19,7 +19,7 @@ function extractErrorCode(type: string): string {
   }
 }
 
-const ERROR_MAP: Record<string, string> = {
+export const ERROR_MAP: Record<string, string> = {
   'email-not-verified': 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
   'email_not_verified': 'Tu email no ha sido verificado. Revisa tu bandeja de entrada.',
   'invalid-credentials': 'Email o contraseña incorrectos.',

@@ -151,6 +151,7 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
     return_date: formatDate(request.return_date),
     hl: request.hl || user.hl,
     gl: request.gl || user.gl,
+    currency: request.currency || user.currency,
     ...(request.include_airlines?.length ? { include_airlines: request.include_airlines } : {}),
     ...(request.exclude_airlines?.length ? { exclude_airlines: request.exclude_airlines } : {}),
     legs: request.legs || [],
@@ -236,11 +237,11 @@ export async function getFlightDetails(
     adults: adults || 1,
     hl: user.hl,
     gl: user.gl,
-    currency: currency || 'EUR',
-    departure: routeParams?.departure,
-    arrival: routeParams?.arrival,
-    outbound_date: routeParams?.outbound_date,
-    return_date: routeParams?.return_date,
+    currency: currency || user.currency,
+    ...(routeParams?.departure ? { departure: routeParams.departure } : {}),
+    ...(routeParams?.arrival ? { arrival: routeParams.arrival } : {}),
+    ...(routeParams?.outbound_date ? { outbound_date: routeParams.outbound_date } : {}),
+    ...(routeParams?.return_date ? { return_date: routeParams.return_date } : {}),
   };
 
   const endpoint = '/v1/search/flight-details';

@@ -4,11 +4,11 @@
 // Proxy: Listar todos los permisos del sistema (GET /v1/management/permissions)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await apiFetch('/v1/management/permissions', {
+    const response = await proxyFetch(request, '/v1/management/permissions', {
       method: 'GET',
     });
 

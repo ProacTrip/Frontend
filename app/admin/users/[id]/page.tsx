@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowLeft,
   Shield,
@@ -35,17 +36,21 @@ import {
   listPermissions,
   listRoles,
 } from '@/app/lib/api';
+import { DashboardApiError } from '@/app/lib/api/management';
 import type {
   UserAdminDetail,
   Permission,
   PermissionOverride,
   Role,
 } from '@/app/lib/types/admin';
+import FeatureLimitsCard from './feature-limits-card';
 
 export default function AdminUserDetailPage() {
   const router = useRouter();
   const params = useParams();
   const userId = params.id as string;
+  const { user: currentUser } = useAuth();
+  const isSelf = currentUser?.id === userId;
 
   const [user, setUser] = useState<UserAdminDetail | null>(null);
   const [effectivePermissions, setEffectivePermissions] = useState<string[]>([]);
@@ -54,6 +59,7 @@ export default function AdminUserDetailPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Modales
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -68,24 +74,74 @@ export default function AdminUserDetailPage() {
 
   const loadUser = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [detailRes, overridesRes, permsData, rolesData] = await Promise.all([
+      // Usamos allSettled para que listRoles/listPermissions no bloqueen
+      // la página si sus endpoints no existen aún en el backend.
+      const results = await Promise.allSettled([
         getUserDetail(userId),
         getPermissionOverrides(userId),
         listPermissions(),
         listRoles(),
       ]);
 
+      // getUserDetail — CRÍTICO: si falla, mostramos error
+      const detailResult = results[0];
+      if (detailResult.status === 'rejected') {
+        const err = detailResult.reason;
+        if (err instanceof DashboardApiError) {
+          setError(err.detail);
+        } else if (err instanceof Error) {
+          setError(err.message || 'Error al cargar el usuario');
+        } else {
+          setError('Error desconocido al cargar el usuario');
+        }
+        return;
+      }
+      const detailRes = detailResult.value;
       setUser(detailRes.user);
       setEffectivePermissions(detailRes.effective_permissions ?? []);
-      setOverrides(overridesRes.overrides ?? []);
-      setAllPermissions(permsData.permissions ?? []);
-      setRoles(rolesData.roles ?? []);
 
-      const currentRole = rolesData.roles?.find((r: Role) => r.name === detailRes.user.role_name);
+      // getPermissionOverrides — no crítico
+      const overridesResult = results[1];
+      if (overridesResult.status === 'fulfilled') {
+        setOverrides(overridesResult.value.overrides ?? []);
+      }
+
+      // listPermissions — no crítico, usar hardcoded fallback si falla
+      const permsResult = results[2];
+      if (permsResult.status === 'fulfilled') {
+        setAllPermissions(permsResult.value.permissions ?? []);
+      }
+
+      // listRoles — no crítico, usar hardcoded fallback si falla
+      const rolesResult = results[3];
+      if (rolesResult.status === 'fulfilled') {
+        setRoles(rolesResult.value.roles ?? []);
+      } else {
+        // Fallback: roles conocidos del sistema
+        setRoles([
+          { id: 'admin', name: 'admin', description: 'Administrador' },
+          { id: 'staff', name: 'staff', description: 'Staff' },
+          { id: 'client', name: 'client', description: 'Cliente' },
+        ] as Role[]);
+      }
+
+      // Seleccionar rol actual (del fallback o de la API)
+      const currentRoles = rolesResult.status === 'fulfilled'
+        ? rolesResult.value.roles ?? []
+        : [{ id: 'admin', name: 'admin' }, { id: 'staff', name: 'staff' }, { id: 'client', name: 'client' }] as Role[];
+      const currentRole = currentRoles.find((r: Role) => r.name === detailRes.user.role_name);
       setSelectedRoleId(currentRole?.id ?? '');
-    } catch (error) {
-      console.error('Error cargando usuario:', error);
+    } catch (err) {
+      // Error inesperado en Promise.allSettled (no debería ocurrir, pero por si acaso)
+      if (err instanceof DashboardApiError) {
+        setError(err.detail);
+      } else if (err instanceof Error) {
+        setError(err.message || 'Error al cargar el usuario');
+      } else {
+        setError('Error desconocido al cargar el usuario');
+      }
     } finally {
       setLoading(false);
     }
@@ -106,7 +162,13 @@ export default function AdminUserDetailPage() {
       setPendingStatus(null);
       await loadUser();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Error actualizando estado');
+      setError(
+        error instanceof DashboardApiError
+          ? error.detail
+          : error instanceof Error
+            ? error.message
+            : 'Error actualizando estado'
+      );
     } finally {
       setActionLoading(null);
     }
@@ -124,7 +186,13 @@ export default function AdminUserDetailPage() {
       setShowRoleModal(false);
       await loadUser();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Error cambiando rol');
+      setError(
+        error instanceof DashboardApiError
+          ? error.detail
+          : error instanceof Error
+            ? error.message
+            : 'Error cambiando rol'
+      );
     } finally {
       setActionLoading(null);
     }
@@ -148,7 +216,13 @@ export default function AdminUserDetailPage() {
       setPermissionExpiresAt('');
       await loadUser();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Error creando override');
+      setError(
+        error instanceof DashboardApiError
+          ? error.detail
+          : error instanceof Error
+            ? error.message
+            : 'Error creando override'
+      );
     } finally {
       setActionLoading(null);
     }
@@ -161,7 +235,13 @@ export default function AdminUserDetailPage() {
       await deletePermissionOverride(userId, overrideId);
       await loadUser();
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Error eliminando override');
+      setError(
+        error instanceof DashboardApiError
+          ? error.detail
+          : error instanceof Error
+            ? error.message
+            : 'Error eliminando override'
+      );
     } finally {
       setActionLoading(null);
     }
@@ -182,7 +262,10 @@ export default function AdminUserDetailPage() {
       <div className="text-center py-12">
         <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-gray-700">Usuario no encontrado</h2>
-        <Link href="/admin/users" className="text-[#c54141] hover:underline mt-2 inline-block">
+        {error && (
+          <p className="text-sm text-red-500 mt-2 max-w-md mx-auto">{error}</p>
+        )}
+        <Link href="/admin/users" className="text-[#c54141] hover:underline mt-4 inline-block">
           Volver a usuarios
         </Link>
       </div>
@@ -217,6 +300,24 @@ export default function AdminUserDetailPage() {
           <p className="text-sm text-gray-500">{user.email}</p>
         </div>
       </div>
+
+      {/* Inline error display */}
+      {error && (
+        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-red-800">Error</p>
+            <p className="text-sm text-red-700 mt-0.5">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="p-1 hover:bg-red-100 rounded-lg transition-colors shrink-0"
+            aria-label="Cerrar error"
+          >
+            <X className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Info general + permissions */}
@@ -291,6 +392,11 @@ export default function AdminUserDetailPage() {
             )}
           </div>
 
+          {/* Feature Limits */}
+          {user && (
+            <FeatureLimitsCard userId={userId} roleId={user.role_id} />
+          )}
+
           {/* Permission Overrides */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -298,13 +404,19 @@ export default function AdminUserDetailPage() {
                 <Key className="w-5 h-5 text-[#c54141]" />
                 Permission Overrides
               </h2>
-              <button
-                onClick={() => setShowPermissionModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#c54141] text-white rounded-lg text-sm font-medium hover:bg-[#a93535] transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Nuevo override
-              </button>
+              {/* Nuevo override — requiere GET /v1/management/permissions (no implementado en backend) */}
+              {allPermissions.length > 0 && (
+                <button
+                  onClick={() => setShowPermissionModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#c54141] text-white rounded-lg text-sm font-medium hover:bg-[#a93535] transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nuevo override
+                </button>
+              )}
+              {allPermissions.length === 0 && (
+                <p className="text-xs text-gray-400">Gestión de overrides no disponible — catálogo de permisos no cargado</p>
+              )}
             </div>
 
             {activeOverrides.length > 0 ? (
@@ -349,8 +461,12 @@ export default function AdminUserDetailPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
             <div className="space-y-3">
-              {/* Enable / Disable */}
-              {isDisabled ? (
+              {/* Enable / Disable — oculto para el propio perfil (CANNOT_DISABLE_SELF) */}
+              {isSelf ? (
+                <p className="text-xs text-gray-400 text-center py-2">
+                  No puedes modificar el estado de tu propia cuenta
+                </p>
+              ) : isDisabled ? (
                 <button
                   onClick={() => openStatusModal('active')}
                   disabled={!!actionLoading}
@@ -370,15 +486,15 @@ export default function AdminUserDetailPage() {
                 </button>
               )}
 
-              {/* Cambiar rol */}
-              <button
+              {/* Cambiar rol — endpoint /v1/management/users/:id/role no implementado en backend aún */}
+              {/* <button
                 onClick={() => setShowRoleModal(true)}
                 disabled={!!actionLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-lg font-medium hover:border-[#c54141] hover:text-[#c54141] transition-colors disabled:opacity-50"
               >
                 <Shield className="w-4 h-4" />
                 Cambiar rol
-              </button>
+              </button> */}
             </div>
           </div>
 

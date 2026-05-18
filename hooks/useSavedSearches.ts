@@ -13,6 +13,8 @@ import type {
   SavedSearch,
   CreateSavedSearchBody,
   UpdateSavedSearchBody,
+  CreateSavedSearchResponse,
+  UpdateSavedSearchResponse,
 } from '@/app/lib/types/saved-search';
 
 export function useSavedSearches() {
@@ -52,7 +54,7 @@ export function useSavedSearches() {
   // ==========================================
 
   const create = useCallback(
-    async (body: CreateSavedSearchBody): Promise<SavedSearch | { conflict: true }> => {
+    async (body: CreateSavedSearchBody): Promise<CreateSavedSearchResponse | { conflict: true }> => {
       try {
         const result = await createSavedSearch(body);
 
@@ -61,14 +63,14 @@ export function useSavedSearches() {
           return result;
         }
 
-        // Success — add to local state optimistically
-        setSearches((prev) => [...prev, result]);
+        // Success — re-fetch full list (API returns {search_id, message}, not full entity)
+        await load();
         return result;
       } catch (err) {
         throw err;
       }
     },
-    [],
+    [load],
   );
 
   // ==========================================
@@ -76,21 +78,19 @@ export function useSavedSearches() {
   // ==========================================
 
   const update = useCallback(
-    async (id: string, body: UpdateSavedSearchBody): Promise<SavedSearch> => {
+    async (id: string, body: UpdateSavedSearchBody): Promise<UpdateSavedSearchResponse> => {
       try {
-        const updated = await updateSavedSearch(id, body);
+        const result = await updateSavedSearch(id, body);
 
-        // Optimistic: replace in list
-        setSearches((prev) =>
-          prev.map((s) => (s.id === id ? updated : s)),
-        );
+        // Re-fetch full list (API returns {message}, not full entity)
+        await load();
 
-        return updated;
+        return result;
       } catch (err) {
         throw err;
       }
     },
-    [],
+    [load],
   );
 
   // ==========================================

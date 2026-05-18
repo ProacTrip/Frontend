@@ -4,6 +4,9 @@
 // Switched from apiFetch to raw fetch (two-tier pattern from anti-fron search.ts).
 // localStorage cache with 10min TTL (shared keys with app/lib/utils/location.ts).
 
+import { parseProblemDetails } from '@/app/lib/utils/problem-details';
+import { rateLimitStore } from '@/app/lib/api/rate-limit';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // ==========================================
@@ -44,14 +47,27 @@ export interface EnvironmentResponse {
 }
 
 // ==========================================
+// TYPE GUARDS
+// ==========================================
+
+/**
+ * Narrows `EnvironmentResponse` to confirm weather is present.
+ * Backend returns `weather: null` on graceful degradation —
+ * callers MUST use this guard before accessing weather fields.
+ */
+export function hasWeather(env: EnvironmentResponse): env is EnvironmentResponse & { weather: WeatherData } {
+  return env.weather !== null;
+}
+
+// ==========================================
 // localStorage CACHE (shared keys with location.ts)
 // ==========================================
 
-const ENV_STORAGE_KEY = 'user_environment';
-const ENV_STORED_AT_KEY = 'user_environment_stored_at';
-const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const ENV_STORAGE_KEY = 'user_environment';
+export const ENV_STORED_AT_KEY = 'user_environment_stored_at';
+export const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-function isEnvCacheValid(): boolean {
+export function isEnvCacheValid(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const storedAt = localStorage.getItem(ENV_STORED_AT_KEY);
@@ -85,6 +101,26 @@ function setCachedEnvironment(data: EnvironmentResponse): void {
 }
 
 // ==========================================
+// HELPERS — Rate limit extraction
+// ==========================================
+
+function extractRateLimitHeaders(response: Response): void {
+  const limit = response.headers.get('RateLimit-Limit');
+  const remaining = response.headers.get('RateLimit-Remaining');
+  const reset = response.headers.get('RateLimit-Reset');
+
+  if (limit !== null && remaining !== null && reset !== null) {
+    rateLimitStore.update({
+      limit: parseInt(limit, 10),
+      remaining: parseInt(remaining, 10),
+      reset: parseInt(reset, 10),
+      endpoint: '/v1/environment',
+      timestamp: Date.now(),
+    });
+  }
+}
+
+// ==========================================
 // API — GET /v1/environment
 // ==========================================
 
@@ -97,26 +133,61 @@ function setCachedEnvironment(data: EnvironmentResponse): void {
  * - Frontend caches 10 minutes in localStorage (shared with fetchAndStoreEnvironment).
  * - weather may be null (graceful degradation — no full failure).
  * - Uses raw fetch with credentials:"include" for cookie-based auth.
+ * - Sends Accept-Language from navigator.language.
+ * - Aborts after 15 seconds via AbortController.
  */
 export async function getEnvironment(): Promise<EnvironmentResponse> {
   // Check localStorage cache first
   const cached = getCachedEnvironment();
   if (cached) return cached;
 
-  const response = await fetch(`${API_URL}/v1/environment`, {
-    method: 'GET',
-    headers: { 'Accept': 'application/json' },
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    throw new Error(`Error al obtener ubicación: ${response.status}`);
+  try {
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+
+    // Send browser language so the backend can localise error messages (ENVIRONMENT_API.md)
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      headers['Accept-Language'] = navigator.language;
+    }
+
+    const response = await fetch(`${API_URL}/v1/environment`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // Extract rate limit headers from ALL responses
+    extractRateLimitHeaders(response);
+
+    if (response.status === 429) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
+      if (retryAfter > 0) {
+        rateLimitStore.block(retryAfter);
+      }
+
+      const problem = await parseProblemDetails(response);
+      const trace = problem.trace_id ? ` (trace: ${problem.trace_id})` : '';
+      throw new Error(`[${problem.type}] ${problem.detail || 'Límite de peticiones excedido'}${trace}`);
+    }
+
+    if (!response.ok) {
+      const problem = await parseProblemDetails(response);
+      const trace = problem.trace_id ? ` (trace: ${problem.trace_id})` : '';
+      throw new Error(`[${problem.type}] ${problem.detail || `Error al obtener ubicación: ${response.status}`}${trace}`);
+    }
+
+    const data: EnvironmentResponse = await response.json();
+
+    // Cache the fresh response
+    setCachedEnvironment(data);
+
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data: EnvironmentResponse = await response.json();
-
-  // Cache the fresh response
-  setCachedEnvironment(data);
-
-  return data;
 }

@@ -4,18 +4,18 @@
 // Este handler redirige la llamada al nuevo endpoint por compatibilidad.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
 
-    const response = await apiFetch(`/v1/dashboard/users/${id}/status`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status: 'active' }),
+      body: { status: 'active' },
     });
 
     if (!response.ok) {

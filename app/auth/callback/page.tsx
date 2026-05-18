@@ -7,6 +7,7 @@ import AuthPageLayout from '@/components/layout/AuthPageLayout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getCurrentUser } from '@/app/lib/api/auth';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 
 const OAUTH_ERROR_MAP: Record<string, string> = {
   OAUTH_CODE_MISSING: 'Error al procesar la autenticación con Google. Intenta de nuevo.',
@@ -78,7 +79,7 @@ function GoogleCallbackContent() {
 
         // Persist avatar_url for Navbar (it reads from localStorage)
         if (currentUser.avatar_url) {
-          localStorage.setItem('user_avatar_url', currentUser.avatar_url);
+          localStorage.setItem(USER_AVATAR_CACHE_KEY, currentUser.avatar_url);
         }
 
         // Cargar environment por separado (el backend no lo devuelve en OAuth callback)
@@ -90,8 +91,9 @@ function GoogleCallbackContent() {
         }
 
         setStatus('success');
+        const redirectTo = currentUser.role_name === 'admin' ? '/admin' : '/home';
         setTimeout(() => {
-          router.push('/home');
+          router.push(redirectTo);
         }, 1000);
       } catch {
         setErrorMessage('Error al verificar la sesión. Intenta de nuevo.');

@@ -8,13 +8,12 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Users, 
-  ClipboardList, 
   Image as ImageIcon, 
   Bell,
   LogOut,
   Shield
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 interface NavItem {
   href: string;
@@ -24,7 +23,7 @@ interface NavItem {
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { logout } = useAuth();
 
   const navItems: NavItem[] = [
     {
@@ -37,11 +36,12 @@ export default function AdminSidebar() {
       label: 'Usuarios',
       icon: <Users className="w-5 h-5" />,
     },
-    {
-      href: '/admin/audit',
-      label: 'Auditoría',
-      icon: <ClipboardList className="w-5 h-5" />,
-    },
+    // Auditoría: funcionalidad aún no implementada en backend
+    // {
+    //   href: '/admin/audit',
+    //   label: 'Auditoría',
+    //   icon: <ClipboardList className="w-5 h-5" />,
+    // },
     {
       href: '/admin/avatars',
       label: 'Avatares',
@@ -55,12 +55,7 @@ export default function AdminSidebar() {
   ];
 
   const handleLogout = () => {
-    // Limpiar sesión
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('token_expires_at');
-    localStorage.removeItem('user_role');
-    router.push('/auth/login');
+    logout();
   };
 
   return (
@@ -78,8 +73,8 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Navegación */}
-      <nav className="flex-1 p-4 space-y-1">
+      {/* Navegación — scrollable, el footer queda siempre visible */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
           
@@ -102,11 +97,12 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
+      {/* Footer — siempre visible al fondo del sidebar */}
+      <div className="p-4 border-t border-gray-200 shrink-0">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-all duration-200"
+          aria-label="Cerrar sesión"
         >
           <LogOut className="w-5 h-5" />
           Cerrar sesión

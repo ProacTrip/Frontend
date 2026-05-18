@@ -20,9 +20,11 @@ interface DocumentFiltersProps {
 
 const STATUS_TABS = [
   { value: null, label: 'Todos' },
+  { value: 'uploaded', label: 'Subidos' },
   { value: 'processing', label: 'Procesando' },
   { value: 'completed', label: 'Completados' },
   { value: 'rejected', label: 'Rechazados' },
+  { value: 'failed', label: 'Fallidos' },
 ] as const;
 
 export default function DocumentFilters({ onFilterChange }: DocumentFiltersProps) {

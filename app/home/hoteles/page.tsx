@@ -11,17 +11,17 @@ import { searchHotels } from '@/app/lib/api/hotels';
 import { HotelApiError } from '@/app/lib/api/hotels';
 import type { HotelErrorCode } from '@/app/lib/api/hotels';
 import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
-import { getStoredEnvironment } from '@/app/lib/utils/location';
-import type { EnvironmentResponse } from '@/app/lib/api/context';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 function HotelesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedHotelId = searchParams.get('hotel');
 
+  const { context: authContext } = useAuthContext();
+
   const [isSearching, setIsSearching] = useState(false);
   const [displayedHotels, setDisplayedHotels] = useState<any[]>([]);
-  const [locationContext, setLocationContext] = useState<EnvironmentResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // ---- Rate limit state ----
@@ -49,13 +49,6 @@ function HotelesContent() {
     };
   }, []);
 
-  useEffect(() => {
-    const env = getStoredEnvironment();
-    if (env) {
-      setLocationContext(env);
-    }
-  }, []);
-  
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -185,12 +178,12 @@ function HotelesContent() {
             <div className="mb-4">
               <h2 className="text-3xl font-bold text-gray-900">Buscar Hoteles</h2>
               <p className="text-gray-600 mt-2">Encuentra los mejores hoteles al mejor precio</p>
-              {locationContext && (
+              {authContext?.location && (
                 <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
                   <span>📍</span>
-                  {locationContext.location.city}
-                  {locationContext.location.country && `, ${locationContext.location.country}`}
-                  {locationContext.location.currency && ` · Moneda: ${locationContext.location.currency}`}
+                  {authContext.location.city}
+                  {authContext.location.country && `, ${authContext.location.country}`}
+                  {authContext.location.currency && ` · Moneda: ${authContext.location.currency}`}
                 </p>
               )}
             </div>

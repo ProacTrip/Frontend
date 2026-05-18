@@ -1,4 +1,10 @@
 /**
+ * localStorage key for the user's avatar URL.
+ * Shared across login, callback, profile, and Navbar — no ad-hoc strings.
+ */
+export const USER_AVATAR_CACHE_KEY = 'user_avatar_url';
+
+/**
  * Lista de avatares disponibles (emojis)
  * Más adelante se reemplazarán por URLs de imágenes del backend
  */

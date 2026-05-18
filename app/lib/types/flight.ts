@@ -17,8 +17,10 @@ export interface MultiCityLeg {
   arrival: string;
   date: string;               // YYYY-MM-DD
   times?: {
-    start: number;            // departure_from (0-23)
-    end: number;              // departure_to (0-23)
+    departure_from?: number;  // 0-23
+    departure_to?: number;    // 0-23
+    arrival_from?: number;    // 0-23
+    arrival_to?: number;      // 0-23
   };
 }
 
@@ -164,7 +166,6 @@ export interface FlightOffer {
   airline_logo_url?: string;
 
   also_sold_by?: string[];
-  operated_by?: string | null;
 }
 
 export interface FlightLeg {
@@ -211,7 +212,7 @@ export interface Layover {
 }
 
 export interface AirportInfo {
-  role: 'departure' | 'arrival' | 'connection';
+  role: 'departure' | 'arrival';
   airport_code: string;
   airport_name: string;
   city: string;
@@ -317,7 +318,6 @@ export interface FlightOfferUI {
   };
   
   alsoSoldBy: string[];
-  operatedBy: string | null;
   oftenDelayed: boolean;
   baggage: {
     carryOnIncluded: boolean;
@@ -372,6 +372,7 @@ export interface LegUI {
   oftenDelayed: boolean;
   overnight?: boolean;
   legroom?: string;
+  legroomQuality?: 'average' | 'above_average' | 'below_average';
 }
 
 export interface LayoverUI {

@@ -50,10 +50,12 @@ const formatPrice = (amount: number | undefined, currency: string): string => {
 
 const Badge = ({ 
   children, 
-  variant = 'default' 
+  variant = 'default',
+  title,
 }: { 
   children: React.ReactNode; 
   variant?: 'recommended' | 'warning' | 'eco' | 'default';
+  title?: string;
 }) => {
   const styles = {
     recommended: 'bg-[#c54141]/10 text-[#c54141] border-[#c54141]/20',
@@ -63,7 +65,7 @@ const Badge = ({
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[variant]}`}>
+    <span title={title} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[variant]}`}>
       {children}
     </span>
   );
@@ -165,7 +167,7 @@ export default function FlightCard({
             )}
             
             {offer.oftenDelayed && (
-              <Badge variant="warning">
+              <Badge variant="warning" title="Este vuelo suele retrasarse más de 30 minutos">
                 <AlertTriangle className="w-3 h-3" />
                 Suele retrasarse
               </Badge>
@@ -276,7 +278,7 @@ export default function FlightCard({
               <div className="font-medium text-gray-900">{offer.airline.name}</div>
               <div className="text-xs text-gray-500">
                 {firstLeg?.flightNumber}
-                {offer.operatedBy && ` · Operado por ${offer.operatedBy}`}
+                {firstLeg?.operatingCarrier && ` · Operado por ${firstLeg.operatingCarrier}`}
               </div>
             </div>
           </div>
@@ -308,8 +310,21 @@ export default function FlightCard({
             <div title="Equipaje incluido">
               <Luggage className="w-4 h-4" />
             </div>
+
+            {firstLeg?.legroom && (
+              <div title={`Espacio para piernas: ${firstLeg.legroom}${firstLeg.legroomQuality ? ` (${firstLeg.legroomQuality})` : ''}`} className="text-xs text-gray-500 font-medium">
+                {firstLeg.legroom}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Codeshare / alsoSoldBy */}
+        {offer.alsoSoldBy && offer.alsoSoldBy.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500">
+            También vendido por: {offer.alsoSoldBy.join(', ')}
+          </div>
+        )}
       </div>
 
       {/* FOOTER: Solo Ver datos */}

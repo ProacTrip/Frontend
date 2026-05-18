@@ -7,10 +7,15 @@
 // current retorna el más restrictivo (menor remaining/limit).
 // Las suscripciones notifican con la info más restrictiva del momento.
 //
+// Persistencia: el bloqueo (429) se persiste en sessionStorage para
+// que el countdown sobreviva a page refresh.
+//
 // Uso desde componentes:
 //   - Suscribirse vía rateLimitStore.subscribe() para reaccionar a cambios
 //   - rateLimitStore.current para leer el estado más restrictivo
 //   - rateLimitStore.isBlocked / secondsUntilUnblock para estado de 429
+
+const SESSION_KEY = 'rate_limit_blocked_until';
 
 export interface RateLimitInfo {
   /** Límite total de peticiones en la ventana actual */
@@ -33,6 +38,30 @@ class RateLimitStore {
   private listeners = new Set<RateLimitListener>();
   private _blockedUntil = 0;
 
+  constructor() {
+    this.restoreFromStorage();
+  }
+
+  /**
+   * Restaura el estado de bloqueo desde sessionStorage.
+   * Si el timestamp ya expiró, limpia sessionStorage y sigue como si no hubiera bloqueo.
+   */
+  private restoreFromStorage(): void {
+    try {
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      if (stored) {
+        const blockedUntil = parseInt(stored, 10);
+        if (!Number.isNaN(blockedUntil) && Date.now() < blockedUntil) {
+          this._blockedUntil = blockedUntil;
+        } else {
+          sessionStorage.removeItem(SESSION_KEY);
+        }
+      }
+    } catch {
+      // sessionStorage puede fallar en modo privado o SSR
+    }
+  }
+
   /**
    * Actualiza la info de rate limit para un endpoint específico.
    * No sobreescribe otros endpoints — cada uno mantiene su propio estado.
@@ -45,9 +74,14 @@ class RateLimitStore {
     for (const fn of this.listeners) fn(mostRestrictive);
   }
 
-  /** Marca un bloqueo global por 429 con duración en segundos */
+  /** Marca un bloqueo global por 429 con duración en segundos. Persiste en sessionStorage. */
   block(retryAfterSeconds: number): void {
     this._blockedUntil = Date.now() + retryAfterSeconds * 1000;
+    try {
+      sessionStorage.setItem(SESSION_KEY, String(this._blockedUntil));
+    } catch {
+      // sessionStorage puede fallar en modo privado
+    }
   }
 
   get isBlocked(): boolean {
@@ -81,6 +115,7 @@ class RateLimitStore {
   reset(): void {
     this.endpoints.clear();
     this._blockedUntil = 0;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
     for (const fn of this.listeners) fn(null);
   }
 

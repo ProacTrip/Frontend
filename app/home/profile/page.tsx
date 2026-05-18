@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getProfile, ProfileResponse } from '@/app/lib/api';
+import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 import Loader from '@/components/ui/Loader';
 import {
   User,
@@ -47,7 +48,7 @@ export default function ProfilePage() {
       const profileData = await getProfile();
       setData(profileData);
       if (profileData.profile.avatar_url) {
-        localStorage.setItem('user_avatar_url', profileData.profile.avatar_url);
+        localStorage.setItem(USER_AVATAR_CACHE_KEY, profileData.profile.avatar_url);
       }
     } catch (e: any) {
       setError(e.message);

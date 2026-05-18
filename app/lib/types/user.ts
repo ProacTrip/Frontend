@@ -15,6 +15,12 @@ export type Channel = 'email' | 'sms' | 'websocket';
 
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
+export interface MedicalField<T> {
+  value: T;
+  source: string;
+  updated_at: string;
+}
+
 // ─────────────────────────────────────────────────────────────
 // PERFIL PRINCIPAL
 // ─────────────────────────────────────────────────────────────
@@ -45,7 +51,6 @@ export interface UpdateProfileBody {
   gender?: Gender | null;
   nationality?: string | null;
   phone?: string | null;
-  current_location?: string | null;
   bio?: string | null;
   is_public?: boolean;
 }
@@ -81,13 +86,13 @@ export interface UpdateTravelPreferencesBody {
 // ─────────────────────────────────────────────────────────────
 
 export interface MedicalProfile {
-  blood_type: BloodType | null;
-  allergies: string | null;           // ← FIX: string, no string[]
-  medications: string | null;         // ← FIX: string, no string[]
-  conditions: string | null;          // ← FIX: string, no string[]
-  vaccinations: string | null;        // ← FIX: string, no string[]
-  emergency_contact: string | null;
-  insurance_info: string | null;
+  blood_type: MedicalField<BloodType | null>;
+  allergies: MedicalField<string | null>;
+  medications: MedicalField<string | null>;
+  conditions: MedicalField<string | null>;
+  vaccinations: MedicalField<string | null>;
+  emergency_contact: MedicalField<string | null>;
+  insurance_info: MedicalField<string | null>;
   is_shared: boolean;
   created_at: string;
   updated_at: string;
@@ -128,6 +133,7 @@ export interface LocaleUpdate {
   timezone_name?: string | null;
   language_code?: string | null;
   currency_code?: string | null;
+  current_location?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -143,6 +149,8 @@ export interface DefaultAvatar {
 export interface AvatarUploadUrl {
   upload_url: string;
   storage_key: string;
+  expires_at: string;
+  message: string;
 }
 
 // ─────────────────────────────────────────────────────────────

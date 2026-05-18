@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronDown, DollarSign } from 'lucide-react';
-import { getUserPreferences, storeEnvironment, getStoredEnvironment } from '@/app/lib/utils/location';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, DollarSign, Loader2 } from 'lucide-react';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 const CURRENCIES = [
   { code: 'EUR', symbol: '€', name: 'Euro' },
@@ -15,42 +15,81 @@ const CURRENCIES = [
   { code: 'CNY', symbol: '¥', name: 'Yuan chino' },
 ];
 
+/** Key where the user's explicit currency choice survives page reloads. */
+const CURRENCY_PREF_KEY = 'user_currency_preference';
+
+function getSavedPreference(): string | null {
+  try {
+    return localStorage.getItem(CURRENCY_PREF_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function savePreference(code: string): void {
+  try {
+    localStorage.setItem(CURRENCY_PREF_KEY, code);
+  } catch {
+    // localStorage blocked in private mode
+  }
+}
+
 export default function CurrencySelector() {
+  const { context, setContext } = useAuthContext();
   const [currentCurrency, setCurrentCurrency] = useState('EUR');
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Resolve initial currency: user preference > environment > EUR
   useEffect(() => {
-    // Leer moneda del environment almacenado (user_environment)
-    const prefs = getUserPreferences();
-    if (prefs.currency) setCurrentCurrency(prefs.currency);
-  }, []);
+    const saved = getSavedPreference();
+    const envCurrency = context?.location?.currency;
+    const resolved = saved || envCurrency || 'EUR';
 
-  const handleChange = (currencyCode: string) => {
-    if (currencyCode === currentCurrency) {
-      setIsOpen(false);
-      return;
-    }
+    setCurrentCurrency(resolved);
+    setIsLoading(false);
+  }, [context]);
 
-    // Actualizar la moneda dentro del objeto user_environment almacenado
-    try {
-      const env = getStoredEnvironment();
-      if (env) {
-        const updated = { ...env, location: { ...env.location, currency: currencyCode } };
-        storeEnvironment(updated);
+  const handleChange = useCallback(
+    (currencyCode: string) => {
+      if (currencyCode === currentCurrency) {
+        setIsOpen(false);
+        return;
       }
-    } catch {
-      // localStorage puede estar bloqueado en modo privado
-    }
 
-    setCurrentCurrency(currencyCode);
-    setIsOpen(false);
+      // Persist so it survives F5 / page reload
+      savePreference(currencyCode);
 
-    // Recargar para aplicar la nueva moneda en la próxima búsqueda
-    window.location.reload();
-  };
+      // Sync AuthContext so all consumers see the change (no reload needed)
+      if (context?.location) {
+        setContext({
+          ...context,
+          location: {
+            ...context.location,
+            currency: currencyCode,
+          },
+        });
+      }
 
-  const current = CURRENCIES.find(c => c.code === currentCurrency) || CURRENCIES[0];
+      setCurrentCurrency(currencyCode);
+      setIsOpen(false);
+    },
+    [currentCurrency, context, setContext]
+  );
 
+  const current = CURRENCIES.find((c) => c.code === currentCurrency) || CURRENCIES[0];
+
+  // Loading skeleton while environment is being fetched
+  if (isLoading) {
+    return (
+      <div className="px-3 py-2">
+        <Loader2 className="w-4 h-4 animate-spin text-white/70" />
+      </div>
+    );
+  }
+
+  // Always render — even without context (anonymous users or before env loads)
+  // Falls back to saved preference or EUR.
   return (
     <div className="relative">
       <button

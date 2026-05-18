@@ -34,6 +34,8 @@ export interface UserListMeta {
 export interface UserListResponse {
   users: UserAdmin[];
   meta: UserListMeta;
+  /** Total de usuarios que coinciden con los filtros. Opcional porque los endpoints con cursor-based pagination pueden no devolverlo. */
+  total?: number;
 }
 
 export interface UserListParams {

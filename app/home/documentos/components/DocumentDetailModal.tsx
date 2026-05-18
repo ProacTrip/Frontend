@@ -46,7 +46,7 @@ interface DocumentDetailModalProps {
   types: DocumentType[];
   onClose: () => void;
   onDownload: (id: string) => void;
-  onStatusUpdate?: (event: DocumentEvent) => void;
+  onStatusUpdate?: (event: DocumentEvent, docId: string) => void;
 }
 
 export default function DocumentDetailModal({
@@ -98,7 +98,7 @@ export default function DocumentDetailModal({
         });
       }
       if (onStatusUpdate) {
-        onStatusUpdate(event);
+        onStatusUpdate(event, documentId);
       }
     },
   });

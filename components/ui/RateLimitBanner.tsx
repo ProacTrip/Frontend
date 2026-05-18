@@ -4,6 +4,7 @@
 // RateLimitBanner — Feedback visual de rate limiting para páginas de auth
 // ==========================================
 
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRateLimit } from '@/hooks/useRateLimit';
 
@@ -17,10 +18,13 @@ interface RateLimitBannerProps {
 export default function RateLimitBanner({ rateLimitError, onRetryReady }: RateLimitBannerProps) {
   const { isBlocked, secondsLeft, isLow, info } = useRateLimit();
 
-  // Notificar al padre cuando el bloqueo expira
-  if (!isBlocked && rateLimitError) {
-    onRetryReady();
-  }
+  // Notificar al padre cuando el bloqueo expira — must be in useEffect,
+  // NOT in render body (anti-pattern: triggers setState during render).
+  useEffect(() => {
+    if (!isBlocked && rateLimitError) {
+      onRetryReady();
+    }
+  }, [isBlocked, rateLimitError, onRetryReady]);
 
   return (
     <AnimatePresence>

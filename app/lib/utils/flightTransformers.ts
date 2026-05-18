@@ -92,7 +92,6 @@ export function transformFlightOffer(apiOffer: FlightOffer, isRecommended: boole
     airline: airline,
     
     alsoSoldBy: apiOffer.also_sold_by || [],
-    operatedBy: apiOffer.operated_by || null,
     
     oftenDelayed: isAnyLegDelayed, // ✅ CORREGIDO: Lógica mejorada
     
@@ -163,6 +162,7 @@ function transformLeg(apiLeg: FlightLeg): LegUI {
     oftenDelayed: apiLeg.often_delayed || false,
 
     legroom: apiLeg.legroom,
+    legroomQuality: apiLeg.legroom_quality,
     overnight: apiLeg.overnight,
   };
 }

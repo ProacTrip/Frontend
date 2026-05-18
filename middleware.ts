@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get('__Secure-access_token')?.value || request.cookies.get('access_token')?.value || '';
   const refreshToken = request.cookies.get('__Secure-refresh_token')?.value || request.cookies.get('refresh_token')?.value || '';
-  const isAuthenticated = !!accessToken || !!refreshToken;
+  const isAuthenticated = !!accessToken;
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && AUTH_ROUTES.some(route => pathname.startsWith(route))) {

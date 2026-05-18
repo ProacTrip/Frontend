@@ -1,7 +1,7 @@
 // app/home/vuelos/components/MultiCityLegs.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Plus, ArrowRight, Calendar, MapPin, ChevronDown, Clock } from 'lucide-react';
 import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
 import { MultiCityLeg } from '@/app/lib/types/flight';
@@ -19,6 +19,42 @@ const getTodayString = (): string => {
   return new Date().toLocaleDateString('sv-SE');
 };
 
+/** Map new MultiCityLeg.times (departure_from/departure_to) → TimeRangeFilter {start, end} */
+function timesToDepartureRange(times: MultiCityLeg['times']): TimeRange {
+  if (!times) return { start: 0, end: 23 };
+  return {
+    start: times.departure_from ?? 0,
+    end: times.departure_to ?? 23,
+  };
+}
+
+/** Map new MultiCityLeg.times (arrival_from/arrival_to) → TimeRangeFilter {start, end} */
+function timesToArrivalRange(times: MultiCityLeg['times']): TimeRange {
+  if (!times) return { start: 0, end: 23 };
+  return {
+    start: times.arrival_from ?? 0,
+    end: times.arrival_to ?? 23,
+  };
+}
+
+/** Map TimeRangeFilter {start, end} → departure_from/departure_to fields */
+function departureRangeToTimes(prev: MultiCityLeg['times'], range: TimeRange): MultiCityLeg['times'] {
+  return {
+    ...prev,
+    departure_from: range.start,
+    departure_to: range.end,
+  };
+}
+
+/** Map TimeRangeFilter {start, end} → arrival_from/arrival_to fields */
+function arrivalRangeToTimes(prev: MultiCityLeg['times'], range: TimeRange): MultiCityLeg['times'] {
+  return {
+    ...prev,
+    arrival_from: range.start,
+    arrival_to: range.end,
+  };
+}
+
 export default function MultiCityLegs({ legs, onLegsChange, errors = {} }: MultiCityLegsProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -26,7 +62,7 @@ export default function MultiCityLegs({ legs, onLegsChange, errors = {} }: Multi
     setMounted(true);
   }, []);
 
-  const handleLegChange = (index: number, field: keyof MultiCityLeg, value: string | TimeRange | undefined) => {
+  const handleLegChange = (index: number, field: keyof MultiCityLeg, value: string | TimeRange | MultiCityLeg['times'] | undefined) => {
     const newLegs = [...legs];
     newLegs[index] = { ...newLegs[index], [field]: value };
     onLegsChange(newLegs);
@@ -150,21 +186,42 @@ export default function MultiCityLegs({ legs, onLegsChange, errors = {} }: Multi
               </div>
             </div>
 
-            {/* Collapsible time range filter */}
+            {/* Collapsible departure time range filter */}
             <details className="group">
               <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-gray-500 hover:text-[#c54141] list-none select-none">
                 <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
                 <Clock className="w-3.5 h-3.5" />
                 Horario de salida
-                {leg.times && (leg.times.start !== 0 || leg.times.end !== 23) && (
+                {(leg.times?.departure_from !== undefined && leg.times.departure_from !== 0) || 
+                 (leg.times?.departure_to !== undefined && leg.times.departure_to !== 23) ? (
                   <span className="inline-flex items-center justify-center w-1.5 h-1.5 bg-[#c54141] rounded-full ml-0.5" />
-                )}
+                ) : null}
               </summary>
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <TimeRangeFilter
                   label="Salida"
-                  value={leg.times || { start: 0, end: 23 }}
-                  onChange={(range) => handleLegChange(index, 'times', range)}
+                  value={timesToDepartureRange(leg.times)}
+                  onChange={(range) => handleLegChange(index, 'times', departureRangeToTimes(leg.times, range))}
+                />
+              </div>
+            </details>
+
+            {/* Collapsible arrival time range filter */}
+            <details className="group">
+              <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-gray-500 hover:text-[#c54141] list-none select-none">
+                <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                <Clock className="w-3.5 h-3.5" />
+                Horario de llegada
+                {(leg.times?.arrival_from !== undefined && leg.times.arrival_from !== 0) ||
+                 (leg.times?.arrival_to !== undefined && leg.times.arrival_to !== 23) ? (
+                  <span className="inline-flex items-center justify-center w-1.5 h-1.5 bg-[#c54141] rounded-full ml-0.5" />
+                ) : null}
+              </summary>
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <TimeRangeFilter
+                  label="Llegada"
+                  value={timesToArrivalRange(leg.times)}
+                  onChange={(range) => handleLegChange(index, 'times', arrivalRangeToTimes(leg.times, range))}
                 />
               </div>
             </details>

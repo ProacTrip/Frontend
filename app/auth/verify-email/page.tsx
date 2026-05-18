@@ -65,7 +65,7 @@ function VerifyEmailContent() {
     };
 
     verifyEmailToken();
-  }, [token, router]);
+  }, [token, router, setUser, setContext]);
 
   return (
     <AuthPageLayout title="Verificando tu email" subtitle={status === 'loading' ? 'Esto tomará solo un momento...' : ''} variant="card">

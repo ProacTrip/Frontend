@@ -9,14 +9,16 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@/app/lib/types/auth';
-import { logoutUser, logoutAllSessions, getCurrentUser } from '@/app/lib/api/auth';
+import { logoutUser, logoutAllSessions, getCurrentUser, AuthApiError } from '@/app/lib/api/auth';
 import { type EnvironmentResponse } from '@/app/lib/api/context';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 
 export interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAccountDisabled: boolean;
   error: string | null;
   context: EnvironmentResponse | null;
   setUser: (user: AuthUser | null) => void;
@@ -54,6 +56,7 @@ export function AuthProvider({
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [context, setContext] = useState<EnvironmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccountDisabled, setIsAccountDisabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -67,8 +70,10 @@ export function AuthProvider({
     try {
       if (user) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        sessionStorage.setItem('session_saved_at', Date.now().toString());
       } else {
         sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem('session_saved_at');
       }
     } catch {
       // sessionStorage puede fallar en modo privado
@@ -93,20 +98,43 @@ export function AuthProvider({
    * Refresca el usuario llamando a GET /v1/auth/me.
    * El backend valida la cookie __Secure-access_token automáticamente.
    * Si hay sesión activa también recarga el environment con cache-first.
+   *
+   * getCurrentUser ahora lanza AuthApiError en vez de retornar null:
+   * - AuthApiError con status 401 → no hay sesión (setUserState(null), sin error)
+   * - Otros errores → setError con el mensaje
    */
   const refreshUser = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
       setUserState(currentUser);
+      setError(null);
 
       if (currentUser) {
         await loadEnvironment();
       } else {
         setContext(null);
       }
-    } catch {
-      setUserState(null);
-      setContext(null);
+    } catch (err) {
+      const isDisabled =
+        (err instanceof AuthApiError && err.code === 'ACCOUNT_DISABLED') ||
+        (err instanceof AuthApiError && err.code === 'FORBIDDEN' &&
+         err.message?.toLowerCase().includes('deshabilitada'));
+      if (isDisabled) {
+        setUserState(null);
+        setContext(null);
+        setIsAccountDisabled(true);
+        window.location.href = '/auth/account-disabled';
+        return;
+      }
+      if (err instanceof AuthApiError && err.status === 401) {
+        // No hay sesión activa — no es un error, es estado normal
+        setUserState(null);
+        setContext(null);
+      } else {
+        setUserState(null);
+        setContext(null);
+        setError(err instanceof AuthApiError ? err.message : 'Error al refrescar el usuario');
+      }
     }
   }, [loadEnvironment]);
 
@@ -118,7 +146,13 @@ export function AuthProvider({
     } finally {
       setUserState(null);
       setContext(null);
+      // Flag para que restoreAuth NO re-popule environment en el refresh
+      try { sessionStorage.setItem('just_logged_out', '1'); } catch { /* noop */ }
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
+      try { localStorage.removeItem('user_environment'); } catch { /* noop */ }
+      try { localStorage.removeItem('user_environment_stored_at'); } catch { /* noop */ }
+      try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
+      try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
       // Full page reload para que el server re-evalúe serverAuthenticated
       window.location.href = '/home';
     }
@@ -132,7 +166,12 @@ export function AuthProvider({
     } finally {
       setUserState(null);
       setContext(null);
+      try { sessionStorage.setItem('just_logged_out', '1'); } catch { /* noop */ }
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
+      try { localStorage.removeItem('user_environment'); } catch { /* noop */ }
+      try { localStorage.removeItem('user_environment_stored_at'); } catch { /* noop */ }
+      try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
+      try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
       window.location.href = '/home';
     }
   }, []);
@@ -158,6 +197,13 @@ export function AuthProvider({
 
     async function restoreAuth() {
       try {
+        // After logout we set this flag so we don't immediately re-fetch and re-cache
+        // environment on the post-redirect page load.
+        const justLoggedOut = sessionStorage.getItem('just_logged_out');
+        if (justLoggedOut) {
+          sessionStorage.removeItem('just_logged_out');
+        }
+
         // Señal cross-tab: el usuario acaba de verificar su email.
         // Forzamos /v1/auth/me aunque serverAuthenticated sea false
         // (las cookies pueden no ser visibles para el server en localhost).
@@ -169,39 +215,111 @@ export function AuthProvider({
         }
 
         if (!effectiveAuth) {
-          // Sin cookies de auth → anónimo. Solo cargar environment (público, cache-first).
-          const env = await fetchAndStoreEnvironment();
-          if (cancelled) return;
+          // Sin cookies de auth → anónimo.
+          // Si acabamos de hacer logout, NO fetchear environment — se limpiaron las keys.
+          if (!justLoggedOut) {
+            const env = await fetchAndStoreEnvironment();
+            if (cancelled) return;
+            if (env) setContext(env);
+          }
           setUserState(null);
-          if (env) setContext(env);
         } else {
           // Hay cookies de auth (o señal de verificación) → ¿tenemos datos en sessionStorage?
           const stored = getStoredSession();
           if (stored) {
-            // Restaurar desde sessionStorage — sin llamada HTTP
-            setUserState(stored);
-            const env = await fetchAndStoreEnvironment();
-            if (cancelled) return;
-            if (env) setContext(env);
+            // Verificar frescura de la sesión en sessionStorage
+            const savedAt = sessionStorage.getItem('session_saved_at');
+            const isSessionFresh = savedAt && (Date.now() - parseInt(savedAt, 10)) < 60_000; // 1 min (antes 5 min)
+
+            if (isSessionFresh) {
+              // Sesión reciente (< 5 min) → restaurar sin llamada HTTP
+              setUserState(stored);
+              if (!justLoggedOut) {
+                const env = await fetchAndStoreEnvironment();
+                if (cancelled) return;
+                if (env) setContext(env);
+              }
+            } else {
+              // Sesión stale (> 5 min) → validar contra el backend
+              try {
+                const currentUser = await getCurrentUser();
+                if (cancelled) return;
+
+                if (currentUser) {
+                  setUserState(currentUser);
+                  try {
+                    sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+                    sessionStorage.setItem('session_saved_at', Date.now().toString());
+                  } catch { /* noop */ }
+                } else {
+                  // El servidor rechazó la sesión → redirigir
+                  setUserState(null);
+                  window.location.href = '/auth/login?reason=session_expired';
+                  return;
+                }
+              } catch (validationErr) {
+                if (!cancelled) {
+                  setUserState(null);
+                  // El backend devuelve type=".../errors/forbidden" con detail="Cuenta deshabilitada"
+                  // parseAuthError lo mapea a FORBIDDEN (no a ACCOUNT_DISABLED).
+                  const isDisabled =
+                    (validationErr instanceof AuthApiError && validationErr.code === 'ACCOUNT_DISABLED') ||
+                    (validationErr instanceof AuthApiError && validationErr.code === 'FORBIDDEN' &&
+                     validationErr.message?.toLowerCase().includes('deshabilitada'));
+                  if (isDisabled) {
+                    window.location.href = '/auth/account-disabled';
+                  } else {
+                    window.location.href = '/auth/login?reason=session_expired';
+                  }
+                  return;
+                }
+              }
+
+              if (!justLoggedOut) {
+                const env = await fetchAndStoreEnvironment();
+                if (cancelled) return;
+                if (env) setContext(env);
+              }
+            }
           } else {
             // sessionStorage vacío → OAuth callback, primera visita, o post-verificación.
             const [currentUser, env] = await Promise.all([
               getCurrentUser(),
-              fetchAndStoreEnvironment(),
+              justLoggedOut ? Promise.resolve(null) : fetchAndStoreEnvironment(),
             ]);
 
             if (cancelled) return;
 
             setUserState(currentUser);
             if (currentUser) {
-              try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser)); } catch { /* noop */ }
+              try {
+                sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+                sessionStorage.setItem('session_saved_at', Date.now().toString());
+              } catch { /* noop */ }
             }
             if (env) setContext(env);
           }
         }
-      } catch {
+        setError(null);
+      } catch (err) {
         if (!cancelled) {
-          setUserState(null);
+          const isDisabled =
+            (err instanceof AuthApiError && err.code === 'ACCOUNT_DISABLED') ||
+            (err instanceof AuthApiError && err.code === 'FORBIDDEN' &&
+             err.message?.toLowerCase().includes('deshabilitada'));
+          if (isDisabled) {
+            setUserState(null);
+            setIsAccountDisabled(true);
+            window.location.href = '/auth/account-disabled';
+            return;
+          }
+          if (err instanceof AuthApiError && err.status === 401) {
+            // No hay sesión activa — no es un error, es estado normal
+            setUserState(null);
+          } else {
+            setUserState(null);
+            setError(err instanceof AuthApiError ? err.message : 'Error al restaurar la sesión');
+          }
         }
       } finally {
         if (!cancelled) {
@@ -223,6 +341,7 @@ export function AuthProvider({
         user,
         isLoading,
         isAuthenticated: !!user,
+        isAccountDisabled,
         error,
         context,
         setUser,

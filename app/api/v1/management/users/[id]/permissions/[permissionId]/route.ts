@@ -3,16 +3,17 @@
 // Elimina un override de permiso e invalida la sesión cacheada del usuario (best-effort).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; permissionId: string } }
+  { params }: { params: Promise<{ id: string; permissionId: string }> }
 ) {
   try {
     const { id, permissionId } = await params;
 
-    const response = await apiFetch(
+    const response = await proxyFetch(
+      request,
       `/v1/dashboard/users/${id}/permission-overrides/${permissionId}`,
       { method: 'DELETE' }
     );

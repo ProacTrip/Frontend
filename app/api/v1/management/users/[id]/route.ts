@@ -5,31 +5,25 @@
 // Responde: { user: UserAdminDetail, effective_permissions: string[] }
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const response = await apiFetch(`/v1/dashboard/users/${id}`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users/${id}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      if (response.status === 404) {
-        return NextResponse.json(
-          { message: 'Usuario no encontrado' },
-          { status: 404 }
-        );
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody) {
+        return NextResponse.json(errorBody, { status: response.status });
       }
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error obteniendo usuario' },
-        { status: response.status }
-      );
+      return new NextResponse(null, { status: response.status });
     }
 
     const data = await response.json();

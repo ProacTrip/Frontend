@@ -4,27 +4,27 @@
 // Proxy: Asignar rol a usuario (POST /v1/management/users/:id/role)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
-    const response = await apiFetch(`/v1/management/users/${id}/role`, {
+    const response = await proxyFetch(request, `/v1/management/users/${id}/role`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body,
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error asignando rol' },
-        { status: response.status }
-      );
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody) {
+        return NextResponse.json(errorBody, { status: response.status });
+      }
+      return new NextResponse(null, { status: response.status });
     }
 
     const data = await response.json();

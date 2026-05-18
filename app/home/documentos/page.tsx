@@ -148,12 +148,10 @@ export default function DocumentosPage() {
     setSelectedDoc(doc);
   }, []);
 
-  const handleStatusUpdate = useCallback((event: DocumentEvent) => {
-    // Update the document in the list when SSE delivers a new status
+  const handleStatusUpdate = useCallback((event: DocumentEvent, docId: string) => {
     setDocuments((prev) =>
       prev.map((d) => {
-        if (d.id === selectedDoc?.id || d.ocr_status === 'processing') {
-          // Update status and confidence
+        if (d.id === docId) {
           const updated: DocumentListItem = {
             ...d,
             ocr_status: event.status,
@@ -171,7 +169,7 @@ export default function DocumentosPage() {
     if (event.status === 'completed' || event.status === 'rejected' || event.status === 'failed') {
       loadDocuments();
     }
-  }, [selectedDoc, loadDocuments]);
+  }, [loadDocuments]);
 
   // ==========================================
   // SSE TRACKING for processing documents (3.8)

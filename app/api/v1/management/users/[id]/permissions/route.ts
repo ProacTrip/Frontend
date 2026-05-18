@@ -4,16 +4,16 @@
 //   POST   /v1/dashboard/users/:id/permission-overrides — crear override
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
 
-    const response = await apiFetch(`/v1/dashboard/users/${id}/permission-overrides`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users/${id}/permission-overrides`, {
       method: 'GET',
     });
 
@@ -33,15 +33,15 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const body = await request.json();
 
-    const response = await apiFetch(`/v1/dashboard/users/${id}/permission-overrides`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users/${id}/permission-overrides`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body,
     });
 
     if (!response.ok) {

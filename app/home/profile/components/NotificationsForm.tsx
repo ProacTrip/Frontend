@@ -40,7 +40,7 @@ export function NotificationsForm({ prefs, onSave }: Props) {
 
   const isEnabled = useCallback(
     (type: string, channel: Channel) => {
-      return preferences.some((p) => p.notification_type === type && p.channel === channel && p.enabled);
+      return Array.isArray(preferences) && preferences.some((p) => p.notification_type === type && p.channel === channel && p.enabled);
     },
     [preferences]
   );

@@ -5,8 +5,8 @@ export const DESTINATIONS: Destination[] = [
   { 
     id: 1, 
     name: 'España', 
-    place: 'Sagrada Familia', 
-    description: 'Explora la obra maestra de Gaudí, un símbolo icónico de Barcelona que combina arte, fe y arquitectura modernista en una experiencia única que te dejará sin aliento. Sus torres se elevan hacia el cielo como un bosque de piedra, y la luz que atraviesa sus vitrales transforma el interior en un espectáculo de colores inolvidable. Un lugar que se siente casi mágico.',
+    place: 'Sagrado Corazón', 
+    description: 'Descubre el templo que corona el Tibidabo, el punto más alto de Barcelona, desde donde las vistas abarcan toda la ciudad y el mar. Su arquitectura neogótica se eleva imponente sobre la montaña, convirtiéndose en el horizonte que define la ciudad. Un lugar donde la paz, la altura y la belleza se combinan en una experiencia difícil de olvidar.',
     image: '/images/destinations/espana.jpg' 
   },
   { 

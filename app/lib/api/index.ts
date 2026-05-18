@@ -7,7 +7,6 @@
 export {
   apiFetch,
   getCurrentUser,
-  getUserProfile,
   loginUser,
   registerUser,
   verifyEmail,
@@ -21,7 +20,6 @@ export {
   RateLimitError,
   AuthApiError,
 } from './auth';
-export type { UserProfile } from './auth';
 
 // ==========================================
 // 2. HOTELES
@@ -100,6 +98,7 @@ export {
   updateLocale,
   updateTravelPreferences,
   getMedicalProfile,
+  adaptMedicalProfile,
   updateMedicalProfile,
   listMedicalConflicts,
   resolveMedicalConflict,
@@ -111,6 +110,7 @@ export {
   addFavorite,
   deleteFavorite,
   UserApiError,
+  parseUserError,
 } from './user';
 export type { UserErrorCode } from './user';
 
@@ -182,6 +182,8 @@ export type {
   UpdateSavedSearchBody,
   SavedSearchListResponse,
   ToggleAlertResponse,
+  CreateSavedSearchResponse,
+  UpdateSavedSearchResponse,
 } from '@/app/lib/types/saved-search';
 
 // ==========================================

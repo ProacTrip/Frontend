@@ -4,6 +4,8 @@ export interface AuthUser {
   email_verified: boolean;
   role_name: string;
   avatar_url?: string | null;
+  /** Permisos efectivos del usuario (opcional — el backend puede no devolverlos aún). */
+  permissions?: string[];
 }
 
 /**
@@ -119,4 +121,41 @@ export type AuthApiErrorCode =
   | 'OAUTH_EXCHANGE_FAILED'
   | 'CONFLICT'
   | 'USER_NOT_FOUND'
+  | 'INTERNAL_ERROR'
+  // Dashboard error codes (shared with management API)
+  | 'NOT_AUTHENTICATED'
+  | 'TOKEN_VERSION_STALE'
+  | 'ACCOUNT_DISABLED'
+  | 'MISSING_PERMISSION'
+  | 'CANNOT_DISABLE_SELF'
+  | 'INVALID_STATUS'
+  | 'FORBIDDEN'
+  | 'FEATURE_LIMIT_ALREADY_EXISTS'
+  | 'FEATURE_LIMIT_NOT_FOUND'
+  | 'PERMISSION_OVERRIDE_ALREADY_EXISTS'
+  | 'PERMISSION_OVERRIDE_NOT_FOUND'
+  | 'INVALID_REASON'
+  | 'INVALID_BLOCK_DURATION';
+
+/**
+ * Error codes for dashboard/management API endpoints.
+ * Subset of AuthApiErrorCode — standalone type for management.ts imports.
+ * Includes all 14 dashboard-specific codes (the 13 above + USER_NOT_FOUND).
+ */
+export type DashboardApiErrorCode =
+  | 'NOT_AUTHENTICATED'
+  | 'TOKEN_VERSION_STALE'
+  | 'ACCOUNT_DISABLED'
+  | 'MISSING_PERMISSION'
+  | 'USER_NOT_FOUND'
+  | 'CANNOT_DISABLE_SELF'
+  | 'INVALID_STATUS'
+  | 'FORBIDDEN'
+  | 'FEATURE_LIMIT_ALREADY_EXISTS'
+  | 'FEATURE_LIMIT_NOT_FOUND'
+  | 'PERMISSION_OVERRIDE_ALREADY_EXISTS'
+  | 'PERMISSION_OVERRIDE_NOT_FOUND'
+  | 'INVALID_REASON'
+  | 'INVALID_BLOCK_DURATION'
+  | 'RATE_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';

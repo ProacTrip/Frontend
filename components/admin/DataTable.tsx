@@ -19,10 +19,18 @@ interface DataTableProps<T> {
   data: T[];
   total: number;
   loading?: boolean;
+  /** Modo de paginación. 'offset' usa offset/limit tradicional. 'cursor' usa cursores con hasNext/hasPrev. */
+  paginationMode?: 'offset' | 'cursor';
+  // Offset-based pagination (default)
   limit?: number;
   offset?: number;
   onPageChange?: (offset: number) => void;
   onLimitChange?: (limit: number) => void;
+  // Cursor-based pagination
+  hasNext?: boolean;
+  hasPrev?: boolean;
+  onNextPage?: () => void;
+  onPrevPage?: () => void;
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
@@ -33,10 +41,15 @@ export default function DataTable<T extends Record<string, any>>({
   data,
   total,
   loading = false,
+  paginationMode = 'offset',
   limit = 20,
   offset = 0,
   onPageChange,
   onLimitChange,
+  hasNext,
+  hasPrev,
+  onNextPage,
+  onPrevPage,
   onSort,
   onRowClick,
   emptyMessage = 'No hay datos disponibles',
@@ -149,7 +162,7 @@ export default function DataTable<T extends Record<string, any>>({
       </div>
 
       {/* Pagination */}
-      {total > 0 && (
+      {total > 0 && paginationMode === 'offset' && (
         <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
@@ -198,6 +211,49 @@ export default function DataTable<T extends Record<string, any>>({
               className={`
                 p-2 rounded-lg border transition-all duration-200
                 ${currentPage >= totalPages 
+                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                }
+              `}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cursor-based pagination */}
+      {total > 0 && paginationMode === 'cursor' && (
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <span className="text-sm text-gray-600">
+            {total} resultado{total !== 1 ? 's' : ''}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onPrevPage}
+              disabled={!hasPrev || loading}
+              className={`
+                p-2 rounded-lg border transition-all duration-200
+                ${(!hasPrev || loading)
+                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                }
+              `}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            <span className="text-sm text-gray-600 px-3">
+              {data.length} resultado{data.length !== 1 ? 's' : ''} en esta página
+            </span>
+            
+            <button
+              onClick={onNextPage}
+              disabled={!hasNext || loading}
+              className={`
+                p-2 rounded-lg border transition-all duration-200
+                ${(!hasNext || loading)
                   ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
                   : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
                 }

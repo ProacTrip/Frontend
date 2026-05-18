@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -15,19 +15,14 @@ export default function AdminLayout({
 }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
-  const [devRole, setDevRole] = useState<string | null>(null);
 
-  // Leer localStorage SOLO en cliente
-  useEffect(() => {
-    setDevRole(localStorage.getItem('role'));
-  }, []);
-
-  // ✅ CORREGIDO: localStorage gana sobre user?.role
-  // Si pusiste 'admin' en consola, se usa eso. Si no, se usa lo que diga useAuth.
-  const effectiveRole = devRole !== null ? devRole : user?.role_name;
-  
-  // Esperamos a que useAuth termine de cargar Y a que leamos localStorage
-  const isReady = !isLoading && devRole !== null;
+  // Role comes exclusively from AuthContext (GET /v1/auth/me).
+  // localStorage role bypass removed — security: no DevTools override.
+  const effectiveRole = user?.role_name;
+  const effectivePermissions = user?.permissions;
+  const canAccessDashboard =
+    effectiveRole === 'admin' || effectivePermissions?.includes('users:read');
+  const isReady = !isLoading;
 
   useEffect(() => {
     if (!isReady) return;
@@ -37,11 +32,10 @@ export default function AdminLayout({
       return;
     }
 
-    if (effectiveRole !== 'admin') {
-      console.log('[AdminLayout] Redirigiendo. Rol detectado:', effectiveRole);
+    if (!canAccessDashboard) {
       router.push('/home');
     }
-  }, [isReady, isAuthenticated, effectiveRole, router]);
+  }, [isReady, isAuthenticated, canAccessDashboard, router]);
 
   if (!isReady) {
     return (
@@ -51,7 +45,7 @@ export default function AdminLayout({
     );
   }
 
-  if (!isAuthenticated || effectiveRole !== 'admin') {
+  if (!isAuthenticated || !canAccessDashboard) {
     return null;
   }
 
@@ -60,7 +54,13 @@ export default function AdminLayout({
       <AdminSidebar />
       <main className="flex-1 ml-64 p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
-          {children}
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="w-8 h-8 border-4 border-[#c54141] border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            {children}
+          </Suspense>
         </div>
       </main>
     </div>

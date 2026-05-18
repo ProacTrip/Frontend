@@ -13,6 +13,7 @@ import AuthPageLayout from '@/components/layout/AuthPageLayout';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { loginUser, resendVerification, getOAuthUrl, RateLimitError, AuthApiError } from '@/app/lib/api';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import RateLimitBanner from '@/components/ui/RateLimitBanner';
 
@@ -69,7 +70,7 @@ export default function LoginPage() {
 
       // Persist avatar_url for Navbar (it reads from localStorage)
       if (data.user.avatar_url) {
-        localStorage.setItem('user_avatar_url', data.user.avatar_url);
+        localStorage.setItem(USER_AVATAR_CACHE_KEY, data.user.avatar_url);
       }
 
       // El backend NO devuelve environment en login.
@@ -81,8 +82,9 @@ export default function LoginPage() {
         // Environment no crítico — no bloqueamos el login si falla
       }
 
+      const redirectTo = data.user.role_name === 'admin' ? '/admin' : '/home';
       setTimeout(() => {
-        router.push('/home');
+        router.push(redirectTo);
       }, 800);
     } catch (err) {
       if (err instanceof RateLimitError) {

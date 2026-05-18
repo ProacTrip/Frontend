@@ -23,7 +23,7 @@ import type {
   DocumentListResponse,
 } from '@/app/lib/types/document';
 import { rateLimitStore } from './rate-limit';
-import { UserApiError } from './user';
+import { UserApiError, parseUserError } from './user';
 
 // ==========================================
 // SINGLE env var
@@ -54,73 +54,6 @@ function extractRateLimitHeaders(response: Response, endpoint: string): void {
   }
 }
 
-/**
- * Parse a non-ok Response into a typed UserApiError.
- * Maps RFC 9457 type URI → UserErrorCode (inherits user.ts codes + 3 document codes).
- * On 429, also calls rateLimitStore.block() with Retry-After.
- * Always calls extractRateLimitHeaders before throwing.
- */
-async function parseDocumentError(response: Response, endpoint: string): Promise<never> {
-  const body = await response.json().catch(() => ({}));
-  const type: string = body?.type || '';
-  const status = response.status;
-
-  let code: import('./user').UserErrorCode;
-
-  // 1. Rate limit — highest priority
-  if (status === 429 || type.includes('rate_limit') || type.includes('rate-limit')) {
-    code = 'RATE_LIMIT_EXCEEDED';
-  }
-  // 2. Type URI-based mapping (specific error codes)
-  else if (type.includes('invalid-file-type')) {
-    code = 'INVALID_FILE_TYPE';
-  } else if (type.includes('file-too-large')) {
-    code = 'FILE_TOO_LARGE';
-  } else if (type.includes('document-not-found')) {
-    code = 'DOCUMENT_NOT_FOUND';
-  } else if (type.includes('document-not-ready')) {
-    code = 'DOCUMENT_NOT_READY';
-  } else if (type.includes('invalid-enum')) {
-    code = 'INVALID_ENUM';
-  } else if (type.includes('invalid-mime-type')) {
-    code = 'INVALID_MIME_TYPE';
-  } else if (type.includes('file-not-found')) {
-    code = 'FILE_NOT_FOUND';
-  } else if (type.includes('token-invalid')) {
-    code = 'TOKEN_INVALID';
-  } else if (type.includes('validation')) {
-    code = 'VALIDATION_ERROR';
-  }
-  // 3. Status-based fallback
-  else if (status === 400) {
-    code = 'VALIDATION_ERROR';
-  } else if (status === 401) {
-    code = 'TOKEN_INVALID';
-  } else if (status === 404) {
-    code = 'DOCUMENT_NOT_FOUND';
-  } else {
-    code = 'INTERNAL_ERROR';
-  }
-
-  const retryAfterHeader = response.headers.get('Retry-After');
-
-  // On 429, block the rate limit store for the specified duration
-  if (code === 'RATE_LIMIT_EXCEEDED' && retryAfterHeader) {
-    rateLimitStore.block(parseInt(retryAfterHeader, 10));
-  }
-
-  // Always extract rate limit headers from error responses too
-  extractRateLimitHeaders(response, endpoint);
-
-  throw new UserApiError(
-    code,
-    status,
-    body?.detail || body?.title || `Error ${status}`,
-    body?.trace_id || undefined,
-    retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined,
-  );
-}
-
 // ==========================================
 // WRAPPER — standard fetch with timeout + rate limit
 // ==========================================
@@ -145,7 +78,7 @@ async function fetchWithTimeout(
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseDocumentError(response, endpoint);
+      await parseUserError(response, endpoint);
     }
 
     return response;
@@ -183,7 +116,8 @@ export async function listDocumentTypes(): Promise<DocumentType[]> {
     },
   );
 
-  return await response.json();
+  const data = await response.json();
+  return data.document_types || data;
 }
 
 // ==========================================
@@ -328,7 +262,7 @@ export async function downloadDocument(id: string): Promise<void> {
     extractRateLimitHeaders(response, endpoint);
 
     if (!response.ok) {
-      await parseDocumentError(response, endpoint);
+      await parseUserError(response, endpoint);
     }
 
     const blob = await response.blob();
@@ -414,7 +348,7 @@ export function subscribeToDocumentEvents(
   const eventsUrl = `${API_URL}/v1/user/documents/${encodeURIComponent(docId)}/events`;
   const es = new EventSource(eventsUrl, { withCredentials: true });
 
-  es.onmessage = (e: MessageEvent) => {
+  const handler = (e: MessageEvent) => {
     try {
       const parsed: DocumentEvent = JSON.parse(e.data);
       onEvent(parsed);
@@ -422,6 +356,15 @@ export function subscribeToDocumentEvents(
       // Ignore non-JSON messages (e.g., heartbeats)
     }
   };
+
+  // Named SSE events per backend protocol
+  es.addEventListener('processing', handler);
+  es.addEventListener('completed', handler);
+  es.addEventListener('rejected', handler);
+  es.addEventListener('failed', handler);
+
+  // Fallback for unnamed events (e.g., late-connection synthetic events from Redis)
+  es.onmessage = handler;
 
   if (onError) {
     es.onerror = onError;

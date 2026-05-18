@@ -21,6 +21,9 @@ import type {
   AddFavoriteResponse,
   PendingConflictsResponse,
   ResolveConflictBody,
+  Channel,
+  NotificationPreference,
+  BloodType,
 } from '@/app/lib/types/user';
 import { rateLimitStore } from './rate-limit';
 
@@ -280,13 +283,22 @@ function adaptProfileResponse(raw: any): ProfileResponse {
     language_code: loc.language || raw.language_code || null,
     currency_code: loc.currency || raw.currency_code || null,
   };
-  // Eliminar el objeto location anidado (ya mapeamos sus campos)
-  delete adapted.location;
+
+  // Convertir notification_preferences de objeto {type: {channel: bool}} a array NotificationPreference[]
+  const notification_preferences: NotificationPreference[] = Object.entries(
+    raw.notification_preferences || {}
+  ).flatMap(([type, channels]) =>
+    Object.entries(channels as Record<string, boolean>).map(([channel, enabled]) => ({
+      notification_type: type,
+      channel: channel as Channel,
+      enabled,
+    }))
+  );
 
   return {
     profile: adapted,
     travel_preferences: raw.travel_preferences || null,
-    notification_preferences: raw.notification_preferences || [],
+    notification_preferences,
   };
 }
 
@@ -420,6 +432,33 @@ export async function updateTravelPreferences(
 // ==========================================
 // PERFIL MÉDICO
 // ==========================================
+
+/**
+ * Unwrap MedicalField<T> fields from the raw backend response.
+ * Backend returns {value, source, updated_at} for each traceable field.
+ * This adapter extracts just the .value for presentation to MedicalForm.
+ */
+export function adaptMedicalProfile(raw: Record<string, unknown>): Record<string, unknown> {
+  const unwrap = (field: unknown): string | null => {
+    if (field && typeof field === 'object' && 'value' in field) {
+      return (field as { value: unknown }).value as string | null;
+    }
+    return field as string | null;
+  };
+
+  return {
+    blood_type: unwrap(raw.blood_type),
+    allergies: unwrap(raw.allergies),
+    medications: unwrap(raw.medications),
+    conditions: unwrap(raw.conditions),
+    vaccinations: unwrap(raw.vaccinations),
+    emergency_contact: unwrap(raw.emergency_contact),
+    insurance_info: unwrap(raw.insurance_info),
+    is_shared: raw.is_shared,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  };
+}
 
 /**
  * Get medical profile. Returns null when the user has no medical profile (404).

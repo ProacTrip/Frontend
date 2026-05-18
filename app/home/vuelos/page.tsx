@@ -23,7 +23,6 @@ import type {
 import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
 import { SEARCH_CONFIG } from '@/app/lib/constants/flights';
 import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
-import { getEnvironment, type EnvironmentResponse } from '@/app/lib/api/context';
 
 type SearchPhase = 'initial' | 'outbound_selection' | 'return_selection' | 'complete';
 
@@ -39,7 +38,7 @@ type SortCriteria = 'none' | 'price_asc' | 'duration_asc' | 'departure_asc';
 
 export default function FlightsPage(): React.ReactElement {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, context } = useAuth();
   
   const [searchState, setSearchState] = useState<SearchState>({
     phase: 'initial',
@@ -84,10 +83,6 @@ export default function FlightsPage(): React.ReactElement {
   const [rateLimitBlocked, setRateLimitBlocked] = useState<boolean>(false);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
 
-  // ---- Environment state (Task 2.4) ----
-  const [environmentData, setEnvironmentData] = useState<EnvironmentResponse | null>(null);
-  const [envError, setEnvError] = useState<string | null>(null);
-
   // Subscribe to rate limit store changes
   useEffect(() => {
     const unsubscribe = rateLimitStore.subscribe((info: RateLimitInfo | null) => {
@@ -108,24 +103,6 @@ export default function FlightsPage(): React.ReactElement {
       unsubscribe();
       clearInterval(interval);
     };
-  }, []);
-
-  // Fetch environment on first mount (Task 2.4)
-  useEffect(() => {
-    let cancelled = false;
-    
-    getEnvironment()
-      .then((data) => {
-        if (!cancelled) setEnvironmentData(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          console.warn('Failed to fetch environment:', err);
-          setEnvError('No se pudo obtener la ubicación. Usando valores por defecto.');
-        }
-      });
-    
-    return () => { cancelled = true; };
   }, []);
 
   const filteredResults = useMemo((): FlightOfferUI[] => {
@@ -174,14 +151,12 @@ export default function FlightsPage(): React.ReactElement {
     }));
   }, [allOffers]);
 
-  const handleSearch = useCallback(async (request: FlightSearchRequest, isReturnPhase: boolean = false): Promise<void> => {
+  const handleSearch = useCallback(async (request: FlightSearchRequest): Promise<void> => {
     setSearchState((prev: SearchState) => ({ 
       ...prev, 
       isLoading: true, 
       error: null,
       request: request,
-      phase: isReturnPhase ? 'return_selection' : 
-             request.trip_type === 'one_way' || request.trip_type === 'multi_city' ? 'complete' : 'outbound_selection'
     }));
     setAllOffers([]);
     setNextCursor(null);
@@ -194,6 +169,7 @@ export default function FlightsPage(): React.ReactElement {
         ...prev,
         results: offers,
         isLoading: false,
+        phase: response.phase,
       }));
       setAllOffers(offers);
       setNextCursor(response.meta?.next_cursor ?? null);
@@ -269,7 +245,7 @@ export default function FlightsPage(): React.ReactElement {
         exclude_connections: tempFilters.exclude_connections,
         layover_duration: tempFilters.layover_duration,
       };
-      handleSearch(filteredRequest, searchState.phase === 'return_selection');
+      handleSearch(filteredRequest);
     }
   }, [tempFilters, searchState.request, searchState.phase, handleSearch]);
 
@@ -282,7 +258,7 @@ export default function FlightsPage(): React.ReactElement {
       outbound_selection_token: offer.offerId,
     };
     
-    handleSearch(returnRequest, true);
+    handleSearch(returnRequest);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [searchState.request, handleSearch]);
 
@@ -302,7 +278,7 @@ export default function FlightsPage(): React.ReactElement {
         const details: FlightDetailsResponse = await getFlightDetails(
           offer.offerId,
           searchState.request?.adults || 1,
-          'EUR',
+          context?.location?.currency || 'EUR',
           searchState.request ? {
             departure: searchState.request.departure || '',
             arrival: searchState.request.arrival || '',
@@ -346,7 +322,7 @@ export default function FlightsPage(): React.ReactElement {
         outbound_selection_token: offer.offerId,
       };
       
-      handleSearch(returnRequest, true);
+      handleSearch(returnRequest);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setIsModalOpen(false);
       return;
@@ -539,7 +515,7 @@ export default function FlightsPage(): React.ReactElement {
                   onChange={setTempFilters}
                   availableAirlines={availableAirlines}
                   totalResults={sortedResults.length}
-                  currency="EUR"
+                  currency={context?.location?.currency || 'EUR'}
                 />
                 
                 <button
@@ -567,7 +543,7 @@ export default function FlightsPage(): React.ReactElement {
                 setAllOffers(offers);
                 setNextCursor(response.meta?.next_cursor ?? null);
                 setSearchState({
-                  phase: request.trip_type === 'one_way' || request.trip_type === 'multi_city' ? 'complete' : 'outbound_selection',
+                  phase: response.phase,
                   results: offers,
                   isLoading: false,
                   error: null,
@@ -577,10 +553,10 @@ export default function FlightsPage(): React.ReactElement {
                 setAppliedSort('none');
               }}
               searchBlocked={rateLimitBlocked}
-              initialValues={environmentData ? {
-                gl: environmentData.location.country_code,
-                hl: environmentData.location.language,
-                currency: environmentData.location.currency,
+              initialValues={context?.location ? {
+                gl: context.location.country_code || 'ES',
+                hl: context.location.language || 'es',
+                currency: context.location.currency || 'EUR',
               } : undefined}
             />
 
@@ -611,14 +587,6 @@ export default function FlightsPage(): React.ReactElement {
                     El botón de búsqueda se habilitará automáticamente.
                   </p>
                 </div>
-              </div>
-            )}
-
-            {/* Environment error (non-blocking) — Task 2.4 */}
-            {envError && (
-              <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-600">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{envError}</span>
               </div>
             )}
 
@@ -667,13 +635,24 @@ export default function FlightsPage(): React.ReactElement {
                   
                 </div>
 
+                {/* Empty results: explicit page-level feedback */}
+                {sortedResults.length === 0 && !searchState.isLoading && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
+                    <AlertCircle className="w-10 h-10 text-orange-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-bold text-orange-900 mb-2">Sin resultados</h3>
+                    <p className="text-sm text-orange-700">
+                      No encontramos vuelos con esos criterios. Probá cambiando las fechas, los filtros o los aeropuertos.
+                    </p>
+                  </div>
+                )}
+
                 <FlightList
                   offers={sortedResults}
                   isLoading={searchState.isLoading}
                   error={searchState.error}
                   onRetry={(): void => {
                     if (searchState.request) {
-                      handleSearch(searchState.request, searchState.phase === 'return_selection');
+                      handleSearch(searchState.request);
                     }
                   }}
                   onSelect={searchState.phase === 'outbound_selection' ? handleSelectOutbound : handleSelectFlight}
@@ -691,6 +670,7 @@ export default function FlightsPage(): React.ReactElement {
 
       <FlightDetailModal
         offer={selectedOfferForModal}
+        flightDetails={flightDetails}
         isOpen={isModalOpen}
         onClose={(): void => {
           setIsModalOpen(false);

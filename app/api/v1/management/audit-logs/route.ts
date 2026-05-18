@@ -4,7 +4,7 @@
 // Proxy: Consultar logs de auditoría con filtros (GET /v1/management/audit-logs)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,16 +14,16 @@ export async function GET(request: NextRequest) {
     const query = new URLSearchParams();
     searchParams.forEach((value, key) => query.set(key, value));
 
-    const response = await apiFetch(`/v1/management/audit-logs?${query.toString()}`, {
+    const response = await proxyFetch(request, `/v1/management/audit-logs?${query.toString()}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { message: error.message || 'Error obteniendo audit logs' },
-        { status: response.status }
-      );
+      const errorBody = await response.json().catch(() => null);
+      if (errorBody) {
+        return NextResponse.json(errorBody, { status: response.status });
+      }
+      return new NextResponse(null, { status: response.status });
     }
 
     const data = await response.json();

@@ -4,19 +4,19 @@
 // Body: { status: "active" | "disabled" }
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch } from '@/app/lib/api/auth';
+import { proxyFetch } from '@/app/lib/proxy';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const body = await request.json();
 
-    const response = await apiFetch(`/v1/dashboard/users/${id}/status`, {
+    const response = await proxyFetch(request, `/v1/dashboard/users/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: body,
     });
 
     if (!response.ok) {

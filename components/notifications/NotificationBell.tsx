@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import { listUserNotifications, markNotificationRead, markAllNotificationsRead } from '@/app/lib/api';
 import type { UserNotification } from '@/app/lib/types/notification';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function NotificationBell() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [markingAll, setMarkingAll] = useState(false);
@@ -40,8 +42,10 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Polling cada 60s + carga inicial
+  // Polling cada 60s + carga inicial — only for authenticated users
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     loadNotifications();
     intervalRef.current = setInterval(() => {
       loadNotifications();
@@ -50,7 +54,7 @@ export default function NotificationBell() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadNotifications]);
+  }, [loadNotifications, isAuthenticated]);
 
   // Cerrar al hacer clic fuera
   useEffect(() => {
@@ -158,10 +162,9 @@ export default function NotificationBell() {
                   <div className="mt-0.5 shrink-0">{getIcon(notif.channel)}</div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{notif.subject}</p>
-                    <p
-                      className="text-xs text-gray-500 mt-0.5 line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: notif.content }}
-                    />
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                      {notif.content}
+                    </p>
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="text-[10px] text-gray-400">{formatDate(notif.created_at)}</span>
                       {notif.status === 'delivered' && (

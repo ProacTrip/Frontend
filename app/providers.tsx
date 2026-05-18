@@ -2,6 +2,7 @@
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ContextInitializer } from '@/components/ContextInitializer';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 /**
  * Client wrapper que provee AuthContext a toda la app.
@@ -19,9 +20,11 @@ export function Providers({
   serverAuthenticated: boolean;
 }) {
   return (
-    <AuthProvider serverAuthenticated={serverAuthenticated}>
-      <ContextInitializer />
-      {children}
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider serverAuthenticated={serverAuthenticated}>
+        <ContextInitializer />
+        {children}
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Loader from '@/components/ui/Loader';
 import { User, LogOut, Menu, X, UserCircle, ShoppingBasket, HeartPlus, FileText, Search, Sparkles } from 'lucide-react';
 import CurrencySelector from '@/components/layout/CurrencySelector';
-import NotificationBell from '@/components/notifications/NotificationBell';
+import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 
 export default function Navbar(){
     const router = useRouter();
@@ -21,10 +21,15 @@ export default function Navbar(){
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // Read avatar on mount + whenever auth state changes (login/logout/OAuth)
   useEffect(() => {
-    const stored = localStorage.getItem('user_avatar_url');
-    if (stored) setAvatarUrl(stored);
-  }, []);
+    try {
+      const stored = localStorage.getItem(USER_AVATAR_CACHE_KEY);
+      setAvatarUrl(stored || null);
+    } catch {
+      // localStorage puede estar bloqueado en modo privado
+    }
+  }, [isAuthenticated]);
 
 
   // Referencia al elemento DOM del menu desplegable para detectar clics fuera de él
@@ -50,17 +55,6 @@ export default function Navbar(){
     // El array vacío significa que este efecto solo se configura una vez al inicio
   }, []);
   
-  // Manejamos el cierre de sesión con spinner local.
-  // La redirección y limpieza de estado la maneja AuthContext.logout()
-  const handleLogout = async () => {
-    if (isLoggingOut) return;
-    setIsLoggingOut(true);
-    localStorage.removeItem('user_avatar_url');
-    setAvatarUrl(null);
-    await logout();
-    // AuthContext.logout() hace window.location.href → full page reload
-  };
-
   const publicLinks = [
     { href: '/home', label: 'Home' },
     { href: '/home/hoteles', label: 'Hoteles' },
@@ -85,43 +79,43 @@ export default function Navbar(){
               <span className="text-2xl font-bold text-white">ProacTrip</span>
             </Link>
 
-            {/* NAVEGACIÓN DESKTOP */}
-            <div className="hidden md:flex items-center gap-8">
-              {publicLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="relative text-white font-medium uppercase text-sm group"
-                >
-                  {link.label}
-                  
-                  {/* Línea animada */}
-                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-white transition-all duration-500 ease-out group-hover:w-full"></span>
-                </Link>
-              ))}
-              {isAuthenticated && authenticatedLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="relative text-white font-medium uppercase text-sm group"
-                >
-                  {link.label}
-                  
-                  {/* Línea animada */}
-                  <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-white transition-all duration-500 ease-out group-hover:w-full"></span>
-                </Link>
-              ))}
-            </div>
+              {/* NAVEGACIÓN DESKTOP */}
+              <div className="hidden md:flex items-center gap-8">
+                {publicLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative text-white font-medium uppercase text-sm group"
+                  >
+                    {link.label}
+                    {/* Línea animada */}
+                    <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-white transition-all duration-500 ease-out group-hover:w-full"></span>
+                  </Link>
+                ))}
+                {isAuthenticated && authenticatedLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative text-white font-medium uppercase text-sm group"
+                  >
+                    {link.label}
+                    {/* Línea animada */}
+                    <span className="absolute left-0 -bottom-1 w-0 h-0.5 bg-white transition-all duration-500 ease-out group-hover:w-full"></span>
+                  </Link>
+                ))}
 
-            {/* BOTONES DE AUTH - Desktop */}
-            <div className="hidden md:flex items-center gap-4">
-              {isLoading ? (
-                /* Usamos Loader pero le pasamos text="" para que solo salga el círculo */
-                <Loader text="" size="md" />
-                
-              ) : isAuthenticated ? (
-                // Usuario logueado: mostrar icono de perfil + me gusta con dropdown
-                <div className="flex items-center gap-4 relative" ref={dropdownRef}>
+                {/* Currency selector — visible for everyone (anon + auth) */}
+                <CurrencySelector />
+              </div>
+
+              {/* BOTONES DE AUTH - Desktop */}
+              <div className="hidden md:flex items-center gap-4">
+                {isLoading ? (
+                  /* Usamos Loader pero le pasamos text="" para que solo salga el círculo */
+                  <Loader text="" size="md" />
+                ) : isAuthenticated ? (
+                  // Usuario logueado: mostrar icono de perfil + me gusta con dropdown
+                  <div className="flex items-center gap-4 relative" ref={dropdownRef}>
                   {/*añadir a favoritos*/}
                   <Link 
                     href="/home/favoritos" 
@@ -146,11 +140,6 @@ export default function Navbar(){
                     <Search className="w-6 h-6"/>
                   </Link>
 
-                  {/*Campana notificaciones*/}
-                  <div className="relative">
-                    <NotificationBell />
-                  </div>
-
                   {/*usuario*/}
         
                   <button onClick={() => setMenuAbierto(!menuAbierto)}
@@ -170,8 +159,6 @@ export default function Navbar(){
                       <User className="w-6 h-6 text-gray-600" />
                     </div>
                   </button>
-
-                  <CurrencySelector />
 
                   {menuAbierto && (
                     <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">

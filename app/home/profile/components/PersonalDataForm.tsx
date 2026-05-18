@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { updateProfile } from '@/app/lib/api';
 import { Profile, UpdateProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, User, Calendar, Globe, Phone, MapPin, FileText, Eye } from 'lucide-react';
+import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText, Eye } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -18,7 +18,6 @@ export function PersonalDataForm({ profile, onSave }: Props) {
     gender: profile.gender ?? null,
     nationality: profile.nationality ?? '',
     phone: profile.phone ?? '',
-    current_location: profile.current_location ?? '',
     bio: profile.bio ?? '',
     is_public: profile.is_public ?? false,
   });
@@ -176,20 +175,6 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             value={form.phone ?? ''}
             onChange={handleChange}
             placeholder="+34600123456"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
-          />
-        </div>
-
-        {/* Ubicación actual */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-            <MapPin className="w-4 h-4" /> Ubicación actual
-          </label>
-          <input
-            name="current_location"
-            value={form.current_location ?? ''}
-            onChange={handleChange}
-            placeholder="Madrid, España"
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
           />
         </div>
