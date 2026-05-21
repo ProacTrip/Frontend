@@ -61,19 +61,19 @@ export default function LandingPage() {
         {/* LEFT — DESTINATION INFO */}
         <div className="flex-1 flex items-end lg:items-center px-6 pb-8 lg:pb-0 lg:pl-16 xl:pl-24 lg:pr-12">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-              className="w-full max-w-lg"
-            >
+              <motion.div
+                key={currentIndex}
+                initial={hasNavigated ? { opacity: 0, y: 30 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                exit={hasNavigated ? { opacity: 0, y: -30 } : undefined}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                className="w-full max-w-lg"
+              >
               <span className="inline-block text-xs font-medium tracking-widest uppercase text-white/60 mb-4">
                 {backgroundDestination.name}
               </span>
 
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white leading-[0.95] tracking-tight mb-3">
+              <h1 suppressHydrationWarning className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white leading-[0.95] tracking-tight mb-3">
                 {backgroundDestination.place}
               </h1>
 

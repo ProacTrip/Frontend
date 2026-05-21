@@ -6,8 +6,12 @@ services:
     volumes:
       - .:/app
       - node_modules_data:/app/node_modules
+    env_file:
+      - .env.local
     environment:
       - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    command: sh -c "bun install --frozen-lockfile && bun --bun run dev"
 
 volumes:
   node_modules_data:

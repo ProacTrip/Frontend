@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM oven/bun:1
 WORKDIR /app
+COPY . .
 EXPOSE 3000
-CMD sh -c "npm install --legacy-peer-deps && npm run dev"
