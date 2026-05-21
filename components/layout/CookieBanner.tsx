@@ -1,45 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 
 export default function CookieBanner() {
-  const [showBanner, setShowBanner] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => {
-    //Verificamos si ya aceptó anteriormente
-    let consent: string | null = null;
+  const [showBanner, setShowBanner] = useState(() => {
     try {
-      consent = localStorage.getItem('cookies_accepted');
+      return !localStorage.getItem('cookies_accepted');
     } catch {
-      // localStorage bloqueado — mostrar banner por defecto
+      return true;
     }
-    
-    if (!consent) {
-      setShowBanner(true);
+  });
 
-      //Auto-aceptado tras 9 segundos si está en la pantalla de carga
-      const timer = setTimeout(() => {
-        acceptCookies();
-        console.log("Aceptado automático tras 9 segundos");
-      }, 9000); 
-
-      // Limpiar el timer si el componente se desmonta antes, es decir ,
-      // si este componente desaparece de la pantalla apaga el cronómetro y olvida la 
-      // cuenta atrás (para evitar errores innecesarios q podria haber de la logica)
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const acceptCookies = () => {
+  const acceptCookies = useCallback(() => {
     try {
       localStorage.setItem('cookies_accepted', 'true');
     } catch {
       // localStorage bloqueado
     }
     setShowBanner(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!showBanner) return;
+    const timer = setTimeout(() => acceptCookies(), 9000);
+    return () => clearTimeout(timer);
+  }, [showBanner, acceptCookies]);
 
   // Solo mostramos el banner si estamos en la raíz '/' (en la pantalla de carga)
   if (pathname !== '/' || !showBanner) return null;
@@ -58,10 +46,9 @@ export default function CookieBanner() {
             </p>
           </div>
           
-          {/*RESPONSIVE: Botón más pequeño en móvil */}
           <button
             onClick={acceptCookies}
-            className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-[#FF6B6B] text-white text-sm sm:text-base rounded-xl hover:bg-[#ff5252] transition-all font-bold shadow-lg shadow-red-100 hover:scale-105 active:scale-95"
+            className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-neutral-900 text-white text-sm sm:text-base rounded-full hover:bg-neutral-800 transition-all font-medium"
           >
             Entendido
           </button>

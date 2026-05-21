@@ -6,6 +6,7 @@
 
 import { parseProblemDetails } from '@/app/lib/utils/problem-details';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
+import { EnvironmentResponseSchema } from '@/app/lib/api/environment-schema';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -65,7 +66,38 @@ export function hasWeather(env: EnvironmentResponse): env is EnvironmentResponse
 
 export const ENV_STORAGE_KEY = 'user_environment';
 export const ENV_STORED_AT_KEY = 'user_environment_stored_at';
-export const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const ENV_TTL_KEY = 'user_environment_ttl';
+export const ENV_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes (fallback)
+
+/**
+ * Parse max-age from Cache-Control header. Capped at ENV_CACHE_TTL_MS.
+ * Returns ENV_CACHE_TTL_MS when absent or unparseable.
+ *
+ * @internal exported for testing
+ */
+export function parseCacheMaxAge(header: string | null): number {
+  if (!header) return ENV_CACHE_TTL_MS;
+  const match = header.match(/max-age=(\d+)/);
+  if (!match) return ENV_CACHE_TTL_MS;
+  const seconds = parseInt(match[1], 10);
+  if (Number.isNaN(seconds) || seconds <= 0) return ENV_CACHE_TTL_MS;
+  return Math.min(seconds * 1000, ENV_CACHE_TTL_MS);
+}
+
+/**
+ * Returns the dynamic TTL stored in localStorage, or the hardcoded fallback.
+ */
+function getDynamicTTL(): number {
+  if (typeof window === 'undefined') return ENV_CACHE_TTL_MS;
+  try {
+    const stored = localStorage.getItem(ENV_TTL_KEY);
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+  } catch { /* noop */ }
+  return ENV_CACHE_TTL_MS;
+}
 
 export function isEnvCacheValid(): boolean {
   if (typeof window === 'undefined') return false;
@@ -73,7 +105,7 @@ export function isEnvCacheValid(): boolean {
     const storedAt = localStorage.getItem(ENV_STORED_AT_KEY);
     if (!storedAt) return false;
     const age = Date.now() - new Date(storedAt).getTime();
-    return age < ENV_CACHE_TTL_MS;
+    return age < getDynamicTTL();
   } catch {
     return false;
   }
@@ -90,11 +122,14 @@ function getCachedEnvironment(): EnvironmentResponse | null {
   }
 }
 
-function setCachedEnvironment(data: EnvironmentResponse): void {
+function setCachedEnvironment(data: EnvironmentResponse, ttlMs?: number): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(ENV_STORAGE_KEY, JSON.stringify(data));
     localStorage.setItem(ENV_STORED_AT_KEY, new Date().toISOString());
+    if (ttlMs !== undefined) {
+      localStorage.setItem(ENV_TTL_KEY, String(ttlMs));
+    }
   } catch {
     // localStorage may be blocked in private mode
   }
@@ -127,7 +162,9 @@ function extractRateLimitHeaders(response: Response): void {
 /**
  * GET /v1/environment
  *
- * Returns GeoIP location and current weather for the client.
+ * Returns GeoIP location and current weather for the client, or null on
+ * non-critical failures (invalid IP in local dev, network error, etc).
+ *
  * - IP detected automatically by the backend.
  * - Backend caches 10 minutes in Redis per IP.
  * - Frontend caches 10 minutes in localStorage (shared with fetchAndStoreEnvironment).
@@ -135,8 +172,10 @@ function extractRateLimitHeaders(response: Response): void {
  * - Uses raw fetch with credentials:"include" for cookie-based auth.
  * - Sends Accept-Language from navigator.language.
  * - Aborts after 15 seconds via AbortController.
+ * - Returns null for 400 InvalidIP (private IP in production mode) —
+ *   caller falls back to defaults without crashing.
  */
-export async function getEnvironment(): Promise<EnvironmentResponse> {
+export async function getEnvironment(): Promise<EnvironmentResponse | null> {
   // Check localStorage cache first
   const cached = getCachedEnvironment();
   if (cached) return cached;
@@ -164,6 +203,10 @@ export async function getEnvironment(): Promise<EnvironmentResponse> {
     // Extract rate limit headers from ALL responses
     extractRateLimitHeaders(response);
 
+    // Parse Cache-Control max-age for dynamic TTL
+    const cacheControl = response.headers.get('Cache-Control');
+    const ttlMs = parseCacheMaxAge(cacheControl);
+
     if (response.status === 429) {
       const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
       if (retryAfter > 0) {
@@ -171,20 +214,44 @@ export async function getEnvironment(): Promise<EnvironmentResponse> {
       }
 
       const problem = await parseProblemDetails(response);
-      const trace = problem.trace_id ? ` (trace: ${problem.trace_id})` : '';
+      const traceId = problem.traceparent || problem.trace_id;
+      const trace = traceId ? ` (trace: ${traceId})` : '';
       throw new Error(`[${problem.type}] ${problem.detail || 'Límite de peticiones excedido'}${trace}`);
+    }
+
+    // 400 = Invalid IP (private/loopback in production mode).
+    // Graceful degradation — return null so callers use defaults.
+    if (response.status === 400) {
+      const problem = await parseProblemDetails(response);
+      const detail = problem.detail || '';
+      if (detail.toLowerCase().includes('ip') || detail.toLowerCase().includes('inválida')) {
+        console.warn('[env] Invalid IP (likely local dev without SERVER_ENV=dev) — using defaults');
+        return null;
+      }
+      // Unexpected 400 — still treat as non-critical and return null
+      console.warn('[env] Bad request:', detail);
+      return null;
     }
 
     if (!response.ok) {
       const problem = await parseProblemDetails(response);
-      const trace = problem.trace_id ? ` (trace: ${problem.trace_id})` : '';
+      const traceId = problem.traceparent || problem.trace_id;
+      const trace = traceId ? ` (trace: ${traceId})` : '';
       throw new Error(`[${problem.type}] ${problem.detail || `Error al obtener ubicación: ${response.status}`}${trace}`);
     }
 
-    const data: EnvironmentResponse = await response.json();
+    const rawData: unknown = await response.json();
 
-    // Cache the fresh response
-    setCachedEnvironment(data);
+    // Zod runtime validation — warn-only, never blocks rendering
+    const parsed = EnvironmentResponseSchema.safeParse(rawData);
+    if (!parsed.success) {
+      console.warn('[env] validation:', parsed.error.issues);
+    }
+
+    const data: EnvironmentResponse = rawData as EnvironmentResponse;
+
+    // Cache the fresh response with dynamic TTL
+    setCachedEnvironment(data, ttlMs);
 
     return data;
   } finally {

@@ -51,10 +51,12 @@ export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | 
 
     // 2. Cache miss — llamar al backend
     const env = await getEnvironment();
+    if (!env) return null; // degraded (invalid IP, network, etc)
     storeEnvironment(env);
     return env;
   } catch (error) {
-    console.error('[Environment] Failed to fetch environment:', error);
+    // Rate limit (429) or unexpected errors — don't crash, just return null
+    console.warn('[Environment] Fetch failed, continuing without environment:', (error as Error).message);
     return null;
   }
 }
@@ -65,34 +67,26 @@ export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | 
 
 /**
  * Retorna las preferencias de usuario derivadas del environment almacenado.
- * Fallback a ES/EUR si no hay datos.
+ * El backend ya resuelve defaults vía DEFAULT_COUNTRY_CODE y Accept-Language.
+ * Si no hay environment en cache, retorna strings vacíos — los callers usan
+ * los valores del request del usuario o los defaults del backend (nunca hardcodeamos).
  */
 export function getUserPreferences(): { currency: string; gl: string; hl: string } {
-  if (typeof window === 'undefined') {
-    return { currency: 'EUR', gl: 'ES', hl: 'es' };
+  const env = typeof window !== 'undefined' ? getStoredEnvironment() : null;
+
+  if (!env) {
+    return { currency: '', gl: '', hl: '' };
   }
 
-  // Use getStoredEnvironment() for TTL validation (cache < 10 min)
-  const env = getStoredEnvironment();
-
-  // User's explicit currency choice (set via CurrencySelector) takes priority
-  let currency = 'EUR';
+  let currency = env.location.currency;
   try {
     const savedPref = localStorage.getItem('user_currency_preference');
     if (savedPref) currency = savedPref;
   } catch { /* noop */ }
-  // Fallback to environment currency if no explicit preference
-  if (currency === 'EUR' && env?.location?.currency) {
-    currency = env.location.currency;
-  }
 
-  if (env) {
-    return {
-      currency,
-      gl: env.location.country_code,
-      hl: env.location.language,
-    };
-  }
-
-  return { currency, gl: 'ES', hl: 'es' };
+  return {
+    currency,
+    gl: env.location.country_code,
+    hl: env.location.language,
+  };
 }

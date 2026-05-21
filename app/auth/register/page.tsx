@@ -1,77 +1,66 @@
+"use client";
 
-'use client';
-
-import { useState, FormEvent, useEffect } from 'react';
-import Link from 'next/link';
-import InputField from '@/components/ui/InputField';
-import Button from '@/components/ui/Button';
-import Divider from '@/components/ui/Divider';
-import GoogleIcon from '@/components/iconos/GoogleIcon';
-import Loader from '@/components/ui/Loader';
-import { motion, AnimatePresence } from 'framer-motion';
-import AuthPageLayout from '@/components/layout/AuthPageLayout';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { registerUser, getOAuthUrl, RateLimitError, AuthApiError } from '@/app/lib/api';
-import { validatePassword } from '@/app/lib/utils/validation';
-import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
-import { useRateLimit } from '@/hooks/useRateLimit';
-import RateLimitBanner from '@/components/ui/RateLimitBanner';
+import { useState, type FormEvent, useEffect } from "react";
+import Link from "next/link";
+import InputField from "@/components/ui/InputField";
+import Button from "@/components/ui/Button";
+import GoogleIcon from "@/components/iconos/GoogleIcon";
+import Loader from "@/components/ui/Loader";
+import { AnimatePresence, motion } from "framer-motion";
+import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  registerUser,
+  getOAuthUrl,
+  RateLimitError,
+  AuthApiError,
+} from "@/app/lib/api";
+import { validatePassword } from "@/app/lib/utils/validation";
+import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 export default function RegisterPage() {
   const { setUser, setContext } = useAuthContext();
 
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', first_name: '' });
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    first_name: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   const { isBlocked } = useRateLimit();
 
-  // Detectar cuando el usuario verifica su email en la pestaña del enlace.
-  // La página verify-email escribe en localStorage como señal cross-tab.
-  // Usamos dos mecanismos porque el evento 'storage' no siempre es confiable
-  // (WebViews de clientes de email, throttling de tabs en background, etc.).
   useEffect(() => {
     if (!success) return;
-
-    const STORAGE_KEY = 'proactrip_email_verified';
-
+    const STORAGE_KEY = "proactrip_email_verified";
     const redirectToHome = () => {
-      // NO limpiamos localStorage acá — AuthProvider lo lee después del redirect
-      // para forzar /v1/auth/me aunque el server no detecte cookies (localhost issue).
-      window.location.href = '/home';
+      window.location.href = "/";
     };
-
-    // Mecanismo 1: evento 'storage' (instantáneo, mejor caso)
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        redirectToHome();
-      }
+      if (e.key === STORAGE_KEY && e.newValue) redirectToHome();
     };
-    window.addEventListener('storage', handleStorage);
-
-    // Mecanismo 2: polling cada 2s (fallback confiable)
+    window.addEventListener("storage", handleStorage);
     const interval = setInterval(() => {
-      if (localStorage.getItem(STORAGE_KEY)) {
-        redirectToHome();
-      }
+      if (localStorage.getItem(STORAGE_KEY)) redirectToHome();
     }, 2000);
-
     return () => {
-      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener("storage", handleStorage);
       clearInterval(interval);
     };
   }, [success]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(previo => ({ ...previo, [name]: value }));
-    if (error) setError('');
-
-    // Validación en tiempo real para el campo de contraseña
-    if (name === 'password') {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError("");
+    if (name === "password") {
       const result = validatePassword(value);
       setPasswordErrors(result.valid ? [] : result.errors);
     }
@@ -79,58 +68,53 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Por favor, completa todos los campos');
+    if (
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword ||
+      !formData.first_name.trim()
+    ) {
+      setError("Completá todos los campos");
       return;
     }
-
-    if (!formData.email.includes('@')) {
-      setError('Por favor, introduce un email válido');
+    if (!formData.email.includes("@")) {
+      setError("Introducí un email válido");
       return;
     }
-
-    // Validación de contraseña contra política del backend
     const validation = validatePassword(formData.password);
     if (!validation.valid) {
-      setError(validation.errors.join('. '));
+      setError(validation.errors.join(". "));
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError("Las contraseñas no coinciden");
       return;
     }
 
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       const registerData = await registerUser(
         formData.email,
         formData.password,
-        formData.first_name.trim() || undefined
+        formData.first_name.trim()
       );
-
-      // El backend puede devolver el user en el registro (sesión pre-verificada)
-      if (registerData.user) {
-        setUser(registerData.user);
-      }
-
-      // El backend NO devuelve environment en register.
-      // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
+      if (registerData.user) setUser(registerData.user);
       try {
         const env = await fetchAndStoreEnvironment();
         if (env) setContext(env);
       } catch {
-        // Environment no crítico — no bloqueamos el registro si falla
+        /* non-critical */
       }
-
       setSuccess(true);
-      setFormData({ email: '', password: '', confirmPassword: '', first_name: '' });
+      setFormData({
+        email: "",
+        password: "",
+        confirmPassword: "",
+        first_name: "",
+      });
       setPasswordErrors([]);
-      // NO redirigir a /home — el usuario debe verificar su email primero.
-      // El enlace de verificación abre en una pestaña nueva desde el email.
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
@@ -138,8 +122,7 @@ export default function RegisterPage() {
       } else if (err instanceof AuthApiError) {
         setError(err.message);
       } else {
-        console.error('Error en registro:', err);
-        setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setError("Error al conectar con el servidor. Intentá de nuevo.");
       }
     } finally {
       setIsLoading(false);
@@ -148,16 +131,18 @@ export default function RegisterPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      const data = await getOAuthUrl('google');
+      const data = await getOAuthUrl("google");
       window.location.href = data.auth_url;
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
         setRateLimitError(err.message);
-      } else if (err instanceof AuthApiError) {
-        setError(err.message);
       } else {
-        setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setError(
+          err instanceof AuthApiError
+            ? err.message
+            : "Error al conectar con el servidor."
+        );
       }
     }
   };
@@ -165,175 +150,154 @@ export default function RegisterPage() {
   return (
     <AuthPageLayout
       title="Crear cuenta"
-      subtitle="Regístrate para empezar"
+      subtitle="Registrate para empezar"
       variant="split"
-      sideTitle="Comienza tu aventura,"
-      sideSubtitle="regístrate hoy"
+      sideTitle="Comenzá tu aventura,"
+      sideSubtitle="registrate hoy"
     >
-      {/* ÁREA DE MENSAJES: Rojo para errores, Verde para éxito */}
       <RateLimitBanner
         rateLimitError={rateLimitError}
         onRetryReady={() => {
           setRateLimitError(null);
-          setError('');
+          setError("");
         }}
       />
 
       <AnimatePresence>
         {error && !isBlocked && (
           <motion.div
-            initial={{ opacity: 0, y: -10, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 p-4 bg-red-50 text-red-600 border-l-4 border-red-500 text-sm"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
           >
             {error}
           </motion.div>
         )}
-
         {success && (
           <motion.div
-            initial={{ opacity: 0, y: -10, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 p-4 bg-green-50 text-green-600 border-l-4 border-green-500 text-sm"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-5 p-3.5 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm"
           >
-            ¡Cuenta creada! Revisá tu correo electrónico para verificar tu cuenta.
+            ¡Cuenta creada! Revisá tu correo para verificar tu cuenta.
           </motion.div>
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          {/* Input Nombre (opcional) */}
-          <InputField
-            label="Nombre (opcional)"
-            name="first_name"
-            type="text"
-            id="first_name"
-            value={formData.first_name}
-            onChange={handleInputChange}
-            placeholder="Tu nombre"
-          />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          {/* Input Email */}
-          <InputField
-            label="Email"
-            name="email"
-            type="email"
-            id="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            placeholder="correo@ejemplo.com"
-          />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          {/* Input Password */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <InputField
+          label="Nombre"
+          name="first_name"
+          type="text"
+          id="reg-name"
+          value={formData.first_name}
+          onChange={handleInputChange}
+          placeholder="Tu nombre"
+        />
+        <InputField
+          label="Email"
+          name="email"
+          type="email"
+          id="reg-email"
+          value={formData.email}
+          onChange={handleInputChange}
+          placeholder="correo@ejemplo.com"
+        />
+        <div>
           <InputField
             label="Contraseña"
             name="password"
             type="password"
-            id="password"
+            id="reg-password"
             value={formData.password}
             onChange={handleInputChange}
             placeholder="••••••••"
             showPasswordToggle
           />
           {passwordErrors.length > 0 && (
-            <ul className="mt-2 space-y-1 text-xs text-red-500">
+            <ul className="mt-2 space-y-0.5 text-xs text-red-500">
               {[
-                { met: formData.password.length >= 8, text: 'Mínimo 8 caracteres' },
-                { met: /[A-Z]/.test(formData.password), text: 'Al menos una mayúscula' },
-                { met: /[a-z]/.test(formData.password), text: 'Al menos una minúscula' },
-                { met: /[0-9]/.test(formData.password), text: 'Al menos un dígito' },
-                { met: /[!@#$%^&*]/.test(formData.password), text: 'Al menos un carácter especial (!@#$%^&*)' },
+                {
+                  met: formData.password.length >= 8,
+                  text: "Mínimo 8 caracteres",
+                },
+                {
+                  met: /[A-Z]/.test(formData.password),
+                  text: "Al menos una mayúscula",
+                },
+                {
+                  met: /[a-z]/.test(formData.password),
+                  text: "Al menos una minúscula",
+                },
+                {
+                  met: /[0-9]/.test(formData.password),
+                  text: "Al menos un dígito",
+                },
+                {
+                  met: /[!@#$%^&*]/.test(formData.password),
+                  text: "Al menos un carácter especial (!@#$%^&*)",
+                },
               ].map((req, i) => (
-                <li key={i} className="flex items-center gap-1">
-                  <span className={req.met ? 'text-green-500' : 'text-red-400'}>
-                    {req.met ? '✓' : '✗'}
+                <li key={i} className="flex items-center gap-1.5">
+                  <span className={req.met ? "text-green-500" : "text-red-400"}>
+                    {req.met ? "✓" : "✗"}
                   </span>
                   {req.text}
                 </li>
               ))}
             </ul>
           )}
-          {formData.password.length > 0 && passwordErrors.length === 0 && (
-            <p className="mt-1 text-xs text-green-500">✓ Contraseña segura</p>
-          )}
-        </motion.div>
+        </div>
+        <InputField
+          label="Confirmar contraseña"
+          name="confirmPassword"
+          type="password"
+          id="reg-confirm"
+          value={formData.confirmPassword}
+          onChange={handleInputChange}
+          placeholder="••••••••"
+          showPasswordToggle
+        />
 
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 }}
+        <Button
+          type="submit"
+          variant="primary"
+          className="!py-3.5 mt-2"
+          disabled={isLoading || isBlocked}
         >
-          {/* Input Confirmar Password (Campo extra respecto al Login) */}
-          <InputField
-            label="Confirmar Contraseña"
-            name="confirmPassword"
-            type="password"
-            id="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleInputChange}
-            placeholder="••••••••"
-            showPasswordToggle
-          />
-        </motion.div>
+          Crear cuenta
+        </Button>
 
-        <motion.div
-          whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
-          {/* Botón de Registro */}
-          <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading || isBlocked}>
-            Crear Cuenta
-          </Button>
-        </motion.div>
-
-        {/* Loader de carga */}
         {isLoading && (
-          <div className="mt-4 flex justify-center">
+          <div className="flex justify-center pt-2">
             <Loader text="Creando cuenta..." />
           </div>
         )}
       </form>
 
-      <Divider text="OR" />
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-neutral-200" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white px-3 text-neutral-400">o</span>
+        </div>
+      </div>
 
-      <motion.div
-        whileTap={{ scale: 0.98 }}
-      >
-        {/* Botón Google (Llama a la misma función que en Login) */}
-        <Button variant="google" onClick={handleGoogleLogin}>
-          <GoogleIcon />
-          Google
-        </Button>
-      </motion.div>
+      <Button variant="google" onClick={handleGoogleLogin}>
+        <GoogleIcon />
+        Continuar con Google
+      </Button>
 
-      {/* Enlace para volver si ya tienes cuenta */}
-      <p className="mt-8 text-center text-gray-600">
-        ¿Ya tienes cuenta?{' '}
-        <Link href="/auth/login" className="text-[#8d6e63] font-bold hover:underline">
-          Inicia sesión
+      <p className="mt-8 text-center text-sm text-neutral-500">
+        ¿Ya tenés cuenta?{" "}
+        <Link
+          href="/auth/login"
+          className="text-neutral-900 font-semibold hover:underline"
+        >
+          Iniciá sesión
         </Link>
       </p>
     </AuthPageLayout>

@@ -5,7 +5,7 @@
 import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthApiErrorCode } from '@/app/lib/types/auth';
 import { generateUUIDv7 } from '@/app/lib/utils/uuid';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
-import { parseProblemDetails, type ProblemDetails } from '@/app/lib/utils/problem-details';
+import { parseProblemDetails } from '@/app/lib/utils/problem-details';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -16,6 +16,22 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
  */
 export const FEATURE_PASSWORD_RESET =
   process.env.NEXT_PUBLIC_FEATURE_PASSWORD_RESET === 'true';
+
+/**
+ * Construye headers comunes para llamadas de auth.
+ * Incluye Accept-Language con el locale del navegador y
+ * Content-Type solo cuando hay body en la petición.
+ */
+function getAuthLangHeaders(hasBody: boolean): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (hasBody) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    headers['Accept-Language'] = navigator.language;
+  }
+  return headers;
+}
 
 export class RateLimitError extends Error {
   retryAfter: number;
@@ -57,7 +73,7 @@ export class AuthApiError extends Error {
     traceId?: string,
     retryAfter?: number,
   ) {
-    super(`[${code}] ${message}`);
+    super(message);
     this.name = 'AuthApiError';
     this.code = code;
     this.status = status;
@@ -106,7 +122,7 @@ export async function apiFetch(
   extractRateLimitHeaders(response, endpoint);
 
   if (response.status === 401) {
-    throw new Error('[Auth] No autorizado. El usuario debe volver a iniciar sesión.');
+    throw new AuthApiError('NOT_AUTHENTICATED', 401, 'No autorizado. El usuario debe volver a iniciar sesión.');
   }
 
   if (response.status === 403) {
@@ -395,7 +411,7 @@ export async function loginUser(
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthLangHeaders(true),
       body: JSON.stringify({ email, password }),
       credentials: 'include',
       signal: controller.signal,
@@ -433,22 +449,19 @@ export async function loginUser(
 export async function registerUser(
   email: string,
   password: string,
-  first_name?: string
+  first_name: string
 ): Promise<RegisterResponse> {
   const endpoint = '/v1/auth/register';
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const body: Record<string, string> = { email, password };
-  if (first_name) {
-    body.first_name = first_name;
-  }
+  const body: Record<string, string> = { email, password, first_name };
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        ...getAuthLangHeaders(true),
         'Idempotency-Key': generateUUIDv7(),
       },
       body: JSON.stringify(body),
@@ -489,7 +502,7 @@ export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthLangHeaders(true),
       body: JSON.stringify({ token }),
       credentials: 'include',
       signal: controller.signal,
@@ -530,7 +543,7 @@ export async function resendVerification(
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthLangHeaders(true),
       body: JSON.stringify({ email }),
       credentials: 'include',
       signal: controller.signal,
@@ -574,7 +587,7 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthLangHeaders(true),
       body: JSON.stringify({ email }),
       credentials: 'include',
       signal: controller.signal,
@@ -617,7 +630,7 @@ export async function resetPassword(
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthLangHeaders(true),
       body: JSON.stringify({ token, new_password: newPassword }),
       credentials: 'include',
       signal: controller.signal,
@@ -667,6 +680,8 @@ export async function getOAuthUrl(provider: string): Promise<OAuthUrlResponse> {
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
+      headers: getAuthLangHeaders(false),
+      credentials: 'include',
       signal: controller.signal,
     });
 

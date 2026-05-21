@@ -1,31 +1,38 @@
-'use client';
+"use client";
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import InputField from '@/components/ui/InputField';
-import Button from '@/components/ui/Button';
-import Divider from '@/components/ui/Divider';
-import GoogleIcon from '@/components/iconos/GoogleIcon';
-import Loader from '@/components/ui/Loader';
-import { motion, AnimatePresence } from 'framer-motion';
-import AuthPageLayout from '@/components/layout/AuthPageLayout';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { loginUser, resendVerification, getOAuthUrl, RateLimitError, AuthApiError } from '@/app/lib/api';
-import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
-import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
-import { useRateLimit } from '@/hooks/useRateLimit';
-import RateLimitBanner from '@/components/ui/RateLimitBanner';
-
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import InputField from "@/components/ui/InputField";
+import Button from "@/components/ui/Button";
+import GoogleIcon from "@/components/iconos/GoogleIcon";
+import Loader from "@/components/ui/Loader";
+import { AnimatePresence, motion } from "framer-motion";
+import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  loginUser,
+  resendVerification,
+  getOAuthUrl,
+  getProfile,
+  RateLimitError,
+  AuthApiError,
+} from "@/app/lib/api";
+import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
+import { USER_AVATAR_CACHE_KEY } from "@/app/lib/constants/avatars";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 export default function LoginPage() {
   const router = useRouter();
   const { setUser, setContext } = useAuthContext();
 
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [errorAction, setErrorAction] = useState<'verify_email' | 'none'>('none');
+  const [error, setError] = useState("");
+  const [errorAction, setErrorAction] = useState<"verify_email" | "none">(
+    "none"
+  );
   const [resendSent, setResendSent] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
@@ -33,59 +40,53 @@ export default function LoginPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(previo => ({
-      ...previo,
-      [name]: value
-    }));
-    if (error) { setError(''); setErrorAction('none'); setResendSent(false); }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) {
+      setError("");
+      setErrorAction("none");
+      setResendSent(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!formData.email || !formData.password) {
-      setError('Por favor, completa todos los campos');
+      setError("Completá todos los campos");
       return;
     }
-    if (!formData.email.includes('@')) {
-      setError('Por favor, introduce un email válido');
+    if (!formData.email.includes("@")) {
+      setError("Introducí un email válido");
       return;
     }
 
     setIsLoading(true);
-    setError('');
-    setErrorAction('none');
+    setError("");
+    setErrorAction("none");
 
     try {
       const data = await loginUser(formData.email, formData.password);
-
       if (data.mfa_required) {
-        // TODO: Redirigir a página de MFA cuando esté implementada
-        setError('MFA no está implementado aún en el frontend');
+        setError("MFA no está disponible aún en el frontend");
         setIsLoading(false);
         return;
       }
-
       setUser(data.user);
-
-      // Persist avatar_url for Navbar (it reads from localStorage)
       if (data.user.avatar_url) {
         localStorage.setItem(USER_AVATAR_CACHE_KEY, data.user.avatar_url);
       }
-
-      // El backend NO devuelve environment en login.
-      // Cargamos el environment por separado vía GET /v1/environment (con cache de 10 min).
+      try {
+        await getProfile();
+      } catch {
+        /* non-critical */
+      }
       try {
         const env = await fetchAndStoreEnvironment();
         if (env) setContext(env);
       } catch {
-        // Environment no crítico — no bloqueamos el login si falla
+        /* non-critical */
       }
-
-      const redirectTo = data.user.role_name === 'admin' ? '/admin' : '/home';
-      setTimeout(() => {
-        router.push(redirectTo);
-      }, 800);
+      const redirectTo = data.user.role_name === "admin" ? "/admin" : "/";
+      setTimeout(() => router.push(redirectTo), 600);
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
@@ -94,8 +95,7 @@ export default function LoginPage() {
         setError(err.message);
         setErrorAction(err.action);
       } else {
-        console.error('Error en login:', err);
-        setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setError("Error al conectar con el servidor. Intentá de nuevo.");
       }
       setIsLoading(false);
     }
@@ -107,26 +107,28 @@ export default function LoginPage() {
       await resendVerification(formData.email);
       setResendSent(true);
     } catch (err) {
-      if (err instanceof AuthApiError) {
-        setError(err.message);
-      } else {
-        setError('Error al reenviar el correo. Intenta de nuevo.');
-      }
+      setError(
+        err instanceof AuthApiError
+          ? err.message
+          : "Error al reenviar el correo. Intentá de nuevo."
+      );
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
-      const data = await getOAuthUrl('google');
+      const data = await getOAuthUrl("google");
       window.location.href = data.auth_url;
     } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
         setRateLimitError(err.message);
-      } else if (err instanceof AuthApiError) {
-        setError(err.message);
       } else {
-        setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setError(
+          err instanceof AuthApiError
+            ? err.message
+            : "Error al conectar con el servidor."
+        );
       }
     }
   };
@@ -134,7 +136,7 @@ export default function LoginPage() {
   return (
     <AuthPageLayout
       title="Bienvenido"
-      subtitle="Inicia sesión para continuar"
+      subtitle="Iniciá sesión para continuar"
       variant="split"
       sideTitle="Tu viaje no se detiene,"
       sideSubtitle="nosotros tampoco"
@@ -143,105 +145,106 @@ export default function LoginPage() {
         rateLimitError={rateLimitError}
         onRetryReady={() => {
           setRateLimitError(null);
-          setError('');
+          setError("");
         }}
       />
 
       <AnimatePresence>
         {error && !isBlocked && (
           <motion.div
-            initial={{ opacity: 0, y: -10, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -10, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 p-4 bg-red-50 text-red-600 border-l-4 border-red-500 text-sm"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
           >
             <p>{error}</p>
-            {errorAction === 'verify_email' && !resendSent && (
+            {errorAction === "verify_email" && !resendSent && (
               <button
                 type="button"
                 onClick={handleResendVerification}
-                className="mt-2 text-[#8d6e63] font-medium underline hover:no-underline text-xs"
+                className="mt-2 text-neutral-700 font-medium underline hover:no-underline text-xs"
               >
                 Reenviar correo de verificación
               </button>
             )}
             {resendSent && (
               <p className="mt-2 text-green-600 text-xs font-medium">
-                Correo reenviado. Revisa tu bandeja de entrada.
+                Correo reenviado. Revisá tu bandeja de entrada.
               </p>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <InputField
-            label="Email"
-            name="email"
-            type="email"
-            id="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            placeholder="correo@ejemplo.com"
-          />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-          className="space-y-1"
-        >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <InputField
+          label="Email"
+          name="email"
+          type="email"
+          id="login-email"
+          value={formData.email}
+          onChange={handleInputChange}
+          placeholder="correo@ejemplo.com"
+        />
+
+        <div className="space-y-1">
           <InputField
             label="Contraseña"
             name="password"
             type="password"
-            id="password"
+            id="login-password"
             value={formData.password}
             onChange={handleInputChange}
             placeholder="••••••••"
             showPasswordToggle
           />
           <div className="text-right">
-            <Link href="/auth/forgot-password" className="text-sm text-[#8d6e63] hover:underline font-medium">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs text-neutral-500 hover:text-neutral-800 transition-colors"
+            >
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
-        </motion.div>
-        <motion.div
-          whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
+        </div>
+
+        <Button
+          type="submit"
+          variant="primary"
+          className="!py-3.5 mt-2"
+          disabled={isLoading || isBlocked}
         >
-          <Button type="submit" variant="primary" className="w-full py-4 text-lg" disabled={isLoading || isBlocked}>
-            Iniciar Sesión
-          </Button>
-        </motion.div>
+          Iniciar sesión
+        </Button>
+
         {isLoading && (
-          <div className="mt-4 flex justify-center">
+          <div className="flex justify-center pt-2">
             <Loader text="Iniciando sesión..." />
           </div>
         )}
-
       </form>
-      <Divider text="OR" />
 
-      <motion.div whileTap={{ scale: 0.98 }}>
-        <Button variant="google" onClick={handleGoogleLogin}>
-          <GoogleIcon />
-          Google
-        </Button>
-      </motion.div>
-      <p className="mt-8 text-center text-gray-600">
-        ¿No tienes cuenta?{' '}
-        <Link href="/auth/register" className="text-[#8d6e63] font-bold hover:underline">
-          Regístrate gratis
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-neutral-200" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white px-3 text-neutral-400">o</span>
+        </div>
+      </div>
+
+      <Button variant="google" onClick={handleGoogleLogin}>
+        <GoogleIcon />
+        Continuar con Google
+      </Button>
+
+      <p className="mt-8 text-center text-sm text-neutral-500">
+        ¿No tenés cuenta?{" "}
+        <Link
+          href="/auth/register"
+          className="text-neutral-900 font-semibold hover:underline"
+        >
+          Registrate gratis
         </Link>
       </p>
     </AuthPageLayout>

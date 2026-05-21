@@ -1,114 +1,151 @@
-'use client';
+"use client";
 
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import Loader from '@/components/ui/Loader';
-import AuthPageLayout from '@/components/layout/AuthPageLayout';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { verifyEmail, AuthApiError, RateLimitError } from '@/app/lib/api';
-import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Loader from "@/components/ui/Loader";
+import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { verifyEmail, getProfile, AuthApiError, RateLimitError } from "@/app/lib/api";
+import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
 
 function VerifyEmailContent() {
-  const router = useRouter();
-
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-
+  const token = searchParams.get("token");
   const { setUser, setContext } = useAuthContext();
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
+  const initialStatus: "loading" | "success" | "error" = token ? "loading" : "error";
+  const [status, setStatus] = useState<"loading" | "success" | "error">(initialStatus);
+  const [message, setMessage] = useState(token ? "" : "Token de verificación no encontrado");
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage('Token de verificación no encontrado');
-      return;
-    }
+    if (!token) return;
 
     const verifyEmailToken = async () => {
       try {
         const data = await verifyEmail(token);
-
-        setStatus('success');
-        setMessage('Email verificado. Ya podés cerrar esta pestaña y volver a la aplicación.');
-
-        if (data.user) {
-          setUser(data.user);
+        setStatus("success");
+        setMessage("Email verificado. Cerra esta pestaña y volvé a la aplicación.");
+        if (data.user) setUser(data.user);
+        try {
+          await getProfile();
+        } catch {
+          /* non-critical */
         }
-
-        // Señal cross-tab: notificar a la pestaña del registro que el email fue verificado
-        localStorage.setItem('proactrip_email_verified', Date.now().toString());
-
-        // Cargamos environment para consistencia de sessionStorage.
+        localStorage.setItem("proactrip_email_verified", Date.now().toString());
         try {
           const env = await fetchAndStoreEnvironment();
           if (env) setContext(env);
         } catch {
-          // Environment no crítico
+          /* non-critical */
         }
-
-        // NO redirigir — esta pestaña se abrió desde el email.
       } catch (err) {
-        console.error('Error verificando email:', err);
-        setStatus('error');
-        if (err instanceof RateLimitError) {
-          setMessage(err.message);
-        } else if (err instanceof AuthApiError) {
-          setMessage(err.message);
-        } else {
-          setMessage('Error al verificar el email. Intenta de nuevo.');
-        }
+        setStatus("error");
+        if (err instanceof RateLimitError) setMessage(err.message);
+        else if (err instanceof AuthApiError) setMessage(err.message);
+        else setMessage("Error al verificar el email. Intentá de nuevo.");
       }
     };
 
     verifyEmailToken();
-  }, [token, router, setUser, setContext]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   return (
-    <AuthPageLayout title="Verificando tu email" subtitle={status === 'loading' ? 'Esto tomará solo un momento...' : ''} variant="card">
-      {status === 'loading' && (
-        <>
-          <div className="text-6xl mb-6">📧</div>
-          <Loader text="Verificando..." />
-        </>
-      )}
-
-      {status === 'success' && (
-        <>
-          <div className="text-6xl mb-6">✅</div>
-          <p className="text-gray-600 mb-6">{message}</p>
-        </>
-      )}
-
-      {status === 'error' && (
-        <>
-          <div className="text-6xl mb-6">❌</div>
-          <p className="text-gray-600 mb-6">{message}</p>
-          <Link href="/auth/login">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full bg-gray-900 text-white py-3 px-6 rounded-xl font-semibold hover:bg-gray-800 transition-colors"
+    <AuthPageLayout
+      title={
+        status === "loading"
+          ? "Verificando tu email"
+          : status === "success"
+            ? "¡Email verificado!"
+            : "Error de verificación"
+      }
+      subtitle={
+        status === "loading" ? "Esto tomará solo un momento..." : ""
+      }
+      variant="card"
+    >
+      <div className="text-center space-y-5">
+        {status === "loading" && (
+          <>
+            <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto">
+              <svg
+                className="w-8 h-8 text-neutral-400 animate-pulse"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+            <Loader text="Verificando..." />
+          </>
+        )}
+        {status === "success" && (
+          <>
+            <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <p className="text-neutral-600 text-sm">{message}</p>
+          </>
+        )}
+        {status === "error" && (
+          <>
+            <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <p className="text-neutral-600 text-sm">{message}</p>
+            <Link
+              href="/auth/login"
+              className="inline-flex items-center justify-center w-full px-4 py-3 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-colors"
             >
               Ir al inicio de sesión
-            </motion.button>
-          </Link>
-        </>
-      )}
+            </Link>
+          </>
+        )}
+      </div>
     </AuthPageLayout>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <Loader text="Verificando..." />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+          <Loader text="Verificando..." />
+        </div>
+      }
+    >
       <VerifyEmailContent />
     </Suspense>
   );

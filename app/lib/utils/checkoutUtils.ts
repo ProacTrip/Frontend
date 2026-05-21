@@ -1,9 +1,9 @@
-import type { CheckoutData } from '@/app/home/checkout/components/BookingSummary';
+import type { CheckoutData } from '@/app/checkout/components/BookingSummary';
 
 const CHECKOUT_KEY = 'checkout_data';
 
 /**
- * Guarda los datos de la reserva en localStorage y redirige a /home/checkout.
+ * Guarda los datos de la reserva en localStorage y redirige a /checkout.
  * Se llama desde cualquier módulo (hoteles, vuelos, plan, experiencias)
  * justo antes de navegar al checkout centralizado.
  *
@@ -31,5 +31,5 @@ export function goToCheckout(
   data: CheckoutData
 ) {
   localStorage.setItem(CHECKOUT_KEY, JSON.stringify(data));
-  router.push('/home/checkout');
+  router.push('/checkout');
 }

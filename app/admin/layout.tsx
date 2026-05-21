@@ -1,9 +1,10 @@
 // app/admin/layout.tsx
-//Utilidad: Layout protegido: si no eres admin, te redirige a home
+// Layout protegido: middleware ya maneja la redirección por falta de auth.
+// Acá solo validamos el permiso users:read según DASHBOARD_API.md.
 
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -15,48 +16,43 @@ export default function AdminLayout({
 }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const [redirected, setRedirected] = useState(false);
 
-  // Role comes exclusively from AuthContext (GET /v1/auth/me).
-  // localStorage role bypass removed — security: no DevTools override.
-  const effectiveRole = user?.role_name;
-  const effectivePermissions = user?.permissions;
   const canAccessDashboard =
-    effectiveRole === 'admin' || effectivePermissions?.includes('users:read');
-  const isReady = !isLoading;
+    user?.role_name === 'admin' || user?.permissions?.includes('users:read');
 
   useEffect(() => {
-    if (!isReady) return;
+    if (isLoading || redirected) return;
 
     if (!isAuthenticated) {
-      router.push('/auth/login?redirect=/admin');
+      setRedirected(true);
+      router.replace('/auth/login?redirect=/admin&reason=session_expired');
       return;
     }
 
     if (!canAccessDashboard) {
-      router.push('/home');
+      setRedirected(true);
+      router.replace('/');
+      return;
     }
-  }, [isReady, isAuthenticated, canAccessDashboard, router]);
+  }, [isAuthenticated, canAccessDashboard, isLoading, redirected, router]);
 
-  if (!isReady) {
+  if (isLoading || !isAuthenticated || !canAccessDashboard) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-4 border-[#c54141] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!isAuthenticated || !canAccessDashboard) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-neutral-50 flex">
       <AdminSidebar />
-      <main className="flex-1 ml-64 p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 ml-60 p-8 overflow-y-auto">
+        <div className="max-w-6xl mx-auto">
           <Suspense fallback={
             <div className="flex items-center justify-center h-64">
-              <div className="w-8 h-8 border-4 border-[#c54141] border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
             </div>
           }>
             {children}

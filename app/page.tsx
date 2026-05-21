@@ -1,124 +1,153 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { DotLottiePlayer } from '@dotlottie/react-player';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
-import CookieBanner from '@/components/layout/CookieBanner';
+"use client";
+
+import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { DESTINATIONS } from "@/app/lib/constants/destinations";
+import DestinationCard from "@/components/home/DestinationCard";
+import Navbar from "@/components/layout/Navbar";
 
 export default function LandingPage() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(1);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    // Precargamos la ruta de home
-    router.prefetch('/home');
-    
-    // Timer de 15 segundos
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-      setTimeout(() => router.push('/home'), 800);
-    }, 11000); 
+  const backgroundDestination = DESTINATIONS[currentIndex - 1];
 
-    return () => clearTimeout(timer);
-  }, [router]);
+  const visibleCards = DESTINATIONS.filter((d) => d.id !== currentIndex).sort(
+    (a, b) => {
+      const aIsGreater = a.id > currentIndex;
+      const bIsGreater = b.id > currentIndex;
+      if (aIsGreater === bIsGreater) return a.id - b.id;
+      return aIsGreater ? -1 : 1;
+    }
+  );
+
+  const handleNext = useCallback(() => {
+    setHasNavigated(true);
+    setCurrentIndex((prev) => (prev === 7 ? 1 : prev + 1));
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    setHasNavigated(true);
+    setCurrentIndex((prev) => (prev === 1 ? 7 : prev - 1));
+  }, []);
 
   return (
-    <AnimatePresence mode="wait">
-      {showSplash && (
+    <div className="relative w-full h-screen overflow-hidden bg-neutral-950">
+      <Navbar />
+
+      {/* FULLSCREEN BACKGROUND */}
+      <AnimatePresence mode="sync">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
-          className="fixed inset-0 z-[9999] bg-[#ffffff] overflow-hidden"
+          key={currentIndex}
+          initial={hasNavigated ? { scale: 1.1, opacity: 0 } : false}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={hasNavigated ? { scale: 1.05, opacity: 0 } : undefined}
+          transition={{ duration: 0.9, ease: [0.4, 0, 0.2, 1] }}
+          className="absolute inset-0"
         >
-          {/* Contenedor principal con 3 secciones y es RESPONSIVE: Flex column en móvil, row en desktop */}
-          <div className="absolute inset-0 w-full h-full flex flex-col md:flex-row items-center justify-center md:justify-start">
-            
-            {/* Columna IZQUIERDA - Texto, Logo y loader */}
-            <div className="w-full md:w-1/4 h-auto md:h-full flex flex-col items-center justify-center gap-4 md:gap-6 px-4 md:px-8 py-8 md:py-0">
-              
-              {/* Texto encima del logo - RESPONSIVE */}
-              <motion.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.5 }}
-                className="text-xl sm:text-2xl md:text-3xl font-bold text-[#d4542a] text-center"
-              >
-                ProacTrip
-                <span className="block text-lg font-medium text-gray-700 mt-1">
-                  viaja contigo
-                </span>
-              </motion.h1>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${backgroundDestination.image})` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/70" />
+        </motion.div>
+      </AnimatePresence>
 
-              {/* Logo */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <Image 
-                  src="/logoMostrar.png" 
-                  alt="Logo" 
-                  width={150} 
-                  height={150}
-                  className="object-contain"
-                  priority
-                />
-              </motion.div>
+      {/* CONTENT LAYER */}
+      <div className="relative z-10 h-full flex flex-col lg:flex-row">
+        {/* LEFT — DESTINATION INFO */}
+        <div className="flex-1 flex items-end lg:items-center px-6 pb-8 lg:pb-0 lg:pl-16 xl:pl-24 lg:pr-12">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+              className="w-full max-w-lg"
+            >
+              <span className="inline-block text-xs font-medium tracking-widest uppercase text-white/60 mb-4">
+                {backgroundDestination.name}
+              </span>
 
-              {/* Animación loader - ARCHIVO LOCAL */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-                className="w-32 h-32"
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white leading-[0.95] tracking-tight mb-3">
+                {backgroundDestination.place}
+              </h1>
+
+              <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-8 max-w-md line-clamp-3 sm:line-clamp-none">
+                {backgroundDestination.description}
+              </p>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    `/vuelos?destino=${backgroundDestination.name.toLowerCase()}`
+                  )
+                }
+                className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-neutral-900 rounded-full text-sm font-medium hover:bg-white/95 transition-all duration-200"
               >
-                <DotLottiePlayer
-                  src="/animations/loader.lottie"
-                  background="transparent"
-                  speed={1}
-                  loop
-                  autoplay
-                />
-              </motion.div>
+                Descubrir destino
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* RIGHT — IMAGE CARDS + CONTROLS */}
+        <div className="lg:w-[580px] xl:w-[640px] flex flex-col justify-end px-6 pb-6 lg:pb-12 lg:pr-16 xl:pr-24 gap-4">
+          {/* DESTINATION CARDS ROW */}
+          <div className="w-full overflow-x-auto hide-scrollbar lg:overflow-hidden">
+            <div className="flex gap-3 lg:gap-4 lg:justify-end">
+              <AnimatePresence mode="sync">
+                {visibleCards.slice(0, 4).map((destination) => (
+                  <DestinationCard
+                    key={destination.id}
+                    destination={destination}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* NAVIGATION CONTROLS */}
+          <div className="flex items-center gap-4 lg:justify-end">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrev}
+                className="w-10 h-10 lg:w-11 lg:h-11 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+              <button
+                onClick={handleNext}
+                className="w-10 h-10 lg:w-11 lg:h-11 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
             </div>
 
-            {/* Columna CENTRAL - Animación principal (lupa) MÁS GRANDE */}
-            <div className="w-1/2 h-full flex items-center justify-center">
-              <div className="w-full max-w-4xl aspect-square">
-                <DotLottiePlayer
-                  src="/animations/lupa.lottie"
-                  background="transparent"
-                  speed={1}
-                  loop
-                  autoplay
-                  className="w-full h-full"
+            {/* PROGRESS BAR */}
+            <div className="flex items-center gap-3 flex-1 lg:flex-none lg:w-48">
+              <div className="relative flex-1 h-0.5 bg-white/20 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute top-0 left-0 h-full bg-white rounded-full"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${(currentIndex / 7) * 100}%` }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                 />
               </div>
+              <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shrink-0">
+                <span className="text-white text-xs font-semibold tabular-nums">
+                  {currentIndex}
+                </span>
+              </div>
             </div>
-
-            {/* Columna DERECHA - Vacía */}
-            <div className="w-1/4 h-full"></div>
           </div>
-          {/* Banner de cookies */}
-            <CookieBanner />
-    
-          {/* Texto flotante */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 text-[#d4542a] text-sm font-medium tracking-widest animate-pulse z-10"
-          >
-            PREPARANDO TU VIAJE...
-            
-          </motion.p>
-        </motion.div>
-      )}
-    </AnimatePresence>
-
-    
+        </div>
+      </div>
+    </div>
   );
 }

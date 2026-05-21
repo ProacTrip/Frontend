@@ -1,10 +1,9 @@
 // components/admin/DataTable.tsx
-//Utilidad: Tabla reutilizable con paginación, filtros y ordenación
+// Tabla reutilizable con paginación, filtros y ordenación — ceepii clean style
 
 'use client';
 
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, Search } from 'lucide-react';
 
 export interface Column<T> {
   key: string;
@@ -19,14 +18,11 @@ interface DataTableProps<T> {
   data: T[];
   total: number;
   loading?: boolean;
-  /** Modo de paginación. 'offset' usa offset/limit tradicional. 'cursor' usa cursores con hasNext/hasPrev. */
   paginationMode?: 'offset' | 'cursor';
-  // Offset-based pagination (default)
   limit?: number;
   offset?: number;
   onPageChange?: (offset: number) => void;
   onLimitChange?: (limit: number) => void;
-  // Cursor-based pagination
   hasNext?: boolean;
   hasPrev?: boolean;
   onNextPage?: () => void;
@@ -36,7 +32,7 @@ interface DataTableProps<T> {
   emptyMessage?: string;
 }
 
-export default function DataTable<T extends Record<string, any>>({
+export default function DataTable<T>({
   columns,
   data,
   total,
@@ -54,89 +50,60 @@ export default function DataTable<T extends Record<string, any>>({
   onRowClick,
   emptyMessage = 'No hay datos disponibles',
 }: DataTableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
   const currentPage = Math.floor(offset / limit) + 1;
   const totalPages = Math.ceil(total / limit) || 1;
 
   const handleSort = (key: string) => {
     if (!onSort) return;
-    
-    const newDirection = sortKey === key && sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortKey(key);
-    setSortDirection(newDirection);
-    onSort(key, newDirection);
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1 && onPageChange) {
-      onPageChange(offset - limit);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages && onPageChange) {
-      onPageChange(offset + limit);
-    }
+    onSort(key, 'asc');
   };
 
   const startItem = total === 0 ? 0 : offset + 1;
   const endItem = Math.min(offset + limit, total);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-neutral-50 border-b border-neutral-100">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={`
-                    px-6 py-4 font-semibold text-gray-700 uppercase tracking-wider text-xs
-                    ${col.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''}
+                    px-5 py-3.5 font-medium text-neutral-500 text-[11px] uppercase tracking-wider
+                    ${col.sortable ? 'cursor-pointer hover:text-neutral-900 select-none transition-colors' : ''}
                     ${col.width || ''}
                   `}
                   style={col.width ? { width: col.width } : undefined}
                   onClick={() => col.sortable && handleSort(col.key)}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {col.header}
                     {col.sortable && (
-                      <span className="text-gray-400">
-                        {sortKey === col.key ? (
-                          sortDirection === 'asc' ? (
-                            <ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )
-                        ) : (
-                          <ChevronUp className="w-4 h-4 opacity-30" />
-                        )}
-                      </span>
+                      <ChevronUp className="w-3 h-3 text-neutral-300" />
                     )}
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-neutral-50">
             {loading ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center">
+                <td colSpan={columns.length} className="px-5 py-14 text-center">
                   <div className="flex justify-center">
-                    <div className="w-6 h-6 border-3 border-[#c54141] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
                   </div>
-                  <p className="text-gray-500 mt-2 text-sm">Cargando...</p>
+                  <p className="text-neutral-400 mt-2 text-sm">Cargando...</p>
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center">
-                  <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">{emptyMessage}</p>
+                <td colSpan={columns.length} className="px-5 py-14 text-center">
+                  <Search className="w-8 h-8 text-neutral-200 mx-auto mb-2" />
+                  <p className="text-neutral-400 text-sm">{emptyMessage}</p>
                 </td>
               </tr>
             ) : (
@@ -145,13 +112,13 @@ export default function DataTable<T extends Record<string, any>>({
                   key={index}
                   onClick={() => onRowClick?.(row)}
                   className={`
-                    ${onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}
-                    transition-colors duration-150
+                    ${onRowClick ? 'cursor-pointer hover:bg-neutral-50' : ''}
+                    transition-colors duration-100
                   `}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-6 py-4 text-gray-700 whitespace-nowrap">
-                      {col.render ? col.render(row) : row[col.key]}
+                    <td key={col.key} className="px-5 py-3.5 text-neutral-600 whitespace-nowrap">
+                      {col.render ? col.render(row) : String(row[col.key as keyof T] ?? '')}
                     </td>
                   ))}
                 </tr>
@@ -161,21 +128,21 @@ export default function DataTable<T extends Record<string, any>>({
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination — offset */}
       {total > 0 && paginationMode === 'offset' && (
-        <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="px-5 py-3 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              Mostrando <span className="font-medium">{startItem}</span> a{' '}
-              <span className="font-medium">{endItem}</span> de{' '}
-              <span className="font-medium">{total}</span> resultados
+            <span className="text-sm text-neutral-400">
+              <span className="font-medium text-neutral-600">{startItem}</span>–{''}
+              <span className="font-medium text-neutral-600">{endItem}</span> de{' '}
+              <span className="font-medium text-neutral-600">{total}</span>
             </span>
-            
+
             {onLimitChange && (
               <select
                 value={limit}
                 onChange={(e) => onLimitChange(Number(e.target.value))}
-                className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#c54141] focus:border-transparent"
+                className="text-sm border border-neutral-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent bg-white"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -185,34 +152,34 @@ export default function DataTable<T extends Record<string, any>>({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={handlePrevPage}
+              onClick={() => onPageChange?.(offset - limit)}
               disabled={currentPage <= 1}
               className={`
-                p-2 rounded-lg border transition-all duration-200
-                ${currentPage <= 1 
-                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                p-1.5 rounded-lg border transition-all duration-150
+                ${currentPage <= 1
+                  ? 'border-neutral-100 text-neutral-200 cursor-not-allowed'
+                  : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
                 }
               `}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
-            <span className="text-sm text-gray-600 px-3">
-              Página <span className="font-medium">{currentPage}</span> de{' '}
-              <span className="font-medium">{totalPages}</span>
+
+            <span className="text-sm text-neutral-400 px-2">
+              <span className="font-medium text-neutral-600">{currentPage}</span> /{' '}
+              <span className="text-neutral-500">{totalPages}</span>
             </span>
-            
+
             <button
-              onClick={handleNextPage}
+              onClick={() => onPageChange?.(offset + limit)}
               disabled={currentPage >= totalPages}
               className={`
-                p-2 rounded-lg border transition-all duration-200
-                ${currentPage >= totalPages 
-                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                p-1.5 rounded-lg border transition-all duration-150
+                ${currentPage >= totalPages
+                  ? 'border-neutral-100 text-neutral-200 cursor-not-allowed'
+                  : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
                 }
               `}
             >
@@ -222,40 +189,40 @@ export default function DataTable<T extends Record<string, any>>({
         </div>
       )}
 
-      {/* Cursor-based pagination */}
+      {/* Pagination — cursor */}
       {total > 0 && paginationMode === 'cursor' && (
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-600">
-            {total} resultado{total !== 1 ? 's' : ''}
+        <div className="px-5 py-3 border-t border-neutral-100 flex items-center justify-between">
+          <span className="text-sm text-neutral-400">
+            {data.length} resultado{data.length !== 1 ? 's' : ''} en esta página
           </span>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={onPrevPage}
               disabled={!hasPrev || loading}
               className={`
-                p-2 rounded-lg border transition-all duration-200
+                p-1.5 rounded-lg border transition-all duration-150
                 ${(!hasPrev || loading)
-                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                  ? 'border-neutral-100 text-neutral-200 cursor-not-allowed'
+                  : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
                 }
               `}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
-            <span className="text-sm text-gray-600 px-3">
-              {data.length} resultado{data.length !== 1 ? 's' : ''} en esta página
+
+            <span className="text-sm text-neutral-400 px-2">
+              <span className="font-medium text-neutral-600">{data.length}</span> resultados
             </span>
-            
+
             <button
               onClick={onNextPage}
               disabled={!hasNext || loading}
               className={`
-                p-2 rounded-lg border transition-all duration-200
+                p-1.5 rounded-lg border transition-all duration-150
                 ${(!hasNext || loading)
-                  ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+                  ? 'border-neutral-100 text-neutral-200 cursor-not-allowed'
+                  : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
                 }
               `}
             >

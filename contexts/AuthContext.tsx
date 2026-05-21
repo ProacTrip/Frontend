@@ -53,6 +53,7 @@ export function AuthProvider({
   /** Indica si el server detectó cookies de auth. Evita llamadas innecesarias a /v1/auth/me. */
   serverAuthenticated: boolean;
 }) {
+
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [context, setContext] = useState<EnvironmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +155,7 @@ export function AuthProvider({
       try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
       try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
       // Full page reload para que el server re-evalúe serverAuthenticated
-      window.location.href = '/home';
+      window.location.href = '/';
     }
   }, []);
 
@@ -172,7 +173,7 @@ export function AuthProvider({
       try { localStorage.removeItem('user_environment_stored_at'); } catch { /* noop */ }
       try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
       try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
-      window.location.href = '/home';
+      window.location.href = '/';
     }
   }, []);
 
@@ -192,6 +193,20 @@ export function AuthProvider({
    * visibles para el server de Next.js en localhost. La página register
    * escribe una señal en localStorage que forzamos a leer acá.
    */
+  /**
+   * Limpia cookies via logout (fire-and-forget), sessionStorage, y redirige.
+   *
+   * El orden importa: primero disparamos el logout al backend para que emita
+   * Clear-Site-Data y borre la cookie stale. No esperamos la respuesta —
+   * el middleware ya permite /auth/login?reason=session_expired como safety net.
+   */
+  const clearAndRedirect = useCallback((path: string) => {
+    logoutUser().catch(() => { /* fire-and-forget — best effort */ });
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
+    try { sessionStorage.removeItem('session_saved_at'); } catch { /* noop */ }
+    window.location.href = path;
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -204,11 +219,19 @@ export function AuthProvider({
           sessionStorage.removeItem('just_logged_out');
         }
 
+        // Señal cross-tab: el usuario acaba de completar OAuth login.
+        // Las cookies pueden no ser visibles para el server de Next.js
+        // (distintos orígenes en dev, Domain mismatch). Forzamos /v1/auth/me.
+        const justLoggedIn = localStorage.getItem('proactrip_oauth_login');
+        if (justLoggedIn) {
+          localStorage.removeItem('proactrip_oauth_login');
+        }
+
         // Señal cross-tab: el usuario acaba de verificar su email.
         // Forzamos /v1/auth/me aunque serverAuthenticated sea false
         // (las cookies pueden no ser visibles para el server en localhost).
         const justVerified = localStorage.getItem('proactrip_email_verified');
-        const effectiveAuth = serverAuthenticated || !!justVerified;
+        const effectiveAuth = serverAuthenticated || !!justVerified || !!justLoggedIn;
 
         if (justVerified) {
           localStorage.removeItem('proactrip_email_verified');
@@ -254,7 +277,7 @@ export function AuthProvider({
                 } else {
                   // El servidor rechazó la sesión → redirigir
                   setUserState(null);
-                  window.location.href = '/auth/login?reason=session_expired';
+                  clearAndRedirect('/auth/login?reason=session_expired');
                   return;
                 }
               } catch (validationErr) {
@@ -266,12 +289,12 @@ export function AuthProvider({
                     (validationErr instanceof AuthApiError && validationErr.code === 'ACCOUNT_DISABLED') ||
                     (validationErr instanceof AuthApiError && validationErr.code === 'FORBIDDEN' &&
                      validationErr.message?.toLowerCase().includes('deshabilitada'));
-                  if (isDisabled) {
-                    window.location.href = '/auth/account-disabled';
-                  } else {
-                    window.location.href = '/auth/login?reason=session_expired';
-                  }
-                  return;
+                   if (isDisabled) {
+                     clearAndRedirect('/auth/account-disabled');
+                   } else {
+                     clearAndRedirect('/auth/login?reason=session_expired');
+                   }
+                   return;
                 }
               }
 
@@ -310,7 +333,7 @@ export function AuthProvider({
           if (isDisabled) {
             setUserState(null);
             setIsAccountDisabled(true);
-            window.location.href = '/auth/account-disabled';
+            clearAndRedirect('/auth/account-disabled');
             return;
           }
           if (err instanceof AuthApiError && err.status === 401) {
@@ -333,7 +356,7 @@ export function AuthProvider({
     return () => {
       cancelled = true;
     };
-  }, [serverAuthenticated]);
+  }, [serverAuthenticated, clearAndRedirect]);
 
   return (
     <AuthContext.Provider

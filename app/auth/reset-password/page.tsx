@@ -1,245 +1,212 @@
-'use client'; 
+"use client";
 
-import { useState, FormEvent, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import InputField from '@/components/ui/InputField';
-import Button from '@/components/ui/Button';
-import Loader from '@/components/ui/Loader';
-import { motion, AnimatePresence } from 'framer-motion';
-import AuthPageLayout from '@/components/layout/AuthPageLayout';
-import { resetPassword, AuthApiError, RateLimitError } from '@/app/lib/api';
-import { validatePassword } from '@/app/lib/utils/validation';
-import { useRateLimit } from '@/hooks/useRateLimit';
-import RateLimitBanner from '@/components/ui/RateLimitBanner';
+import { useState, type FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import InputField from "@/components/ui/InputField";
+import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
+import { AnimatePresence, motion } from "framer-motion";
+import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import { resetPassword, AuthApiError, RateLimitError } from "@/app/lib/api";
+import { validatePassword } from "@/app/lib/utils/validation";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 function ResetPasswordForm() {
-
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-
-  //estados
-  const [formData, setFormData] = useState({ newPassword: '', confirmPassword: '' });
+  const token = searchParams.get("token");
+  const [formData, setFormData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
-
   const { isBlocked } = useRateLimit();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
-    setFormData(previo => ({ ...previo, [name]: value }));
-    if (error) setError('');
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError("");
   };
 
-  //funcion cuando el usuario envia el formulario
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!formData.newPassword || !formData.confirmPassword) 
-    {
-      setError('Por favor, completa todos los campos');
-      return; 
-    }
-    const passwordCheck = validatePassword(formData.newPassword);
-    if (!passwordCheck.valid) 
-    {
-      setError(passwordCheck.errors[0]);
+    if (!formData.newPassword || !formData.confirmPassword) {
+      setError("Completá todos los campos");
       return;
     }
-    if (formData.newPassword !== formData.confirmPassword) 
-    {
-      setError('Las contraseñas no coinciden');
+    const check = validatePassword(formData.newPassword);
+    if (!check.valid) {
+      setError(check.errors[0]);
       return;
     }
-    //Si no existe token en la URL, no podemos hacer reset
-    if (!token) 
-    {
-      setError('Token de recuperación no encontrado. Solicita un nuevo link.');
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+    if (!token) {
+      setError("Token de recuperación no encontrado. Solicitá un nuevo link.");
       return;
     }
     setIsLoading(true);
-    setError('');
-
-    //peticion al backend para cambiar contraseña
-    try 
-    {
+    setError("");
+    try {
       await resetPassword(token, formData.newPassword);
       setSuccess(true);
-      setTimeout(() => {
-        router.push('/auth/login');
-      }, 3000);
-    } 
-    catch (err) 
-    {
+      setTimeout(() => router.push("/auth/login"), 3000);
+    } catch (err) {
       if (err instanceof RateLimitError) {
         setError(err.message);
         setRateLimitError(err.message);
       } else if (err instanceof AuthApiError) {
         setError(err.message);
       } else {
-        console.error('Error en reset password:', err);
-        setError('Error al conectar con el servidor. Intenta de nuevo.');
+        setError("Error al conectar con el servidor. Intentá de nuevo.");
       }
-    } 
-    finally 
-    {
-      //Esto se ejecuta SIEMPRE (haya error o no)
+    } finally {
       setIsLoading(false);
-      //Quitamos el loader
     }
   };
 
-  //si no tiene token la url, mostramos directamente error
-  if (!token) 
-    {
-        return (
-        <div className="text-center space-y-6">
-
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </div>
-
-            <h1 className="text-3xl font-bold text-gray-800">
-                Link inválido
-            </h1>
-            <p className="text-gray-600">
-                Este link no es válido o ha expirado. Solicita uno nuevo.
-            </p>
-            <Link
-            href="/auth/forgot-password"
-            className="inline-block w-full px-6 py-3 bg-[#8d6e63] text-white rounded-lg hover:bg-[#795548] transition-colors text-center"
-            >
-                Solicitar nuevo link
-            </Link>
+  if (!token) {
+    return (
+      <div className="text-center space-y-5">
+        <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
+          <svg
+            className="w-8 h-8 text-red-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
         </div>
-        );
-    }
+        <h2 className="text-xl font-semibold text-neutral-800">Link inválido</h2>
+        <p className="text-neutral-500 text-sm">
+          Este link no es válido o ha expirado. Solicitá uno nuevo.
+        </p>
+        <Link
+          href="/auth/forgot-password"
+          className="inline-flex items-center justify-center w-full px-4 py-3 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-colors"
+        >
+          Solicitar nuevo link
+        </Link>
+      </div>
+    );
+  }
 
-    //esto ocurrira si tiene token
   return (
     <AnimatePresence mode="wait">
+      {!success && (
+        <motion.div
+          key="form"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <RateLimitBanner
+            rateLimitError={rateLimitError}
+            onRetryReady={() => {
+              setRateLimitError(null);
+              setError("");
+            }}
+          />
+          <AnimatePresence>
+            {error && !isBlocked && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/*Si no se reseteo la contraseña*/}
-        {!success && (
-            <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <RateLimitBanner
-                  rateLimitError={rateLimitError}
-                  onRetryReady={() => {
-                    setRateLimitError(null);
-                    setError('');
-                  }}
-                />
-                <AnimatePresence>
-                    {error && !isBlocked && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10, height: 0 }}
-                        animate={{ opacity: 1, y: 0, height: 'auto' }}
-                        exit={{ opacity: 0, y: -10, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="mb-6 p-4 bg-red-50 text-red-600 border-l-4 border-red-500 text-sm"
-                    >
-                        {error}
-                    </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 }}
-                    >
-                        <InputField
-                            label="Nueva Contraseña"
-                            name="newPassword"
-                            type="password"
-                            id="newPassword"
-                            value={formData.newPassword}
-                            onChange={handleInputChange}
-                            placeholder="••••••••"
-                            showPasswordToggle
-                        />
-                    </motion.div>
-
-                    <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    >
-                        <InputField
-                            label="Confirmar Nueva Contraseña"
-                            name="confirmPassword"
-                            type="password"
-                            id="confirmPassword"
-                            value={formData.confirmPassword}
-                            onChange={handleInputChange}
-                            placeholder="••••••••"
-                            showPasswordToggle
-                        />
-                    </motion.div>
-
-                    <motion.div
-                    whileTap={{ scale: 0.98 }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    >
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            className="w-full py-4 text-lg"
-                            disabled={isLoading || isBlocked}
-                        >
-                            Cambiar Contraseña
-                        </Button>
-                    </motion.div>
-
-                    {isLoading && (
-                        <div className="mt-4 flex justify-center">
-                            <Loader text="Cambiando contraseña..." />
-                        </div>
-                    )}
-                </form>
-            </motion.div>
-        )}
-
-        {/*Si se reseteo la contraseña*/}
-        {success && (
-            <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center space-y-6"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <InputField
+              label="Nueva contraseña"
+              name="newPassword"
+              type="password"
+              id="rp-new"
+              value={formData.newPassword}
+              onChange={handleInputChange}
+              placeholder="••••••••"
+              showPasswordToggle
+            />
+            <InputField
+              label="Confirmar nueva contraseña"
+              name="confirmPassword"
+              type="password"
+              id="rp-confirm"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              placeholder="••••••••"
+              showPasswordToggle
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              className="!py-3.5 mt-2"
+              disabled={isLoading || isBlocked}
             >
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                    {/* ICONO VERDE */}
-                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                </div>
-                <h1 className="text-3xl font-bold text-gray-800">
-                    ¡Contraseña cambiada!
-                </h1>
-                <p className="text-gray-600">
-                    Tu contraseña se ha restablecido correctamente. Redirigiendo al login...
-                </p>
-                <p className="text-sm text-gray-500">
-                    Redirigiendo en 3 segundos...
-                </p>
-                <Link
-                    href="/auth/login"
-                    className="inline-block w-full px-6 py-3 bg-[#8d6e63] text-white rounded-lg hover:bg-[#795548] transition-colors text-center"
-                >
-                    Ir al Login
-                </Link>
-            </motion.div>
-        )}
+              Cambiar contraseña
+            </Button>
+            {isLoading && (
+              <div className="flex justify-center pt-2">
+                <Loader text="Cambiando contraseña..." />
+              </div>
+            )}
+          </form>
+        </motion.div>
+      )}
+
+      {success && (
+        <motion.div
+          key="success"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center space-y-5"
+        >
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
+            <svg
+              className="w-8 h-8 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-neutral-800">
+            ¡Contraseña cambiada!
+          </h2>
+          <p className="text-neutral-500 text-sm">
+            Tu contraseña se ha restablecido. Redirigiendo al inicio de sesión...
+          </p>
+          <Link
+            href="/auth/login"
+            className="inline-flex items-center justify-center w-full px-4 py-3 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-colors"
+          >
+            Ir al inicio de sesión
+          </Link>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }
@@ -248,7 +215,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthPageLayout
       title="Nueva contraseña"
-      subtitle="Introduce tu nueva contraseña. Debe tener al menos 6 caracteres."
+      subtitle="Elegí una contraseña segura para tu cuenta."
       variant="card"
       backHref="/auth/login"
     >

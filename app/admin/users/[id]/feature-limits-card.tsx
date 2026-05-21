@@ -1,6 +1,6 @@
 // app/admin/users/[id]/feature-limits-card.tsx
-// Feature Limits UI — editable user limits + read-only role defaults
-// Self-contained client component. Props: userId, roleId.
+// Feature Limits UI — ceepii clean style
+// Dashboard API: GET/POST/DELETE /v1/dashboard/users/:id/feature-limits
 
 'use client';
 
@@ -25,8 +25,6 @@ import {
 } from '@/app/lib/api/management';
 import type { FeatureLimit } from '@/app/lib/types/admin';
 
-// ==================== HELPERS ====================
-
 function formatLimitValue(value: number | null): string {
   if (value === null) return 'Ilimitado';
   if (value === 0) return 'Bloqueado';
@@ -45,8 +43,6 @@ function formatWindow(window: string): string {
 
 const COMMON_FEATURES = ['projects', 'searches', 'exports', 'api_calls', 'storage_mb'];
 
-// ==================== TYPES ====================
-
 interface FeatureLimitsCardProps {
   userId: string;
   roleId: string;
@@ -60,19 +56,15 @@ interface LimitFormData {
   window: string;
 }
 
-// ==================== COMPONENT ====================
-
 export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardProps) {
-  // ---- Data state ----
   const [userLimits, setUserLimits] = useState<FeatureLimit[]>([]);
   const [roleDefaults, setRoleDefaults] = useState<FeatureLimit[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLimitsError, setUserLimitsError] = useState<string | null>(null);
   const [roleDefaultsError, setRoleDefaultsError] = useState<string | null>(null);
 
-  // ---- Modal state ----
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingLimit, setEditingLimit] = useState<FeatureLimit | null>(null); // null = create
+  const [editingLimit, setEditingLimit] = useState<FeatureLimit | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [limitType, setLimitType] = useState<LimitType>('quota');
@@ -82,11 +74,8 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
     window: 'month',
   });
 
-  // ---- Delete confirm ----
   const [deletingLimit, setDeletingLimit] = useState<FeatureLimit | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  // ==================== DATA FETCHING ====================
 
   const loadData = async () => {
     setLoading(true);
@@ -99,32 +88,22 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
         getRoleFeatureLimits(roleId),
       ]);
 
-      // User limits
       if (results[0].status === 'fulfilled') {
         setUserLimits(results[0].value.limits ?? []);
       } else {
         const err = results[0].reason;
-        if (err instanceof DashboardApiError && err.code === 'MISSING_PERMISSION') {
-          setUserLimitsError('Sin permisos para ver limites de features.');
-        } else {
-          setUserLimitsError(
-            err instanceof Error ? err.message : 'Error cargando limites del usuario.'
-          );
-        }
+        setUserLimitsError(
+          err instanceof Error ? err.message : 'Error cargando límites del usuario.'
+        );
       }
 
-      // Role defaults
       if (results[1].status === 'fulfilled') {
         setRoleDefaults(results[1].value.limits ?? []);
       } else {
         const err = results[1].reason;
-        if (err instanceof DashboardApiError && err.code === 'MISSING_PERMISSION') {
-          setRoleDefaultsError('Sin permisos para ver defaults del rol.');
-        } else {
-          setRoleDefaultsError(
-            err instanceof Error ? err.message : 'Error cargando defaults del rol.'
-          );
-        }
+        setRoleDefaultsError(
+          err instanceof Error ? err.message : 'Error cargando defaults del rol.'
+        );
       }
     } finally {
       setLoading(false);
@@ -135,8 +114,6 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, roleId]);
-
-  // ==================== MODAL HELPERS ====================
 
   function openCreateModal() {
     setEditingLimit(null);
@@ -180,8 +157,6 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
     return true;
   }
 
-  // ==================== ACTIONS ====================
-
   const handleSubmit = async () => {
     if (!isFormValid()) {
       setModalError('Completa todos los campos requeridos.');
@@ -199,9 +174,7 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
       };
 
       if (editingLimit) {
-        // Update via set (POST upserts)
         await setUserFeatureLimit(userId, body);
-        // Refresh list
         setUserLimits((prev) =>
           prev.map((l) =>
             l.feature_key === editingLimit.feature_key && l.window === editingLimit.window
@@ -211,7 +184,6 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
         );
       } else {
         const created = await setUserFeatureLimit(userId, body);
-        // Ensure the created response matches FeatureLimit shape
         const newLimit: FeatureLimit = {
           feature_key: created.feature_key,
           limit_value: created.limit_value,
@@ -224,14 +196,12 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
     } catch (error: unknown) {
       if (error instanceof DashboardApiError) {
         if (error.code === 'FEATURE_LIMIT_ALREADY_EXISTS') {
-          setModalError('Este limite ya existe para la ventana seleccionada.');
-        } else if (error.code === 'MISSING_PERMISSION') {
-          setModalError('Sin permisos para modificar limites de features.');
+          setModalError('Este límite ya existe para la ventana seleccionada.');
         } else {
           setModalError(error.detail || error.message);
         }
       } else {
-        setModalError(error instanceof Error ? error.message : 'Error guardando limite.');
+        setModalError(error instanceof Error ? error.message : 'Error guardando límite.');
       }
     } finally {
       setSaving(false);
@@ -250,15 +220,13 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
       setDeletingLimit(null);
     } catch (error: unknown) {
       if (error instanceof DashboardApiError && error.code === 'FEATURE_LIMIT_NOT_FOUND') {
-        // Stale state cleanup — remove from list anyway
         setUserLimits((prev) =>
           prev.filter((l) => l.feature_key !== deletingLimit.feature_key)
         );
         setDeletingLimit(null);
       } else {
-        // For other errors, close confirm and show error in section
         setUserLimitsError(
-          error instanceof Error ? error.message : 'Error eliminando limite.'
+          error instanceof Error ? error.message : 'Error eliminando límite.'
         );
         setDeletingLimit(null);
       }
@@ -267,80 +235,76 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
     }
   };
 
-  // ==================== RENDER ====================
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      {/* Header */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
-        <Gauge className="w-5 h-5 text-[#c54141]" />
-        Limites de Feature
+    <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+      <h2 className="text-base font-semibold text-neutral-900 mb-1 flex items-center gap-2">
+        <Gauge className="w-4 h-4 text-neutral-400" />
+        Límites de Feature
       </h2>
-      <p className="text-xs text-gray-500 mb-6">
-        Configura limites de uso para features como projects, searches, exports, etc.
-        Los limites del usuario sobrescriben los defaults del rol.
+      <p className="text-xs text-neutral-400 mb-6">
+        Configura límites de uso para features. Los límites del usuario sobrescriben los defaults del rol.
       </p>
 
-      {/* ========== SECTION 1: User Limits ========== */}
+      {/* User Limits */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Limites del Usuario
+          <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+            Límites del Usuario
           </h3>
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#c54141] text-white rounded-lg text-xs font-medium hover:bg-[#a93535] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-xl text-xs font-medium hover:bg-neutral-800 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Agregar limite
+            Agregar límite
           </button>
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-gray-400 text-sm">
+          <div className="flex items-center gap-2 py-6 text-neutral-400 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" />
             Cargando...
           </div>
         ) : userLimitsError ? (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{userLimitsError}</p>
+            <p className="text-sm text-red-600">{userLimitsError}</p>
           </div>
         ) : userLimits.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
-            No hay limites configurados para este usuario.
+          <p className="text-sm text-neutral-400 text-center py-6">
+            No hay límites configurados para este usuario.
           </p>
         ) : (
           <div className="space-y-2">
             {userLimits.map((limit) => (
               <div
                 key={`${limit.feature_key}-${limit.window}`}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-100"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 font-mono">
+                  <p className="text-sm font-semibold text-neutral-900 font-mono">
                     {limit.feature_key}
                   </p>
-                  <p className="text-sm text-gray-600 mt-0.5">
+                  <p className="text-sm text-neutral-500 mt-0.5">
                     {formatLimitValue(limit.limit_value)}
-                    <span className="text-gray-400 mx-1.5">·</span>
+                    <span className="text-neutral-300 mx-1.5">·</span>
                     {formatWindow(limit.window)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => openEditModal(limit)}
-                    className="p-1.5 text-gray-400 hover:text-[#c54141] hover:bg-red-50 rounded-lg transition-colors"
-                    aria-label={`Editar limite ${limit.feature_key}`}
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                    aria-label={`Editar límite ${limit.feature_key}`}
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setDeletingLimit(limit)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    aria-label={`Eliminar limite ${limit.feature_key}`}
+                    className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    aria-label={`Eliminar límite ${limit.feature_key}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -349,40 +313,40 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
         )}
       </div>
 
-      {/* ========== SECTION 2: Role Defaults ========== */}
+      {/* Role Defaults */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+        <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
           Defaults del Rol
         </h3>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-gray-400 text-sm">
+          <div className="flex items-center gap-2 py-6 text-neutral-400 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" />
             Cargando...
           </div>
         ) : roleDefaultsError ? (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{roleDefaultsError}</p>
+            <p className="text-sm text-red-600">{roleDefaultsError}</p>
           </div>
         ) : roleDefaults.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
-            El rol no tiene limites por defecto.
+          <p className="text-sm text-neutral-400 text-center py-6">
+            El rol no tiene límites por defecto.
           </p>
         ) : (
           <div className="space-y-2">
             {roleDefaults.map((limit) => (
               <div
                 key={`${limit.feature_key}-${limit.window}`}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-100"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-700 font-mono">
+                  <p className="text-sm font-semibold text-neutral-700 font-mono">
                     {limit.feature_key}
                   </p>
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <p className="text-sm text-neutral-500 mt-0.5">
                     {formatLimitValue(limit.limit_value)}
-                    <span className="text-gray-400 mx-1.5">·</span>
+                    <span className="text-neutral-300 mx-1.5">·</span>
                     {formatWindow(limit.window)}
                   </p>
                 </div>
@@ -392,36 +356,33 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
         )}
       </div>
 
-      {/* ==================== MODAL ==================== */}
+      {/* Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
-            {/* Modal header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editingLimit ? 'Editar limite' : 'Agregar limite'}
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {editingLimit ? 'Editar límite' : 'Agregar límite'}
               </h3>
               <button
                 onClick={closeModal}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 hover:bg-neutral-100 rounded-lg transition-colors"
                 aria-label="Cerrar"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-4 h-4 text-neutral-400" />
               </button>
             </div>
 
-            {/* Modal error */}
             {modalError && (
-              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl mb-4">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">{modalError}</p>
+                <p className="text-sm text-red-600">{modalError}</p>
               </div>
             )}
 
             <div className="space-y-4">
-              {/* Feature Key */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Clave de feature <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -431,7 +392,7 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                     setFormData((prev) => ({ ...prev, feature_key: e.target.value }))
                   }
                   list="common-features"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141] text-sm"
+                  className="w-full px-3 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm bg-white"
                   placeholder="Ej: projects, searches, exports"
                   disabled={!!editingLimit}
                 />
@@ -442,10 +403,9 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                 </datalist>
               </div>
 
-              {/* Limit Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de limite
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Tipo de límite
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -454,10 +414,10 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                       setLimitType('unlimited');
                       setFormData((prev) => ({ ...prev, limit_value: null }));
                     }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-xl text-xs font-medium transition-colors ${
                       limitType === 'unlimited'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        ? 'border-neutral-900 bg-neutral-50 text-neutral-900'
+                        : 'border-neutral-200 text-neutral-400 hover:border-neutral-300'
                     }`}
                   >
                     <Infinity className="w-3.5 h-3.5" />
@@ -469,10 +429,10 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                       setLimitType('blocked');
                       setFormData((prev) => ({ ...prev, limit_value: 0 }));
                     }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-xl text-xs font-medium transition-colors ${
                       limitType === 'blocked'
                         ? 'border-red-500 bg-red-50 text-red-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        : 'border-neutral-200 text-neutral-400 hover:border-neutral-300'
                     }`}
                   >
                     <Ban className="w-3.5 h-3.5" />
@@ -487,10 +447,10 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                         limit_value: prev.limit_value ?? 1,
                       }));
                     }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-2 rounded-xl text-xs font-medium transition-colors ${
                       limitType === 'quota'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        ? 'border-neutral-900 bg-neutral-50 text-neutral-900'
+                        : 'border-neutral-200 text-neutral-400 hover:border-neutral-300'
                     }`}
                   >
                     <Gauge className="w-3.5 h-3.5" />
@@ -499,10 +459,9 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                 </div>
               </div>
 
-              {/* Value (only for quota) */}
               {limitType === 'quota' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Valor <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -514,15 +473,14 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                       const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
                       setFormData((prev) => ({ ...prev, limit_value: isNaN(val) ? 1 : val }));
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141] text-sm"
-                    placeholder="Cantidad maxima"
+                    className="w-full px-3 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm bg-white"
+                    placeholder="Cantidad máxima"
                   />
                 </div>
               )}
 
-              {/* Window */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Ventana
                 </label>
                 <select
@@ -530,28 +488,27 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, window: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c54141] text-sm"
+                  className="w-full px-3 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm bg-white"
                 >
                   <option value="minute">Minuto</option>
                   <option value="hour">Hora</option>
-                  <option value="day">Dia</option>
+                  <option value="day">Día</option>
                   <option value="month">Mes</option>
                 </select>
               </div>
             </div>
 
-            {/* Modal actions */}
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+            <div className="flex gap-3 mt-6 pt-4 border-t border-neutral-100">
               <button
                 onClick={closeModal}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 border border-neutral-200 text-neutral-600 rounded-xl hover:bg-neutral-50 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={saving || !isFormValid()}
-                className="flex-1 px-4 py-2 bg-[#c54141] text-white rounded-lg hover:bg-[#a93535] disabled:opacity-50 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 disabled:opacity-50 text-sm font-medium transition-colors"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
@@ -566,19 +523,19 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
         </div>
       )}
 
-      {/* ==================== DELETE CONFIRMATION ==================== */}
+      {/* Delete confirmation */}
       {deletingLimit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-start gap-3 mb-4">
               <div className="p-2 bg-red-100 rounded-full shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <AlertTriangle className="w-4 h-4 text-red-500" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Eliminar limite</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  ¿Eliminar limite &apos;{deletingLimit.feature_key}&apos;?
-                  Esta accion no se puede deshacer.
+                <h3 className="text-lg font-semibold text-neutral-900">Eliminar límite</h3>
+                <p className="text-sm text-neutral-500 mt-1">
+                  ¿Eliminar límite &apos;{deletingLimit.feature_key}&apos;?
+                  Esta acción no se puede deshacer.
                 </p>
               </div>
             </div>
@@ -586,14 +543,14 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingLimit(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 border border-neutral-200 text-neutral-600 rounded-xl hover:bg-neutral-50 text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={deleting}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 text-sm font-medium transition-colors"
               >
                 {deleting ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />

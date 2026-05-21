@@ -188,7 +188,7 @@ export default function NotificationBell() {
             <button
               onClick={() => {
                 setOpen(false);
-                router.push('/home/notifications');
+                router.push('/notificaciones');
               }}
               className="w-full text-center text-xs font-medium text-gray-600 hover:text-[#c54141] transition-colors"
             >

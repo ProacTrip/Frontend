@@ -49,18 +49,6 @@ export {
   getRoleFeatureLimits,
   setRoleFeatureLimit,
   deleteRoleFeatureLimit,
-  // Permission overrides
-  getPermissionOverrides,
-  createPermissionOverride,
-  deletePermissionOverride,
-  // Roles & permissions catalog (management)
-  listRoles,
-  assignRole,
-  listPermissions,
-  // Avatars & audit (management)
-  listAvatars,
-  uploadAvatar,
-  queryAuditLogs,
 } from './management';
 
 // ==========================================
@@ -143,7 +131,17 @@ export type {
 } from '@/app/lib/types/user';
 
 // ==========================================
-// 9. DOCUMENTOS (NUEVO)
+// 9. DOCUMENTOS — ADMIN (VERIFICACIÓN)
+// ==========================================
+export {
+  getDocumentVerification,
+  updateDocumentVerification,
+  reprocessDocument,
+  DashboardApiError as DocumentsAdminApiError,
+} from './documents-admin';
+
+// ==========================================
+// 10. DOCUMENTOS (USUARIO)
 // ==========================================
 export {
   listDocumentTypes,
@@ -166,7 +164,7 @@ export type {
 } from '@/app/lib/types/document';
 
 // ==========================================
-// 10. BÚSQUEDAS GUARDADAS (NUEVO)
+// 11. BÚSQUEDAS GUARDADAS
 // ==========================================
 export {
   createSavedSearch,
@@ -187,7 +185,7 @@ export type {
 } from '@/app/lib/types/saved-search';
 
 // ==========================================
-// 11. AI SEARCH (NUEVO)
+// 12. AI SEARCH
 // ==========================================
 export { searchAI } from './search-ai';
 export { SearchAIError } from '@/app/lib/types/search-ai';

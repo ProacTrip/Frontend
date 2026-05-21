@@ -66,6 +66,8 @@ export const ERROR_MAP: Record<string, string> = {
   'permission-override-not-found': 'Override de permiso no encontrado.',
   'invalid-reason': 'La razon del override debe tener entre 1 y 500 caracteres.',
   'invalid-block-duration': 'Los denies no pueden exceder 365 dias de duracion.',
+  'document-not-found': 'Documento no encontrado.',
+  'not-implemented': 'Funcionalidad no implementada aun.',
   'forbidden': 'Acceso denegado.',
 };
 
