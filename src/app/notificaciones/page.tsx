@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,62 +13,45 @@ import {
   Loader2,
   Mail,
   MessageSquare,
-  AlertTriangle,
   ArrowLeft,
   Filter
 } from 'lucide-react';
-import { listUserNotifications, markNotificationRead, markAllNotificationsRead } from '@/app/lib/api';
-import type { UserNotification, NotificationStatus } from '@/app/lib/types/notification';
+import { useNotifications } from '@/hooks/useNotifications';
+import type { NotificationStatus } from '@/app/lib/types/notification';
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<UserNotification[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [markingAll, setMarkingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState<NotificationStatus | ''>('');
-  const [limit, setLimit] = useState(20);
-  const [offset, setOffset] = useState(0);
+  const [limit] = useState(20);
 
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: any = { limit, offset };
-      if (statusFilter) params.status = statusFilter;
+  // ---- useNotifications hook ----
+  const {
+    data: notifications,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+    isFetchingNextPage,
+    markOne,
+    markAll,
+  } = useNotifications({
+    status: statusFilter || undefined,
+    limit,
+  });
 
-      const res = await listUserNotifications(params);
-      setNotifications(res.notifications || []);
-      setTotal(res.total || 0);
-    } catch (e) {
-      console.error('Error cargando notificaciones:', e);
-      setNotifications([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [limit, offset, statusFilter]);
+  const [markingAll, setMarkingAll] = useState(false);
 
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
-  const handleMarkOne = async (id: string) => {
-    try {
-      await markNotificationRead({ notification_id: id });
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      setTotal((prev) => Math.max(0, prev - 1));
-    } catch (e) {
-      console.error('Error marcando notificación:', e);
-    }
-  };
+  const handleMarkOne = useCallback(
+    async (id: string) => {
+      await markOne(id);
+    },
+    [markOne],
+  );
 
   const handleMarkAll = async () => {
     if (!confirm('¿Marcar todas las notificaciones como leídas?')) return;
     setMarkingAll(true);
     try {
-      await markAllNotificationsRead();
-      setNotifications([]);
-      setTotal(0);
+      await markAll();
     } catch (e) {
       console.error('Error marcando todas:', e);
     } finally {
@@ -110,6 +93,8 @@ export default function NotificationsPage() {
     });
   };
 
+  const totalShown = notifications.length;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -128,7 +113,7 @@ export default function NotificationsPage() {
                 Notificaciones
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                {total} notificación{total !== 1 ? 'es' : ''} en total
+                {totalShown} notificación{totalShown !== 1 ? 'es' : ''} mostrada{totalShown !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -161,7 +146,6 @@ export default function NotificationsPage() {
                 key={s}
                 onClick={() => {
                   setStatusFilter(s);
-                  setOffset(0);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   statusFilter === s
@@ -176,7 +160,7 @@ export default function NotificationsPage() {
         </div>
 
         {/* Lista */}
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="w-8 h-8 animate-spin text-[#c54141]" />
           </div>
@@ -199,7 +183,7 @@ export default function NotificationsPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="mt-1 shrink-0">{getIcon(notif.channel)}</div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -224,7 +208,7 @@ export default function NotificationsPage() {
                       <span className="text-xs text-gray-400 capitalize">
                         {notif.type} · {notif.channel}
                       </span>
-                      
+
                       {notif.status === 'delivered' && (
                         <button
                           onClick={() => handleMarkOne(notif.id)}
@@ -242,25 +226,22 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {/* Paginación simple */}
-        {!loading && total > limit && (
-          <div className="flex items-center justify-between mt-6">
+        {/* Load more button */}
+        {!isLoading && hasNextPage && (
+          <div className="flex items-center justify-center mt-6">
             <button
-              onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
-              disabled={offset === 0}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="px-6 py-2.5 bg-[#c54141] text-white rounded-lg text-sm font-medium hover:bg-[#a03535] disabled:opacity-50 transition-colors flex items-center gap-2"
             >
-              Anterior
-            </button>
-            <span className="text-sm text-gray-500">
-              Mostrando {offset + 1}-{Math.min(offset + limit, total)} de {total}
-            </span>
-            <button
-              onClick={() => setOffset((prev) => prev + limit)}
-              disabled={offset + limit >= total}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Siguiente
+              {isFetchingNextPage ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Cargando...
+                </>
+              ) : (
+                'Cargar más'
+              )}
             </button>
           </div>
         )}

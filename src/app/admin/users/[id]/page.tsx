@@ -5,9 +5,10 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowLeft,
@@ -30,6 +31,8 @@ import {
 } from '@/app/lib/api';
 import { DashboardApiError } from '@/app/lib/api/management';
 import type { UserAdminDetail } from '@/app/lib/types/admin';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { ADMIN_STALE_TIME } from '@/app/lib/queries/staleTimes';
 import FeatureLimitsCard from './feature-limits-card';
 
 export default function AdminUserDetailPage() {
@@ -38,49 +41,37 @@ export default function AdminUserDetailPage() {
   const userId = params.id as string;
   const { user: currentUser } = useAuth();
   const isSelf = currentUser?.id === userId;
+  const queryClient = useQueryClient();
 
-  const [user, setUser] = useState<UserAdminDetail | null>(null);
-  const [effectivePermissions, setEffectivePermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<'active' | 'disabled' | null>(null);
 
-  const loadUser = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const detailRes = await getUserDetail(userId);
-      setUser(detailRes.user);
-      setEffectivePermissions(detailRes.effective_permissions ?? []);
-    } catch (err: unknown) {
-      if (err instanceof DashboardApiError) {
-        setError(err.detail);
-      } else if (err instanceof Error) {
-        setError(err.message || 'Error al cargar el usuario');
-      } else {
-        setError('Error desconocido al cargar el usuario');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+  // ---- useQuery for user detail ----
+  const {
+    data: detailRes,
+    isLoading,
+  } = useQuery({
+    queryKey: queryKeys.admin.userById(userId),
+    queryFn: () => getUserDetail(userId),
+    enabled: !!userId,
+    staleTime: ADMIN_STALE_TIME,
+  });
 
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+  const user = detailRes?.user ?? null;
+  const effectivePermissions = detailRes?.effective_permissions ?? [];
 
-  const handleStatusChange = async () => {
-    if (!pendingStatus) return;
-    setActionLoading('status');
-    try {
-      await updateAccountStatus(userId, pendingStatus);
+  // ---- useMutation for status change ----
+  const statusMutation = useMutation({
+    mutationFn: (status: 'active' | 'disabled') =>
+      updateAccountStatus(userId, status),
+    onSuccess: () => {
       setShowStatusModal(false);
       setPendingStatus(null);
-      await loadUser();
-    } catch (err: unknown) {
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.userById(userId) });
+    },
+    onError: (err: unknown) => {
       setError(
         err instanceof DashboardApiError
           ? err.detail
@@ -88,17 +79,22 @@ export default function AdminUserDetailPage() {
             ? err.message
             : 'Error actualizando estado'
       );
-    } finally {
-      setActionLoading(null);
-    }
-  };
+    },
+  });
+
+  const actionLoading = statusMutation.isPending ? 'status' : null;
+
+  const handleStatusChange = useCallback(() => {
+    if (!pendingStatus) return;
+    statusMutation.mutate(pendingStatus);
+  }, [pendingStatus, statusMutation]);
 
   const openStatusModal = (targetStatus: 'active' | 'disabled') => {
     setPendingStatus(targetStatus);
     setShowStatusModal(true);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />

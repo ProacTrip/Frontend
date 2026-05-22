@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Users,
@@ -14,6 +14,8 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { listUsers } from '@/app/lib/api';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { ADMIN_STALE_TIME } from '@/app/lib/queries/staleTimes';
 import Link from 'next/link';
 
 interface Stats {
@@ -21,72 +23,58 @@ interface Stats {
   activeUsers: number;
   blockedUsers: number;
   adminUsers: number;
-  loading: boolean;
 }
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    activeUsers: 0,
-    blockedUsers: 0,
-    adminUsers: 0,
-    loading: true,
-  });
 
-  const loadStats = useCallback(async () => {
-    try {
-      const response = await listUsers({ limit: 100 });
+  // ---- useQuery for dashboard stats ----
+  const {
+    data: stats,
+    isLoading,
+  } = useQuery({
+    queryKey: queryKeys.admin.stats,
+    queryFn: () => listUsers({ limit: 100 }),
+    staleTime: ADMIN_STALE_TIME,
+    select: (response): Stats => {
       const users = response.users || [];
-
-      const activeUsers = users.filter((u) => u.status === 'active').length;
-      const blockedUsers = users.filter((u) => u.status === 'disabled').length;
-      const adminUsers = users.filter((u) => u.role_name === 'admin').length;
-
-      setStats({
+      return {
         totalUsers: response.total || users.length,
-        activeUsers,
-        blockedUsers,
-        adminUsers,
-        loading: false,
-      });
-    } catch {
-      setStats((prev) => ({ ...prev, loading: false }));
-    }
-  }, []);
-
-  if (stats.loading && stats.totalUsers === 0) {
-    loadStats();
-  }
+        activeUsers: users.filter((u) => u.status === 'active').length,
+        blockedUsers: users.filter((u) => u.status === 'disabled').length,
+        adminUsers: users.filter((u) => u.role_name === 'admin').length,
+      };
+    },
+  });
 
   const statCards = [
     {
       title: 'Total Usuarios',
-      value: stats.totalUsers,
+      value: stats?.totalUsers ?? 0,
       icon: <Users className="w-5 h-5 text-neutral-500" />,
       href: '/admin/users',
     },
     {
       title: 'Usuarios Activos',
-      value: stats.activeUsers,
+      value: stats?.activeUsers ?? 0,
       icon: <UserCheck className="w-5 h-5 text-neutral-500" />,
       href: '/admin/users?status=active',
     },
     {
       title: 'Bloqueados',
-      value: stats.blockedUsers,
+      value: stats?.blockedUsers ?? 0,
       icon: <UserX className="w-5 h-5 text-neutral-500" />,
       href: '/admin/users?status=disabled',
     },
     {
       title: 'Administradores',
-      value: stats.adminUsers,
+      value: stats?.adminUsers ?? 0,
       icon: <ShieldAlert className="w-5 h-5 text-neutral-500" />,
       href: '/admin/users?role=admin',
     },
   ];
 
-  if (stats.loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />

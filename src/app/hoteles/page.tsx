@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Timer } from 'lucide-react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import SearchForm, { SearchParams } from './components/SearchForm';
 import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
-import { searchHotels } from '@/app/lib/api/hotels';
-import { HotelApiError } from '@/app/lib/api/hotels';
-import type { HotelErrorCode } from '@/app/lib/api/hotels';
-import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
+import { searchHotels, HotelApiError } from '@/app/lib/api/hotels';
+import { useRateLimit } from '@/hooks/useRateLimit';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { HOTELS_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
 function HotelesContent() {
   const router = useRouter();
@@ -20,37 +21,7 @@ function HotelesContent() {
 
   const { context: authContext } = useAuthContext();
 
-  const [isSearching, setIsSearching] = useState(false);
-  const [displayedHotels, setDisplayedHotels] = useState<any[]>([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-
-  // ---- Rate limit state ----
-  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
-  const [rateLimitBlocked, setRateLimitBlocked] = useState<boolean>(false);
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
-
-  // Subscribe to rate limit store changes
-  useEffect(() => {
-    const unsubscribe = rateLimitStore.subscribe((info: RateLimitInfo | null) => {
-      setRateLimitInfo(info);
-    });
-
-    const interval = setInterval(() => {
-      setRateLimitBlocked(rateLimitStore.isBlocked);
-      setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
-    }, 1000);
-
-    setRateLimitBlocked(rateLimitStore.isBlocked);
-    setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
-
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, []);
-
-  const [nextToken, setNextToken] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
+  // ---- UI state ----
   const [hasSearched, setHasSearched] = useState(false);
   const [lastSearchParams, setLastSearchParams] = useState<SearchParams | null>(null);
 
@@ -63,109 +34,85 @@ function HotelesContent() {
     amenities: [],
   });
 
-  const selectedHotel = selectedHotelId 
-    ? displayedHotels.find(h => h.id === selectedHotelId) 
+  // ---- Rate limit ----
+  const {
+    info: rateLimitInfo,
+    isBlocked: rateLimitBlocked,
+    secondsLeft: rateLimitCountdown,
+  } = useRateLimit();
+
+  // ---- Infinite Query ----
+  const {
+    data: pagesData,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+    isFetchingNextPage,
+    error: queryError,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.hotels.search({
+      query: lastSearchParams?.query,
+      checkIn: lastSearchParams?.check_in_date,
+      checkOut: lastSearchParams?.check_out_date,
+      adults: lastSearchParams?.adults,
+      children: lastSearchParams?.children,
+    }),
+    queryFn: ({ pageParam, signal }) =>
+      searchHotels(
+        { ...lastSearchParams!, page_token: (pageParam as string | null) ?? null },
+        filters,
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.pagination?.next_token ?? undefined,
+    enabled: !!lastSearchParams,
+    staleTime: HOTELS_STALE_TIME,
+  });
+
+  const queryErrorMsg = queryError instanceof Error ? queryError.message : null;
+  const searchError = queryErrorMsg;
+
+  // ---- Computed: flatten pages ----
+  const displayedHotels = useMemo(() => {
+    return (pagesData?.pages ?? []).flatMap((p) => p.properties);
+  }, [pagesData]);
+
+  const selectedHotel = selectedHotelId
+    ? displayedHotels.find((h: any) => h.id === selectedHotelId)
     : null;
 
   const handleCloseModal = () => {
     router.push('/hoteles', { scroll: false });
   };
 
-  const handleSearch = async (params: SearchParams, customFilters?: FilterValues) => {
+  const handleSearch = (params: SearchParams, customFilters?: FilterValues) => {
     const activeFilters = customFilters || filters;
-
-    setIsSearching(true);
-    setHasSearched(true);
+    setFilters(activeFilters);
     setLastSearchParams(params);
-    setSearchError(null);
-    
-    try {
-      const response = await searchHotels(params, activeFilters);
-      
-      setDisplayedHotels(response.properties);
-      setNextToken(response.pagination.next_token);
-      setHasMore(response.pagination.has_more);
-      
-    } catch (error: unknown) {
-      console.error('❌ Error en la búsqueda:', error);
-      
-      let errorMessage: string;
-      if (error instanceof HotelApiError) {
-        const messages: Record<HotelErrorCode, string> = {
-          VALIDATION_ERROR: error.detail || 'Parámetros de búsqueda inválidos. Revisá los campos.',
-          INVALID_PARAM_RANGE: error.detail || 'Algún valor está fuera del rango permitido.',
-          RATE_LIMIT_EXCEEDED: 'Límite de búsquedas alcanzado. Reintentá en unos segundos.',
-          PROPERTY_NOT_FOUND: 'No se encontró el alojamiento solicitado.',
-          TOKEN_INVALID: 'Tu sesión ha expirado. Por favor, iniciá sesión nuevamente.',
-          PROVIDER_UNAVAILABLE: 'El servicio de búsqueda no está disponible. Reintentá más tarde.',
-          INTERNAL_ERROR: 'Error interno del servidor. Reintentá más tarde.',
-        };
-        errorMessage = messages[error.code] || error.detail;
-      } else {
-        errorMessage = error instanceof Error ? error.message : 'Error al buscar hoteles. Por favor intentá de nuevo.';
-      }
-      
-      setSearchError(errorMessage);
-      setDisplayedHotels([]);
-      setHasMore(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleLoadMore = async () => {
-    if (isSearching || !hasMore || !nextToken || !lastSearchParams) return;
-    
-    setIsSearching(true);
-    
-    try {
-      const response = await searchHotels(
-        {
-          ...lastSearchParams,
-          page_token: nextToken
-        },
-        filters
-      );
-      
-      setDisplayedHotels((prev) => [...prev, ...response.properties]);
-      
-      setNextToken(response.pagination.next_token);
-      setHasMore(response.pagination.has_more);
-      
-    } catch (error: unknown) {
-      console.error('❌ Error cargando más hoteles:', error);
-      if (error instanceof HotelApiError) {
-        console.error(`[${error.code}] ${error.detail}`);
-      }
-    } finally {
-      setIsSearching(false);
-    }
+    setHasSearched(true);
   };
 
   const handleFilterChange = (newFilters: FilterValues) => {
     setFilters(newFilters);
-    
+
     if (hasSearched && lastSearchParams) {
-      setDisplayedHotels([]);
-      setNextToken(null);
-      setHasMore(false);
-      
-      handleSearch(lastSearchParams, newFilters);
+      // Re-trigger search by setting params (forces query re-fetch)
+      setLastSearchParams({ ...lastSearchParams });
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3]">
       <div className="max-w-[1600px] mx-auto p-6">
-        
+
         <div className="grid grid-cols-12 gap-6">
-          
+
           <div className="col-span-3 space-y-6">
-            
+
             <div className="border-4 border-[#FF6B6B] rounded-2xl p-4 bg-white shadow-lg">
-              <img 
-                src="/logoMostrar.png" 
-                alt="ProacTrip Logo" 
+              <img
+                src="/logoMostrar.png"
+                alt="ProacTrip Logo"
                 className="w-full h-52 object-contain"
               />
             </div>
@@ -174,7 +121,7 @@ function HotelesContent() {
           </div>
 
           <div className="col-span-9 space-y-2">
-            
+
             <div className="mb-4">
               <h2 className="text-3xl font-bold text-gray-900">Buscar Hoteles</h2>
               <p className="text-gray-600 mt-2">Encuentra los mejores hoteles al mejor precio</p>
@@ -188,9 +135,9 @@ function HotelesContent() {
               )}
             </div>
 
-            <SearchForm onSearch={handleSearch} isLoading={isSearching && !hasSearched} />
+            <SearchForm onSearch={handleSearch} isLoading={isLoading && !hasSearched} />
 
-            {/* Error banner — follows vuelos/page.tsx pattern */}
+            {/* Error banner */}
             {searchError && (
               <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
@@ -199,7 +146,10 @@ function HotelesContent() {
                   <p className="text-sm text-red-600">{searchError}</p>
                 </div>
                 <button
-                  onClick={() => setSearchError(null)}
+                  onClick={() => {
+                    // Re-trigger search to clear error
+                    if (lastSearchParams) setLastSearchParams({ ...lastSearchParams });
+                  }}
                   className="ml-auto text-xs text-red-500 hover:text-red-700 underline"
                 >
                   Cerrar
@@ -241,26 +191,28 @@ function HotelesContent() {
               displayedHotels.length > 0 ? (
                 <HotelsList
                   hotels={displayedHotels}
-                  isLoading={isSearching}
-                  hasMore={hasMore}
-                  nextToken={nextToken}
-                  onLoadMore={handleLoadMore}
+                  isLoading={isLoading || isFetchingNextPage}
+                  hasMore={hasNextPage}
+                  nextToken={null}
+                  onLoadMore={() => fetchNextPage()}
                 />
               ) : (
-                <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-                  <div className="text-6xl mb-4">😔</div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    No se encontraron hoteles
-                  </h3>
-                  <p className="text-gray-600">
-                    Intenta ajustar tus filtros o cambiar las fechas
-                  </p>
-                </div>
+                !isLoading && (
+                  <div className="bg-white rounded-lg shadow-lg p-12 text-center">
+                    <div className="text-6xl mb-4">😔</div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                      No se encontraron hoteles
+                    </h3>
+                    <p className="text-gray-600">
+                      Intenta ajustar tus filtros o cambiar las fechas
+                    </p>
+                  </div>
+                )
               )
             ) : (
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                 <div className="grid grid-cols-2 min-h-[320px]">
-            
+
                   <div className="flex flex-col justify-center px-12 py-10">
                     <p className="text-xs font-semibold text-[#FF6B6B] uppercase tracking-widest mb-3">
                       ProacTrip Hoteles
@@ -284,7 +236,7 @@ function HotelesContent() {
                       ))}
                     </div>
                   </div>
-            
+
                   <div className="relative bg-gradient-to-br from-[#fff0e6] to-[#ffd4b3] flex items-center justify-center">
                     <div className="text-center px-8">
                       <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-4">
@@ -296,7 +248,7 @@ function HotelesContent() {
                       <p className="text-xs text-gray-500 mt-1">y encuentra tu próxima estancia</p>
                     </div>
                   </div>
-            
+
                 </div>
               </div>
             )}

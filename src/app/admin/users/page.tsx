@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -15,8 +15,8 @@ import {
   Clock,
   CalendarDays,
 } from 'lucide-react';
-import { listUsers } from '@/app/lib/api';
-import type { UserAdmin, UserListMeta } from '@/app/lib/types/admin';
+import { useAdminUsers } from '@/hooks/useAdminUsers';
+import type { UserAdmin } from '@/app/lib/types/admin';
 import DataTable, { Column } from '@/components/admin/DataTable';
 
 type UserStatus = 'active' | 'disabled' | 'suspended' | 'pending_verification' | '';
@@ -25,9 +25,8 @@ type UserRole = 'user' | 'staff' | 'admin' | 'client' | '';
 export default function AdminUsersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [users, setUsers] = useState<UserAdmin[]>([]);
-  const [meta, setMeta] = useState<UserListMeta | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // ---- UI filter state ----
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -41,38 +40,9 @@ export default function AdminUsersPage() {
   const [createdAfter, setCreatedAfter] = useState('');
   const [limit] = useState(10);
 
-  const [cursorStack, setCursorStack] = useState<string[]>(['']);
-  const [currentPage, setCurrentPage] = useState(0);
-
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadUsers = useCallback(async (cursor: string) => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = { limit };
-      if (cursor) params.cursor = cursor;
-      if (statusFilter) params.status = statusFilter;
-      if (roleFilter) params.role = roleFilter;
-      if (createdBefore) params.created_before = createdBefore;
-      if (createdAfter) params.created_after = createdAfter;
-      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-
-      const response = await listUsers(params);
-      setUsers(response.users || []);
-      setMeta(response.meta ?? null);
-    } catch (error) {
-      console.error('Error cargando usuarios:', error);
-      setUsers([]);
-      setMeta(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [limit, statusFilter, roleFilter, debouncedSearch, createdBefore, createdAfter]);
-
-  useEffect(() => {
-    loadUsers(cursorStack[currentPage] ?? '');
-  }, [loadUsers, currentPage, cursorStack]);
-
+  // ---- Debounce search ----
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
@@ -82,8 +52,6 @@ export default function AdminUsersPage() {
 
     searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setCursorStack(['']);
-      setCurrentPage(0);
       setSearchLoading(false);
     }, 400);
     return () => {
@@ -91,22 +59,23 @@ export default function AdminUsersPage() {
     };
   }, [searchQuery]);
 
-  useEffect(() => {
-    setCursorStack(['']);
-    setCurrentPage(0);
-  }, [statusFilter, roleFilter, createdBefore, createdAfter]);
-
-  const handleNextPage = () => {
-    if (!meta?.next_cursor) return;
-    const nextStack = [...cursorStack.slice(0, currentPage + 1), meta.next_cursor];
-    setCursorStack(nextStack);
-    setCurrentPage(currentPage + 1);
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage === 0) return;
-    setCurrentPage(currentPage - 1);
-  };
+  // ---- useAdminUsers hook ----
+  const {
+    data: users,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    refetch,
+  } = useAdminUsers({
+    limit,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    role: roleFilter || undefined,
+    created_before: createdBefore || undefined,
+    created_after: createdAfter || undefined,
+  });
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { text: string; icon: React.ReactNode }> = {
@@ -308,12 +277,12 @@ export default function AdminUsersPage() {
         columns={columns}
         data={users}
         total={users.length}
-        loading={loading || searchLoading}
+        loading={isLoading || searchLoading || isFetchingNextPage}
         paginationMode="cursor"
-        hasNext={meta?.has_next ?? false}
-        hasPrev={currentPage > 0}
-        onNextPage={handleNextPage}
-        onPrevPage={handlePrevPage}
+        hasNext={hasNextPage}
+        hasPrev={false}
+        onNextPage={() => fetchNextPage()}
+        onPrevPage={() => {}}
         onRowClick={(row) => router.push(`/admin/users/${row.id}`)}
         emptyMessage={
           searchQuery.trim()

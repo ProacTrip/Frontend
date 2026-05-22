@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getProfile, ProfileResponse } from '@/app/lib/api';
+import { useProfile } from '@/hooks/useProfile';
 import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
 import Loader from '@/components/ui/Loader';
 import {
   User,
@@ -37,29 +39,28 @@ export default function ProfilePage() {
   const { user } = useAuthContext();
   const { logoutAll } = useAuthContext();
   const [activeTab, setActiveTab] = useState('personal');
-  const [data, setData] = useState<ProfileResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
+  // ---- useProfile hook ----
+  const {
+    profile: data,
+    isLoading,
+    error,
+  } = useProfile();
+
+  const queryClient = useQueryClient();
+
+  // Invalidate and refetch profile after form saves
   const reloadProfile = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const profileData = await getProfile();
-      setData(profileData);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
+    // Cache avatar URL if present
+    const fresh = queryClient.getQueryData(queryKeys.profile.all);
+    if (fresh && typeof fresh === 'object' && 'profile' in fresh) {
+      const profileData = fresh as { profile: { avatar_url?: string } };
       if (profileData.profile.avatar_url) {
         localStorage.setItem(USER_AVATAR_CACHE_KEY, profileData.profile.avatar_url);
       }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    reloadProfile();
-  }, [reloadProfile]);
+  }, [queryClient]);
 
   if (isLoading) {
     return (
@@ -117,7 +118,7 @@ export default function ProfilePage() {
             </span>
           )}
         </div>
-        
+
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-800">
             {profile.first_name || profile.last_name
@@ -127,7 +128,7 @@ export default function ProfilePage() {
           {userEmail && (
             <p className="text-gray-500 mt-1">{userEmail}</p>
           )}
-          
+
           <div className="flex flex-wrap gap-2 mt-3">
             {profile.phone_verified ? (
               <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center gap-1">
@@ -180,7 +181,7 @@ export default function ProfilePage() {
           <LocaleForm profile={profile} onSave={reloadProfile} />
         )}
         {activeTab === 'travel' && (
-          <TravelForm 
+          <TravelForm
             prefs={travel_preferences ?? {
               preferred_class: null,
               seat_preference: null,
@@ -190,8 +191,8 @@ export default function ProfilePage() {
               preferred_hotels: null,
               avoid_layovers: false,
               max_layover_duration: null,
-            }} 
-            onSave={reloadProfile} 
+            }}
+            onSave={reloadProfile}
           />
         )}
         {activeTab === 'medical' && (

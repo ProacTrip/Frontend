@@ -10,6 +10,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search,
   FileCheck,
@@ -34,7 +35,10 @@ import {
 import type {
   DocumentVerification as DocVerification,
   DocumentVerificationStatus,
+  UpdateVerificationBody,
 } from '@/app/lib/types/admin';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { ADMIN_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
 const STATUS_LABELS: Record<DocumentVerificationStatus, string> = {
   pending: 'Pendiente',
@@ -53,10 +57,9 @@ const STATUS_COLORS: Record<DocumentVerificationStatus, string> = {
 };
 
 export default function DocumentVerificationPage() {
-  const [docId, setDocId] = useState('');
-  const [verification, setVerification] = useState<DocVerification | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const [inputDocId, setInputDocId] = useState('');
+  const [searchDocId, setSearchDocId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -64,57 +67,33 @@ export default function DocumentVerificationPage() {
   const [pendingStatus, setPendingStatus] = useState<Exclude<DocumentVerificationStatus, 'pending'> | null>(null);
   const [statusReason, setStatusReason] = useState('');
 
-  const handleSearch = async () => {
-    const trimmed = docId.trim();
-    if (!trimmed) {
-      setError('Ingresa un ID de documento (UUID).');
-      return;
-    }
+  // ---- useQuery for document verification (lazy) ----
+  const {
+    data: verification,
+    isLoading: queryLoading,
+  } = useQuery({
+    queryKey: queryKeys.admin.documents(searchDocId || ''),
+    queryFn: () => getDocumentVerification(searchDocId!),
+    enabled: !!searchDocId,
+    staleTime: ADMIN_STALE_TIME,
+  });
 
-    setLoading(true);
-    setError(null);
-    setSuccessMsg(null);
-    setVerification(null);
-
-    try {
-      const result = await getDocumentVerification(trimmed);
-      setVerification(result);
-      if (!result.status || result.status === 'pending') {
-        setSuccessMsg('Documento encontrado. Revisa su estado y actúa si es necesario.');
-      }
-    } catch (err: unknown) {
-      if (err instanceof DashboardApiError) {
-        setError(err.detail);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Error al consultar verificación.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateStatus = async () => {
-    if (!pendingStatus || !verification) return;
-
-    setActionLoading(true);
-    setError(null);
-
-    try {
-      const result = await updateDocumentVerification(verification.document_id, {
-        status: pendingStatus,
-        reason: statusReason.trim() || undefined,
-      });
+  // ---- useMutation: status update ----
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ docId, body }: { docId: string; body: UpdateVerificationBody }) =>
+      updateDocumentVerification(docId, body),
+    onSuccess: (result) => {
       setSuccessMsg(result.message);
       setShowStatusModal(false);
       setPendingStatus(null);
       setStatusReason('');
-
-      // Recargar verificación
-      const updated = await getDocumentVerification(verification.document_id);
-      setVerification(updated);
-    } catch (err: unknown) {
+      if (searchDocId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.admin.documents(searchDocId),
+        });
+      }
+    },
+    onError: (err: unknown) => {
       if (err instanceof DashboardApiError) {
         setError(err.detail);
       } else if (err instanceof Error) {
@@ -122,21 +101,16 @@ export default function DocumentVerificationPage() {
       } else {
         setError('Error al actualizar verificación.');
       }
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+  });
 
-  const handleReprocess = async () => {
-    if (!verification) return;
-
-    setActionLoading(true);
-    setError(null);
-
-    try {
-      const result = await reprocessDocument(verification.document_id);
+  // ---- useMutation: reprocess ----
+  const reprocessMutation = useMutation({
+    mutationFn: (docId: string) => reprocessDocument(docId),
+    onSuccess: (result) => {
       setSuccessMsg(result.message);
-    } catch (err: unknown) {
+    },
+    onError: (err: unknown) => {
       if (err instanceof DashboardApiError) {
         setError(err.detail);
       } else if (err instanceof Error) {
@@ -144,9 +118,36 @@ export default function DocumentVerificationPage() {
       } else {
         setError('Error al reprocesar documento.');
       }
-    } finally {
-      setActionLoading(false);
+    },
+  });
+
+  const actionLoading = updateStatusMutation.isPending || reprocessMutation.isPending;
+
+  const handleSearch = () => {
+    const trimmed = inputDocId.trim();
+    if (!trimmed) {
+      setError('Ingresa un ID de documento (UUID).');
+      return;
     }
+    setError(null);
+    setSuccessMsg(null);
+    setSearchDocId(trimmed);
+  };
+
+  const handleUpdateStatus = () => {
+    if (!pendingStatus || !verification) return;
+    updateStatusMutation.mutate({
+      docId: verification.document_id,
+      body: {
+        status: pendingStatus,
+        reason: statusReason.trim() || undefined,
+      },
+    });
+  };
+
+  const handleReprocess = () => {
+    if (!verification) return;
+    reprocessMutation.mutate(verification.document_id);
   };
 
   const openStatusModal = (status: Exclude<DocumentVerificationStatus, 'pending'>) => {
@@ -176,18 +177,18 @@ export default function DocumentVerificationPage() {
         <div className="flex gap-3">
           <input
             type="text"
-            value={docId}
-            onChange={(e) => setDocId(e.target.value)}
+            value={inputDocId}
+            onChange={(e) => setInputDocId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm bg-white font-mono"
             placeholder="ID del documento (UUID)..."
           />
           <button
             onClick={handleSearch}
-            disabled={loading || !docId.trim()}
+            disabled={queryLoading || !inputDocId.trim()}
             className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 transition-colors"
           >
-            {loading ? (
+            {queryLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Search className="w-4 h-4" />
