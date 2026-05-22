@@ -136,7 +136,7 @@ async function parseFlightError(response: Response, endpoint: string): Promise<F
  * Rate limit headers extracted from every response.
  * RFC 9457 errors mapped to FlightApiError.
  */
-export async function searchFlights(request: FlightSearchRequest): Promise<FlightSearchResponse> {
+export async function searchFlights(request: FlightSearchRequest, signal?: AbortSignal): Promise<FlightSearchResponse> {
   // 1. Business validation
   if (request.include_airlines?.length && request.exclude_airlines?.length) {
     throw new Error(FLIGHT_ERROR_MESSAGES.AIRLINE_FILTER_CONFLICT);
@@ -160,8 +160,11 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
   };
 
   const endpoint = '/v1/search/flights';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -169,7 +172,7 @@ export async function searchFlights(request: FlightSearchRequest): Promise<Fligh
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(apiBody),
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -226,7 +229,8 @@ export async function getFlightDetails(
     arrival: string;
     outbound_date: string;
     return_date?: string;
-  }
+  },
+  signal?: AbortSignal
 ): Promise<FlightDetailsResponse> {
   if (!bookingToken) throw new Error('Se requiere booking_token');
 
@@ -245,8 +249,11 @@ export async function getFlightDetails(
   };
 
   const endpoint = '/v1/search/flight-details';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 15000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -254,7 +261,7 @@ export async function getFlightDetails(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(apiBody),
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);

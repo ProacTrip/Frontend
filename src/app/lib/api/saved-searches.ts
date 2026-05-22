@@ -67,10 +67,14 @@ function extractRateLimitHeaders(response: Response, endpoint: string): void {
  */
 export async function createSavedSearch(
   body: CreateSavedSearchBody,
+  signal?: AbortSignal,
 ): Promise<CreateSavedSearchResponse | { conflict: true }> {
   const endpoint = '/v1/user/saved-searches';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -78,7 +82,7 @@ export async function createSavedSearch(
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(body),
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -117,16 +121,19 @@ export async function createSavedSearch(
  * Timeout: 10s.
  * Returns: SavedSearchListResponse (wraps SavedSearch[]).
  */
-export async function listSavedSearches(): Promise<SavedSearchListResponse> {
+export async function listSavedSearches(signal?: AbortSignal): Promise<SavedSearchListResponse> {
   const endpoint = '/v1/user/saved-searches';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -164,10 +171,14 @@ export async function listSavedSearches(): Promise<SavedSearchListResponse> {
 export async function updateSavedSearch(
   id: string,
   body: UpdateSavedSearchBody,
+  signal?: AbortSignal,
 ): Promise<UpdateSavedSearchResponse> {
   const endpoint = `/v1/user/saved-searches/${encodeURIComponent(id)}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -175,7 +186,7 @@ export async function updateSavedSearch(
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(body),
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -209,16 +220,19 @@ export async function updateSavedSearch(
  * Timeout: 10s.
  * Throws UserApiError(SEARCH_NOT_FOUND) on 404.
  */
-export async function deleteSavedSearch(id: string): Promise<{ message: string }> {
+export async function deleteSavedSearch(id: string, signal?: AbortSignal): Promise<{ message: string }> {
   const endpoint = `/v1/user/saved-searches/${encodeURIComponent(id)}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -257,10 +271,14 @@ export async function deleteSavedSearch(id: string): Promise<{ message: string }
 export async function togglePriceAlert(
   id: string,
   enabled: boolean,
+  signal?: AbortSignal,
 ): Promise<ToggleAlertResponse> {
   const endpoint = `/v1/user/saved-searches/${encodeURIComponent(id)}/alert`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -268,7 +286,7 @@ export async function togglePriceAlert(
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ enabled }),
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);

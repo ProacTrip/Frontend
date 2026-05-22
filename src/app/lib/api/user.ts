@@ -236,16 +236,19 @@ export async function parseUserError(response: Response, endpoint: string): Prom
  * 10s timeout via AbortController.
  * Rate limit headers extracted from every response.
  */
-export async function getProfile(): Promise<ProfileResponse> {
+export async function getProfile(signal?: AbortSignal): Promise<ProfileResponse> {
   const endpoint = '/v1/user/profile';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -308,10 +311,13 @@ function adaptProfileResponse(raw: any): ProfileResponse {
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
  */
-export async function updateProfile(data: UpdateProfileBody): Promise<void> {
+export async function updateProfile(data: UpdateProfileBody, signal?: AbortSignal): Promise<void> {
   const endpoint = '/v1/user/profile';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -319,7 +325,7 @@ export async function updateProfile(data: UpdateProfileBody): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -803,21 +809,24 @@ export async function resolveMedicalConflict(
  * 10s timeout via AbortController.
  * No Content-Type header (GET request).
  */
-export async function listFavorites(entityType?: EntityType): Promise<FavoritesResponse> {
+export async function listFavorites(entityType?: EntityType, signal?: AbortSignal): Promise<FavoritesResponse> {
   let url = '/v1/user/favorites';
   if (entityType) {
     url += `?entity_type=${encodeURIComponent(entityType)}`;
   }
 
   const endpoint = url;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -850,11 +859,15 @@ export async function listFavorites(entityType?: EntityType): Promise<FavoritesR
  * 10s timeout via AbortController.
  */
 export async function addFavorite(
-  body: CreateFavoriteBody
+  body: CreateFavoriteBody,
+  signal?: AbortSignal
 ): Promise<AddFavoriteResponse | { conflict: true }> {
   const endpoint = '/v1/user/favorites';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -862,7 +875,7 @@ export async function addFavorite(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
@@ -898,16 +911,19 @@ export async function addFavorite(
  * 10s timeout via AbortController.
  * No Content-Type header (DELETE request).
  */
-export async function deleteFavorite(favoriteId: string): Promise<{ message: string }> {
+export async function deleteFavorite(favoriteId: string, signal?: AbortSignal): Promise<{ message: string }> {
   const endpoint = `/v1/user/favorites/${favoriteId}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'DELETE',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);

@@ -144,6 +144,7 @@ const ROOMS_TIMEOUT_MS = 15_000;
 export async function searchHotels(
   params: SearchParams & { page_token?: string | null },
   filters: FilterValues,
+  signal?: AbortSignal,
 ): Promise<{
   type: string;
   results_state: string;
@@ -187,8 +188,11 @@ export async function searchHotels(
   if (filters.bathrooms != null) body.bathrooms = filters.bathrooms;
 
   const endpoint = '/v1/search/hotels';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), SEARCH_TIMEOUT_MS);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     console.log('🔍 Buscando hoteles...');
@@ -198,7 +202,7 @@ export async function searchHotels(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);
