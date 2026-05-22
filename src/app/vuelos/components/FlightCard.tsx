@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // app/vuelos/components/FlightCard.tsx
 'use client';
 
@@ -72,8 +73,7 @@ const Badge = ({
 };
 
 export default function FlightCard({ 
-  offer, 
-  onSelect, 
+  offer,
   onShowDetails,
   variant = 'default',
   isSelected = false,

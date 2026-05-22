@@ -78,13 +78,8 @@ export default function FlightSearchForm({
   const [isPassengersOpen, setIsPassengersOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   
   const passengerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true); 
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -97,22 +92,22 @@ export default function FlightSearchForm({
   }, []);
 
   // Initialize 2 empty legs when user switches to multi_city
-  useEffect(() => {
-    if (formState.tripType === 'multi_city') {
-      setFormState(prev => {
-        if (prev.legs.length === 0) {
-          return {
-            ...prev,
-            legs: [
-              { departure: '', arrival: '', date: '' },
-              { departure: '', arrival: '', date: '' },
-            ],
-          };
-        }
-        return prev;
-      });
-    }
-  }, [formState.tripType]);
+  const handleTripTypeChange = useCallback((tripType: TripType) => {
+    setFormState(prev => {
+      if (tripType === 'multi_city' && prev.legs.length === 0) {
+        return {
+          ...prev,
+          tripType,
+          legs: [
+            { departure: '', arrival: '', date: '' },
+            { departure: '', arrival: '', date: '' },
+          ],
+        };
+      }
+      return { ...prev, tripType };
+    });
+    setError(null);
+  }, []);
 
   const updateField = useCallback(<K extends keyof FlightSearchFormState>(
     field: K, 
@@ -311,7 +306,7 @@ export default function FlightSearchForm({
           <button
             key={option.id}
             type="button"
-            onClick={() => updateField('tripType', option.id)}
+            onClick={() => handleTripTypeChange(option.id)}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
               formState.tripType === option.id
                 ? 'bg-white text-[#c54141] shadow-sm'
@@ -390,7 +385,8 @@ export default function FlightSearchForm({
                   type="date"
                   value={formState.outboundDate}
                   onChange={(e) => updateField('outboundDate', e.target.value)}
-                  min={mounted ? getTodayString() : '2026-01-01'}
+                  min={getTodayString()}
+                  suppressHydrationWarning
                   placeholder="dd-mm-aaaa"
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] text-sm placeholder:text-gray-400"
                 />
@@ -408,7 +404,8 @@ export default function FlightSearchForm({
                     type="date"
                     value={formState.returnDate}
                     onChange={(e) => updateField('returnDate', e.target.value)}
-                    min={formState.outboundDate || (mounted ? getTodayString() : '2026-01-01')}
+                    min={formState.outboundDate || getTodayString()}
+                    suppressHydrationWarning
                     placeholder="dd-mm-aaaa"
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] text-sm placeholder:text-gray-400"
                   />

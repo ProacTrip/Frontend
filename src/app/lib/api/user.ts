@@ -14,7 +14,6 @@ import type {
   UpdateMedicalProfileBody,
   UpdateNotificationPreferenceBody,
   AvatarUploadUrl,
-  DefaultAvatar,
   EntityType,
   CreateFavoriteBody,
   FavoritesResponse,
@@ -23,7 +22,7 @@ import type {
   ResolveConflictBody,
   Channel,
   NotificationPreference,
-  BloodType,
+  TravelPreferences,
 } from '@/app/lib/types/user';
 import { rateLimitStore } from './rate-limit';
 
@@ -277,21 +276,21 @@ export async function getProfile(signal?: AbortSignal): Promise<ProfileResponse>
 
 /** Adapta la respuesta plana del backend al formato ProfileResponse del frontend. */
 // deno-lint-ignore no-explicit-any
-function adaptProfileResponse(raw: any): ProfileResponse {
-  const loc = raw.location || {};
+function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
+  const loc = (raw.location as Record<string, unknown>) || {};
   // Mapear location.timezone → timezone_name, etc.
   const adapted = {
     ...raw,
-    timezone_name: loc.timezone || raw.timezone_name || null,
-    language_code: loc.language || raw.language_code || null,
-    currency_code: loc.currency || raw.currency_code || null,
+    timezone_name: (loc.timezone as string) || (raw.timezone_name as string | null) || null,
+    language_code: (loc.language as string) || (raw.language_code as string | null) || null,
+    currency_code: (loc.currency as string) || (raw.currency_code as string | null) || null,
   };
 
   // Convertir notification_preferences de objeto {type: {channel: bool}} a array NotificationPreference[]
   const notification_preferences: NotificationPreference[] = Object.entries(
-    raw.notification_preferences || {}
+    (raw.notification_preferences as Record<string, Record<string, boolean>>) || {}
   ).flatMap(([type, channels]) =>
-    Object.entries(channels as Record<string, boolean>).map(([channel, enabled]) => ({
+    Object.entries(channels).map(([channel, enabled]) => ({
       notification_type: type,
       channel: channel as Channel,
       enabled,
@@ -299,8 +298,8 @@ function adaptProfileResponse(raw: any): ProfileResponse {
   );
 
   return {
-    profile: adapted,
-    travel_preferences: raw.travel_preferences || null,
+    profile: adapted as ProfileResponse['profile'],
+    travel_preferences: raw.travel_preferences as TravelPreferences | null,
     notification_preferences,
   };
 }

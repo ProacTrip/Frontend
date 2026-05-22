@@ -63,6 +63,7 @@ export default function DocumentDetailModal({
   // Fetch document detail on mount
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag set before async fetch
     setIsLoading(true);
     setError(null);
 

@@ -35,6 +35,7 @@ export function useDocumentSSE({ documentId, onEvent, onError }: UseDocumentSSEO
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEventRef = useRef(onEvent);
   const onErrorRef = useRef(onError);
+  const connectRef = useRef<(() => void) | null>(null);
 
   // Keep refs updated without re-subscribing
   useEffect(() => {
@@ -45,9 +46,9 @@ export function useDocumentSSE({ documentId, onEvent, onError }: UseDocumentSSEO
     onErrorRef.current = onError;
   }, [onError]);
 
-  const terminalStatuses: Array<DocumentEvent['status']> = ['completed', 'rejected', 'failed'];
-
   const connect = useCallback(() => {
+    const terminalStatuses: Array<DocumentEvent['status']> = ['completed', 'rejected', 'failed'];
+
     // Clean up any previous connection
     if (cleanupRef.current) {
       cleanupRef.current();
@@ -86,7 +87,7 @@ export function useDocumentSSE({ documentId, onEvent, onError }: UseDocumentSSEO
       backoffRef.current = Math.min(backoffRef.current * 2, maxBackoffRef.current);
 
       reconnectTimerRef.current = setTimeout(() => {
-        connect();
+        connectRef.current?.();
       }, delay);
     };
 
@@ -96,6 +97,11 @@ export function useDocumentSSE({ documentId, onEvent, onError }: UseDocumentSSEO
       wrappedOnError,
     );
   }, [documentId]);
+
+  // Keep connectRef in sync
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     connect();

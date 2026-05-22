@@ -9,7 +9,6 @@ import type {
   SearchHotelsResponse,
   HotelDetailsResponse,
   HotelRoomsResponse,
-  BackendSearchHotel,
   SearchParams,
   FilterValues,
 } from '@/app/lib/types/hotel';
@@ -149,7 +148,7 @@ export async function searchHotels(
   type: string;
   results_state: string;
   properties: ReturnType<typeof adaptSearchResults>;
-  brands: any[] | null;
+  brands: unknown[] | null;
   pagination: { next_token: string | null; has_more: boolean };
   from_cache: boolean;
   cached_at: string | null;

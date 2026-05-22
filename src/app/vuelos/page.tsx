@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // app/vuelos/page.tsx
 'use client';
 
@@ -61,7 +62,7 @@ export default function FlightsPage(): React.ReactElement {
     bags: 0,
   });
 
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('none');
+  const [, setSortCriteria] = useState<SortCriteria>('none');
   const [appliedSort, setAppliedSort] = useState<SortCriteria>('none');
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -115,6 +116,7 @@ export default function FlightsPage(): React.ReactElement {
   // If the form's onSearch provided a phase, use it; otherwise derive from first page
   useEffect(() => {
     if (searchPhase === 'initial' && pagesData?.pages[0]?.phase) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync phase from query result to UI state
       setSearchPhase(pagesData.pages[0].phase);
     }
   }, [pagesData, searchPhase]);
@@ -175,10 +177,6 @@ export default function FlightsPage(): React.ReactElement {
       logoUrl: allOffers.find((r: FlightOfferUI) => r.airline.code === code)?.airline.logoUrl
     }));
   }, [allOffers]);
-
-  const handleApplySort = useCallback((): void => {
-    setAppliedSort(sortCriteria);
-  }, [sortCriteria]);
 
   const handleApplyFilters = useCallback((): void => {
     setAppliedFilters(tempFilters);
@@ -245,6 +243,7 @@ export default function FlightsPage(): React.ReactElement {
         setIsLoadingDetails(false);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveSearchState.phase, searchRequest]);
 
   const handleShowDetails = useCallback((offer: FlightOfferUI): void => {

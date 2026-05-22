@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -29,7 +29,6 @@ export default function AdminUsersPage() {
   // ---- UI filter state ----
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<UserStatus>(
     (searchParams.get('status') as UserStatus) || ''
   );
@@ -42,17 +41,17 @@ export default function AdminUsersPage() {
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isSearching = useMemo(
+    () => searchQuery !== debouncedSearch,
+    [searchQuery, debouncedSearch]
+  );
+
   // ---- Debounce search ----
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
-    if (searchQuery !== debouncedSearch) {
-      setSearchLoading(true);
-    }
-
     searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setSearchLoading(false);
     }, 400);
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -64,8 +63,6 @@ export default function AdminUsersPage() {
     data: users,
     meta,
     isLoading,
-    error,
-    refetch,
     goToPage,
     hasNextPage,
     hasPrevPage,
@@ -202,7 +199,7 @@ export default function AdminUsersPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-2.5 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent bg-white"
             />
-            {searchLoading && (
+            {isSearching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 <div className="w-4 h-4 border-2 border-neutral-200 border-t-neutral-900 rounded-full animate-spin" />
               </div>
@@ -278,7 +275,7 @@ export default function AdminUsersPage() {
         columns={columns}
         data={users}
         total={users.length}
-        loading={isLoading || searchLoading}
+        loading={isLoading || isSearching}
         paginationMode="cursor"
         hasNext={hasNextPage}
         hasPrev={hasPrevPage}

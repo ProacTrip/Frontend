@@ -1,7 +1,7 @@
 // app/vuelos/components/PassengersDropdown.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Users, Minus, Plus, X, Baby, Armchair } from 'lucide-react';
 import { PASSENGER_LIMITS } from '@/app/lib/constants/flights';
 
@@ -29,8 +29,7 @@ interface PassengersDropdownProps {
 
 export default function PassengersDropdown({ 
   value, 
-  onChange, 
-  isOpen, 
+  onChange,
   onToggle 
 }: PassengersDropdownProps) {
   
@@ -65,9 +64,6 @@ export default function PassengersDropdown({
 
   const decrement = (type: keyof PassengerCounts) => updateCount(type, -1);
   const increment = (type: keyof PassengerCounts) => updateCount(type, 1);
-
-  const totalPassengers = value.adults + value.children + value.infantsInSeat + value.infantsOnLap;
-  const passengerLabel = totalPassengers === 1 ? '1 pasajero' : `${totalPassengers} pasajeros`;
 
   return (
     <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in">

@@ -65,11 +65,7 @@ export function transformFlightOffer(apiOffer: FlightOffer, isRecommended: boole
     currency: apiOffer.price?.currency || 'EUR',
   };
 
-  // 7. Features
-  const features = firstLeg.features || { 
-    wifi: null, power_outlets: false, usb: false, entertainment: null, raw: [] 
-  };
-
+  // 7. Features (used in transformLeg, not needed at offer level)
   // 8. ✅ CORREGIDO: Lógica de oftenDelayed (Si algún leg se retrasa, el viaje se retrasa)
   const isAnyLegDelayed = apiOffer.legs.some(leg => leg.often_delayed);
 

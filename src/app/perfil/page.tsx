@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';

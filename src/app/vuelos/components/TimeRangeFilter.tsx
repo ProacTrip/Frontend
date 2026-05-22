@@ -41,13 +41,6 @@ export default function TimeRangeFilter({
     onChange({ ...value, [type]: newValue });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
-    const val = parseInt(e.target.value);
-    if (!isNaN(val)) {
-      handleChange(type, val);
-    }
-  };
-
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
       <div className="flex items-center gap-2 mb-3 text-gray-700">

@@ -12,23 +12,21 @@ const CHECKOUT_KEY = 'checkout_data';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
-
-  // ==================== LEER DATOS DEL localStorage ====================
-  useEffect(() => {
+  const [checkoutData] = useState<CheckoutData | null>(() => {
     try {
       const raw = localStorage.getItem(CHECKOUT_KEY);
-      if (!raw) {
-        router.push('/hoteles');
-        return;
-      }
-      const data: CheckoutData = JSON.parse(raw);
-      setCheckoutData(data);
+      if (!raw) return null;
+      return JSON.parse(raw);
     } catch {
-      router.push('/hoteles');
+      return null;
     }
-  }, [router]);
+  });
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  // ==================== REDIRIGIR SI NO HAY DATOS ====================
+  useEffect(() => {
+    if (!checkoutData) router.push('/hoteles');
+  }, [checkoutData, router]);
 
   // ==================== CONFIRMAR RESERVA (useMutation) ====================
   const { mutate: confirmBooking, isPending: isLoading } = useMutation({
@@ -74,8 +72,6 @@ export default function CheckoutPage() {
       </div>
     );
   }
-
-  const grandTotal = checkoutData.total_price + Math.round(checkoutData.total_price * 0.1);
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3]">

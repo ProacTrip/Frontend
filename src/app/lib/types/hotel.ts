@@ -89,6 +89,7 @@ export interface SearchParams {
   property_types?: number[];
   hotel_classes?: number[];
   amenities?: number[];
+  infants_in_seat?: number;
 }
 
 export interface FilterValues {
@@ -330,7 +331,7 @@ export interface SearchHotelsResponse {
   type: "hotels" | "vacation_rentals";
   results_state: "matching" | "non_matching_only";
   properties: BackendSearchHotel[];
-  brands: any[] | null;
+  brands: unknown[] | null;
   pagination: {
     next_token: string | null;
     has_more: boolean;

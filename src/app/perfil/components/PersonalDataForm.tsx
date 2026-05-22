@@ -70,14 +70,14 @@ export function PersonalDataForm({ profile, onSave }: Props) {
 
         // El resto de campos (strings) pueden ir como "" para borrarse
         if (finalValue !== null && finalValue !== undefined) {
-            (payload as any)[key] = finalValue;
+            (payload as Record<string, unknown>)[key] = finalValue;
         }
     });
 
         await updateProfile(payload);
         onSave();
-    } catch (err: any) {
-        setError(err.message);
+    } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
     } finally {
         setIsSaving(false);
     }

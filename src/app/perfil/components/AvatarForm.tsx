@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useRef } from 'react';
 import {
@@ -55,8 +56,8 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
       onSave();
       setFile(null);
       setPreview(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al subir avatar');
     } finally {
       setIsUploading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FileText, AlertCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,7 +18,6 @@ import DocumentDeleteDialog from './components/DocumentDeleteDialog';
 import DocumentDetailModal from './components/DocumentDetailModal';
 import type {
   DocumentListItem,
-  DocumentUploadResponse,
   DocumentEvent,
 } from '@/app/lib/types/document';
 
@@ -41,9 +40,6 @@ export default function DocumentosPage() {
 
   // --- Detail modal state ---
   const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
-
-  // --- Processing docs (for SSE auto-subscription) ---
-  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   // ==========================================
   // LOAD DOCUMENT TYPES
@@ -81,16 +77,13 @@ export default function DocumentosPage() {
           ? 'Error al cargar los documentos.'
           : null;
 
-  // Derive processing IDs from documents when data arrives
-  useEffect(() => {
-    if (!documentListData) return;
+  // --- Processing docs (for SSE auto-subscription) ---
+  const processingIds = useMemo(() => {
     const processing = new Set<string>();
-    for (const doc of documentListData.documents) {
-      if (doc.ocr_status === 'processing') {
-        processing.add(doc.id);
-      }
+    for (const doc of documentListData?.documents ?? []) {
+      if (doc.ocr_status === 'processing') processing.add(doc.id);
     }
-    setProcessingIds(processing);
+    return processing;
   }, [documentListData]);
 
   // ==========================================
@@ -124,7 +117,7 @@ export default function DocumentosPage() {
   // ==========================================
 
   const handleUploadSuccess = useCallback(
-    (_response: DocumentUploadResponse) => {
+    () => {
       // Invalidate the documents query to refresh the list
       queryClient.invalidateQueries({
         queryKey: ['user-documents', filters.status, filters.document_type],
@@ -141,8 +134,7 @@ export default function DocumentosPage() {
   const handleDownload = useCallback(async (id: string) => {
     try {
       await downloadDocument(id);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al descargar el documento.';
+    } catch {
       // Download errors are transient — show as query error banner
     }
   }, []);
@@ -222,18 +214,7 @@ export default function DocumentosPage() {
           },
         );
 
-        // Refresh the full list on terminal status
-        if (
-          event.status === 'completed' ||
-          event.status === 'rejected' ||
-          event.status === 'failed'
-        ) {
-          setProcessingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(docId);
-            return next;
-          });
-        }
+        // Refresh the full list on terminal status (processingIds re-derived via useMemo)
       },
     });
 

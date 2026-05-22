@@ -28,7 +28,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   handleCopyError = () => {
-    const { error, errorInfo } = this.state;
+    const { error } = this.state;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const traceId = (error as any)?.traceId || (error as any)?.trace_id;
     const details = [

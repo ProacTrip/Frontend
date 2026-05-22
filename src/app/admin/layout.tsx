@@ -25,6 +25,7 @@ export default function AdminLayout({
     if (isLoading || redirected) return;
 
     if (!isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- navigation guard sets redirect flag before router.replace
       setRedirected(true);
       router.replace('/auth/login?redirect=/admin&reason=session_expired');
       return;

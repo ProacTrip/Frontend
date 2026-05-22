@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // app/checkout/components/BookingSummary.tsx
 'use client';
 

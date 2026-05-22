@@ -82,6 +82,7 @@ export default function AISearchPage() {
       setRateLimitBlocked(rateLimitStore.isBlocked);
       setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
     }, 1000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initializing rate limit state from external store
     setRateLimitBlocked(rateLimitStore.isBlocked);
     setRateLimitCountdown(rateLimitStore.secondsUntilUnblock);
 
@@ -220,7 +221,7 @@ export default function AISearchPage() {
   );
 
   // --- Handle missing field chip click ---
-  const handleFieldSelect = useCallback((field: string) => {
+  const handleFieldSelect = useCallback(() => {
     // Focus the input — the user types the value
     // We could pre-fill, but keeping it simple: user sees the field name and types
   }, []);

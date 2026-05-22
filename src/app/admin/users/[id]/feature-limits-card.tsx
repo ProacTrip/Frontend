@@ -111,6 +111,7 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadData is async, setState happens in callbacks
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, roleId]);

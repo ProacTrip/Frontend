@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -78,7 +79,7 @@ function HotelesContent() {
   }, [pagesData]);
 
   const selectedHotel = selectedHotelId
-    ? displayedHotels.find((h: any) => h.id === selectedHotelId)
+    ? displayedHotels.find((h) => h.id === selectedHotelId)
     : null;
 
   const handleCloseModal = () => {

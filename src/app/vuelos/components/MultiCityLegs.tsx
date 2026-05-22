@@ -1,7 +1,7 @@
 // app/vuelos/components/MultiCityLegs.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { X, Plus, ArrowRight, Calendar, MapPin, ChevronDown, Clock } from 'lucide-react';
 import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
 import { MultiCityLeg } from '@/app/lib/types/flight';
@@ -56,11 +56,6 @@ function arrivalRangeToTimes(prev: MultiCityLeg['times'], range: TimeRange): Mul
 }
 
 export default function MultiCityLegs({ legs, onLegsChange, errors = {} }: MultiCityLegsProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleLegChange = (index: number, field: keyof MultiCityLeg, value: string | TimeRange | MultiCityLeg['times'] | undefined) => {
     const newLegs = [...legs];
@@ -176,7 +171,8 @@ export default function MultiCityLegs({ legs, onLegsChange, errors = {} }: Multi
                   type="date"
                   value={leg.date}
                   onChange={(e) => handleLegChange(index, 'date', e.target.value)}
-                  min={mounted ? getTodayString() : '2026-01-01'}
+                  min={getTodayString()}
+                  suppressHydrationWarning
                   className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] text-sm transition-all ${
                     legErrors.some((e) => e.toLowerCase().includes('fecha'))
                       ? 'border-red-400 bg-red-50'

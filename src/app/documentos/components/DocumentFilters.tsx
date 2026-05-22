@@ -37,6 +37,7 @@ export default function DocumentFilters({ onFilterChange }: DocumentFiltersProps
   // Load document types on mount
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag set before async fetch
     setTypesLoading(true);
     setTypesError(false);
 

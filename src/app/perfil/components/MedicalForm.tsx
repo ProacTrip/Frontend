@@ -65,8 +65,8 @@ export function MedicalForm({ onSave }: Props) {
           is_shared: (adapted.is_shared as boolean) ?? false,
         });
       }
-    } catch (err: any) {
-      setLoadError(err.message);
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : 'Error al cargar perfil médico');
     }
   }, []);
 
@@ -125,8 +125,8 @@ export function MedicalForm({ onSave }: Props) {
 
       await updateMedicalProfile(payload as UpdateMedicalProfileBody);
       onSave();
-    } catch (err: any) {
-      setSaveError(err.message);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Error al guardar perfil médico');
     } finally {
       setIsSaving(false);
     }

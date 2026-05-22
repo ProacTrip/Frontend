@@ -75,8 +75,8 @@ export function NotificationsForm({ prefs, onSave }: Props) {
       });
 
       onSave();
-    } catch (err: any) {
-      setErrorMap((prev) => ({ ...prev, [key]: err.message }));
+    } catch (err: unknown) {
+      setErrorMap((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : 'Error al actualizar notificación' }));
     } finally {
       setLoadingMap((prev) => ({ ...prev, [key]: false }));
     }
@@ -115,7 +115,6 @@ export function NotificationsForm({ prefs, onSave }: Props) {
                   const key = getKey(type, channel);
                   const enabled = isEnabled(type, channel);
                   const isLoading = loadingMap[key];
-                  const error = errorMap[key];
 
                   return (
                     <button

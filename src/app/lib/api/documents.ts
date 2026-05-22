@@ -17,7 +17,6 @@
 import type {
   DocumentType,
   DocumentUploadResponse,
-  DocumentListItem,
   DocumentDetail,
   DocumentEvent,
   DocumentListResponse,

@@ -40,7 +40,7 @@ export function TravelForm({ prefs, onSave }: Props) {
     setError('');
 
     try {
-      const payload: Record<string, any> = {};
+      const payload: Record<string, unknown> = {};
 
       if (form.preferred_class) payload.preferred_class = form.preferred_class;
       if (form.seat_preference) payload.seat_preference = form.seat_preference;
@@ -62,8 +62,8 @@ export function TravelForm({ prefs, onSave }: Props) {
 
       await updateTravelPreferences(payload);
       onSave();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
     } finally {
       setIsSaving(false);
     }

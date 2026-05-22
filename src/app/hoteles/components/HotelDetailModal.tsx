@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, MapPin, Star, Wifi, Coffee, Waves, Car, Dumbbell, UtensilsCrossed, ShieldCheck, Leaf, Building2 } from 'lucide-react';
@@ -30,7 +31,7 @@ function extractReviews(externalReviews: FrontendHotel['externalReviews']) {
     .filter(Boolean) as Array<{ author: string; date: string; rating: number; comment: string }>;
 }
 
-const amenityIcons: Record<string, any> = {
+const amenityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   'Free Wi-Fi': Wifi,
   'WiFi gratis': Wifi,
   'Piscina': Waves,
@@ -140,7 +141,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
     }
 
     router.push(
-      `/hoteles/${hotel.id}/habitaciones?hotelName=${encodeURIComponent(hotel.name)}&checkIn=${checkInStr}&checkOut=${checkOutStr}&adults=${adults}&nights=${nights}&rooms=${rooms}&children=${searchParams?.children || 0}&infants=${(searchParams as any)?.infants_in_seat || 0}`
+      `/hoteles/${hotel.id}/habitaciones?hotelName=${encodeURIComponent(hotel.name)}&checkIn=${checkInStr}&checkOut=${checkOutStr}&adults=${adults}&nights=${nights}&rooms=${rooms}&children=${searchParams?.children || 0}&infants=${searchParams?.infants_in_seat || 0}`
     );
   };
 

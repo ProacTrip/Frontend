@@ -272,6 +272,7 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
           {showGuestsDropdown && (
             <GuestsDropdown
               adults={adults}
+              // eslint-disable-next-line react/no-children-prop -- 'children' is a domain concept (child passengers count), not React children
               children={children}
               childrenAges={childrenAges}
               rooms={rooms}

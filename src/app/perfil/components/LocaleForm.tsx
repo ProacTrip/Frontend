@@ -82,8 +82,8 @@ export function LocaleForm({ profile, onSave }: Props) {
 
       await updateLocale(payload);
       onSave();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar localización');
     } finally {
       setIsSaving(false);
     }

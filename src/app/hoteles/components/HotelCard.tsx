@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // app/hoteles/components/HotelCard.tsx (CORREGIDO)
 
 'use client';
@@ -27,6 +28,7 @@ export default function HotelCard({ hotel, isFavorite = false, onToggleFavorite 
   const router = useRouter();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting error state when image index changes
     setImageError(false);
   }, [currentImageIndex]);
 

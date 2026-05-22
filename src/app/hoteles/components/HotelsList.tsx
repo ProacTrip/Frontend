@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import HotelCard from './HotelCard';
 import { useFavorites } from '@/hooks/useFavorites';
+import type { FrontendHotel } from '@/app/lib/types/hotel';
 
 interface HotelsListProps {
-  hotels: any[];
+  hotels: FrontendHotel[];
   isLoading: boolean;
   hasMore: boolean;
   nextToken: string | null; // 🔧 Token para pedir la siguiente página al backend
@@ -44,7 +45,7 @@ export default function HotelsList({
   }, [hasMore, isLoading, onLoadMore]);
 
   // ==================== FAVORITOS ====================
-  const handleToggleFavorite = async (hotel: any) => {
+  const handleToggleFavorite = async (hotel: FrontendHotel) => {
     if (togglingId) return; // Ya hay uno procesando
     
     setTogglingId(hotel.id);
