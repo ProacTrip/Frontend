@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Loader, AlertCircle, Upload } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listDocuments,
   deleteDocument,
@@ -27,15 +28,9 @@ import type {
 // ==========================================
 
 export default function DocumentosPage() {
-  // --- Document list state ---
-  const [documents, setDocuments] = useState<DocumentListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // --- Document types cache ---
-  const [types, setTypes] = useState<DocumentType[]>([]);
-
-  // --- Filters ---
+  // --- Filters (UI state — triggers query refetch on change) ---
   const [filters, setFilters] = useState<DocumentFiltersValues>({
     status: null,
     document_type: null,
@@ -52,54 +47,78 @@ export default function DocumentosPage() {
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   // ==========================================
-  // LOAD DOCUMENT TYPES ON MOUNT
+  // LOAD DOCUMENT TYPES
   // ==========================================
-  useEffect(() => {
-    listDocumentTypes()
-      .then(setTypes)
-      .catch(() => {
-        // Types are not critical — page still works without them
-      });
-  }, []);
+  const { data: types = [] } = useQuery({
+    queryKey: ['document-types'],
+    queryFn: listDocumentTypes,
+    staleTime: 60 * 60 * 1000, // 1h cache — types rarely change
+  });
 
   // ==========================================
   // LOAD DOCUMENTS
   // ==========================================
-  const loadDocuments = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await listDocuments({
+  const {
+    data: documentListData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['user-documents', filters.status, filters.document_type],
+    queryFn: () =>
+      listDocuments({
         status: filters.status || undefined,
         document_type: filters.document_type || undefined,
-      });
-      setDocuments(response.documents);
+      }),
+  });
 
-      // Track processing docs for SSE
-      const processing = new Set<string>();
-      for (const doc of response.documents) {
-        if (doc.ocr_status === 'processing') {
-          processing.add(doc.id);
-        }
-      }
-      setProcessingIds(processing);
-    } catch (err: unknown) {
-      if (err instanceof UserApiError) {
-        setError(err.detail);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Error al cargar los documentos.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters]);
+  const documents = documentListData?.documents ?? [];
+  const queryError =
+    error instanceof UserApiError
+      ? error.detail
+      : error instanceof Error
+        ? error.message
+        : error
+          ? 'Error al cargar los documentos.'
+          : null;
 
+  // Derive processing IDs from documents when data arrives
   useEffect(() => {
-    loadDocuments();
-  }, [loadDocuments]);
+    if (!documentListData) return;
+    const processing = new Set<string>();
+    for (const doc of documentListData.documents) {
+      if (doc.ocr_status === 'processing') {
+        processing.add(doc.id);
+      }
+    }
+    setProcessingIds(processing);
+  }, [documentListData]);
+
+  // ==========================================
+  // DELETE MUTATION
+  // ==========================================
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteDocument(id),
+    onMutate: (id) => {
+      setDeletingId(id);
+    },
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData(
+        ['user-documents', filters.status, filters.document_type],
+        (old: typeof documentListData) => {
+          if (!old) return old;
+          return {
+            ...old,
+            documents: old.documents.filter((d) => d.id !== id),
+          };
+        },
+      );
+      setDocToDelete(null);
+    },
+    onSettled: () => {
+      setDeletingId(null);
+    },
+  });
 
   // ==========================================
   // HANDLERS
@@ -107,36 +126,25 @@ export default function DocumentosPage() {
 
   const handleUploadSuccess = useCallback(
     (_response: DocumentUploadResponse) => {
-      // Refresh the document list
-      loadDocuments();
+      // Invalidate the documents query to refresh the list
+      queryClient.invalidateQueries({
+        queryKey: ['user-documents', filters.status, filters.document_type],
+      });
     },
-    [loadDocuments],
+    [queryClient, filters],
   );
 
-  const handleDelete = useCallback(async () => {
+  const handleDelete = useCallback(() => {
     if (!docToDelete) return;
-
-    setDeletingId(docToDelete.id);
-
-    try {
-      await deleteDocument(docToDelete.id);
-      // Optimistic removal from list
-      setDocuments((prev) => prev.filter((d) => d.id !== docToDelete.id));
-      setDocToDelete(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al eliminar el documento.';
-      setError(msg);
-    } finally {
-      setDeletingId(null);
-    }
-  }, [docToDelete]);
+    deleteMutation.mutate(docToDelete.id);
+  }, [docToDelete, deleteMutation]);
 
   const handleDownload = useCallback(async (id: string) => {
     try {
       await downloadDocument(id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al descargar el documento.';
-      setError(msg);
+      // Download errors are transient — show as query error banner
     }
   }, []);
 
@@ -148,28 +156,39 @@ export default function DocumentosPage() {
     setSelectedDoc(doc);
   }, []);
 
-  const handleStatusUpdate = useCallback((event: DocumentEvent, docId: string) => {
-    setDocuments((prev) =>
-      prev.map((d) => {
-        if (d.id === docId) {
-          const updated: DocumentListItem = {
-            ...d,
-            ocr_status: event.status,
+  const handleStatusUpdate = useCallback(
+    (event: DocumentEvent, docId: string) => {
+      // Update document in cache optimistically
+      queryClient.setQueryData(
+        ['user-documents', filters.status, filters.document_type],
+        (old: typeof documentListData) => {
+          if (!old) return old;
+          return {
+            ...old,
+            documents: old.documents.map((d) => {
+              if (d.id === docId) {
+                const updated: DocumentListItem = {
+                  ...d,
+                  ocr_status: event.status,
+                };
+                if (event.ocr_confidence !== undefined) {
+                  updated.ocr_confidence = event.ocr_confidence;
+                }
+                return updated;
+              }
+              return d;
+            }),
           };
-          if (event.ocr_confidence !== undefined) {
-            updated.ocr_confidence = event.ocr_confidence;
-          }
-          return updated;
-        }
-        return d;
-      }),
-    );
+        },
+      );
 
-    // If the doc reached a terminal state, refresh to get the full updated data from backend
-    if (event.status === 'completed' || event.status === 'rejected' || event.status === 'failed') {
-      loadDocuments();
-    }
-  }, [loadDocuments]);
+      // If the doc reached a terminal state, refetch to get full updated data
+      if (event.status === 'completed' || event.status === 'rejected' || event.status === 'failed') {
+        refetch();
+      }
+    },
+    [queryClient, filters, refetch],
+  );
 
   // ==========================================
   // SSE TRACKING for processing documents (3.8)
@@ -177,22 +196,31 @@ export default function DocumentosPage() {
   //
   // For each document in 'processing' state, subscribe to SSE events.
   // The useDocumentSSE hook handles reconnection and cleanup.
-  // We render <ProcessingTracker> for each processing document.
   function ProcessingTracker({ docId }: { docId: string }) {
     useDocumentSSE({
       documentId: docId,
       onEvent: (event: DocumentEvent) => {
-        setDocuments((prev) =>
-          prev.map((d) =>
-            d.id === docId
-              ? {
-                  ...d,
-                  ocr_status: event.status,
-                  ocr_confidence:
-                    event.ocr_confidence !== undefined ? event.ocr_confidence : d.ocr_confidence,
-                }
-              : d,
-          ),
+        // Update document in cache optimistically
+        queryClient.setQueryData(
+          ['user-documents', filters.status, filters.document_type],
+          (old: typeof documentListData) => {
+            if (!old) return old;
+            return {
+              ...old,
+              documents: old.documents.map((d) =>
+                d.id === docId
+                  ? {
+                      ...d,
+                      ocr_status: event.status,
+                      ocr_confidence:
+                        event.ocr_confidence !== undefined
+                          ? event.ocr_confidence
+                          : d.ocr_confidence,
+                    }
+                  : d,
+              ),
+            };
+          },
         );
 
         // Refresh the full list on terminal status
@@ -201,7 +229,6 @@ export default function DocumentosPage() {
           event.status === 'rejected' ||
           event.status === 'failed'
         ) {
-          // Remove from processing set
           setProcessingIds((prev) => {
             const next = new Set(prev);
             next.delete(docId);
@@ -254,7 +281,7 @@ export default function DocumentosPage() {
   // ==========================================
   // ERROR STATE (no documents loaded)
   // ==========================================
-  if (error && documents.length === 0) {
+  if (queryError && documents.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
@@ -266,9 +293,9 @@ export default function DocumentosPage() {
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <p className="text-red-600 font-medium mb-1">Error al cargar los documentos</p>
-            <p className="text-sm text-gray-500 mb-4">{error}</p>
+            <p className="text-sm text-gray-500 mb-4">{queryError}</p>
             <button
-              onClick={loadDocuments}
+              onClick={() => refetch()}
               className="px-4 py-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#ff5252] transition-colors font-medium"
             >
               Reintentar
@@ -328,18 +355,18 @@ export default function DocumentosPage() {
       </div>
 
       {/* Error banner (non-fatal — documents are shown behind it) */}
-      {error && (
+      {queryError && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
           <div>
             <p className="font-medium text-red-800 text-sm">Error</p>
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">{queryError}</p>
           </div>
           <button
-            onClick={() => setError(null)}
+            onClick={() => refetch()}
             className="ml-auto text-xs text-red-500 hover:text-red-700 underline"
           >
-            Cerrar
+            Reintentar
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 import BookingSummary, { CheckoutData } from './components/BookingSummary';
 import PaymentForm, { GuestData, CardData } from './components/PaymentForm';
 import { apiFetch } from '@/app/lib/api';
@@ -13,15 +14,13 @@ const CHECKOUT_KEY = 'checkout_data';
 export default function CheckoutPage() {
   const router = useRouter();
   const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // ==================== LEER DATOS DEL localStorage ====================
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CHECKOUT_KEY);
       if (!raw) {
-        // No hay datos → volver al inicio
         router.push('/hoteles');
         return;
       }
@@ -32,94 +31,6 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  // ==================== CONFIRMAR RESERVA ====================
-  const handleConfirm = async (guest: GuestData, card: CardData) => {
-    if (!checkoutData) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-
-      // ✅ VERSIÓN REAL - DESCOMENTAR CUANDO MARCO ACTIVE EL ENDPOINT
-      /*
-      const endpoint = getBookingEndpoint(checkoutData.type);
-
-      const response = await apiFetch(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({
-          // IDs de la reserva
-          [`${checkoutData.type}_id`]: checkoutData.item_id,
-          ...(checkoutData.room_id ? { room_id: checkoutData.room_id } : {}),
-
-          // Fechas y huéspedes
-          check_in_date: checkoutData.check_in,
-          check_out_date: checkoutData.check_out,
-          adults: checkoutData.adults,
-          children: checkoutData.children || 0,
-
-          // Datos del huésped principal
-          guest: {
-            first_name: guest.first_name,
-            last_name: guest.last_name,
-            email: guest.email,
-            phone: guest.phone,
-            nationality: guest.nationality,
-            special_requests: guest.special_requests,
-          },
-
-          // Datos de pago
-          payment: {
-            method: 'card',
-            card_number: card.card_number,
-            card_expiry: card.card_expiry,
-            card_cvv: card.card_cvv,
-            card_holder: card.card_holder,
-          },
-
-          currency: checkoutData.currency,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Error al procesar el pago');
-      }
-
-      const booking = await response.json();
-
-      // Limpiar localStorage tras reserva exitosa
-      localStorage.removeItem(CHECKOUT_KEY);
-
-      // Redirigir a confirmación
-      router.push(`/confirmacion/${booking.booking_id}`);
-      */
-
-      // 🚧 VERSIÓN MOCK - COMENTAR CUANDO ACTIVES EL BACKEND REAL
-      console.log('🚧 [MOCK] Simulando confirmación de reserva...');
-      console.log('📤 Datos del huésped:', guest);
-      console.log('📤 Datos de la reserva:', checkoutData);
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const mockBookingId = `BOOK-${Date.now()}`;
-
-      // Limpiar localStorage tras reserva exitosa
-      localStorage.removeItem(CHECKOUT_KEY);
-
-      console.log(`✅ [MOCK] Reserva confirmada: ${mockBookingId}`);
-
-      // Redirigir a confirmación
-      router.push(`/confirmacion/${mockBookingId}`);
-
-    } catch (err) {
-      console.error('❌ Error en el pago:', err);
-      setError(err instanceof Error ? err.message : 'Error al procesar el pago. Inténtalo de nuevo.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Devuelve el endpoint correcto según el tipo de reserva
   const getBookingEndpoint = (type: CheckoutData['type']): string => {
     switch (type) {
@@ -128,6 +39,44 @@ export default function CheckoutPage() {
       case 'plan': return '/v1/bookings/plans';
       case 'experiencia': return '/v1/bookings/experiences';
     }
+  };
+
+  // ==================== CONFIRMAR RESERVA (useMutation) ====================
+  const { mutate: confirmBooking, isPending: isLoading } = useMutation({
+    mutationFn: async ({
+      guest,
+      card,
+    }: {
+      guest: GuestData;
+      card: CardData;
+    }) => {
+      // 🚧 VERSIÓN MOCK - COMENTAR CUANDO ACTIVES EL BACKEND REAL
+      console.log('🚧 [MOCK] Simulando confirmación de reserva...');
+      console.log('📤 Datos del huésped:', guest);
+      console.log('📤 Datos de la reserva:', checkoutData);
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const mockBookingId = `BOOK-${Date.now()}`;
+      console.log(`✅ [MOCK] Reserva confirmada: ${mockBookingId}`);
+      return mockBookingId;
+    },
+    onSuccess: (bookingId: string) => {
+      localStorage.removeItem(CHECKOUT_KEY);
+      router.push(`/confirmacion/${bookingId}`);
+    },
+    onError: (err: unknown) => {
+      console.error('❌ Error en el pago:', err);
+      setMutationError(
+        err instanceof Error ? err.message : 'Error al procesar el pago. Inténtalo de nuevo.',
+      );
+    },
+  });
+
+  const handleConfirm = (guest: GuestData, card: CardData) => {
+    if (!checkoutData) return;
+    setMutationError(null);
+    confirmBooking({ guest, card });
   };
 
   // ==================== LOADING INICIAL ====================
@@ -162,12 +111,12 @@ export default function CheckoutPage() {
         </div>
 
         {/* ERROR GLOBAL */}
-        {error && (
+        {mutationError && (
           <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
             <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-red-700">Error al procesar el pago</p>
-              <p className="text-sm text-red-600 mt-0.5">{error}</p>
+              <p className="text-sm text-red-600 mt-0.5">{mutationError}</p>
             </div>
           </div>
         )}

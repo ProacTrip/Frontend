@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, MapPin, Send, Clock, CheckCircle2 } from 'lucide-react';
-import Loader from '@/components/ui/Loader'; // ✅ IMPORTAMOS EL LOADER
+import { useMutation } from '@tanstack/react-query';
+import Loader from '@/components/ui/Loader';
 
 export default function ContactanosPage() {
   const [formData, setFormData] = useState({
@@ -14,26 +15,29 @@ export default function ContactanosPage() {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { mutate: submitForm, isPending: isSubmitting } = useMutation({
+    mutationFn: async () => {
+      // 🚧 MOCK — reemplazar con API real cuando esté disponible
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    },
+    onSuccess: () => {
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({ name: '', email: '', message: '' });
+      }, 4000);
+    },
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setSubmitted(true);
-    
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: '', email: '', message: '' });
-    }, 4000);
+    submitForm();
   };
 
   return (

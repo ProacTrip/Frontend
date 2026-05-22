@@ -3,6 +3,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, AlertCircle, Timer, RefreshCw } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { searchAI } from '@/app/lib/api/search-ai';
 import { SearchAIError } from '@/app/lib/types/search-ai';
@@ -53,7 +54,6 @@ export default function AISearchPage() {
 
   // --- State ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -94,7 +94,98 @@ export default function AISearchPage() {
   // --- Scroll to bottom on new messages ---
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages]);
+
+  // --- AI Search mutation ---
+  const sendMutation = useMutation({
+    mutationFn: async ({
+      text,
+      cid,
+    }: {
+      text: string;
+      cid: string | null;
+    }): Promise<AIResponse> => {
+      return searchAI(text, cid || undefined);
+    },
+    onMutate: ({ text }) => {
+      // Append user message immediately for instant feedback
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        text,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setError(null);
+    },
+    onSuccess: (response: AIResponse) => {
+      // Update conversation state
+      if (response.conversation_id && !conversationId) {
+        setConversationId(response.conversation_id);
+      }
+      setTurnInfo({
+        current: response.turn_count,
+        max: response.max_turns,
+      });
+
+      // Build AI message
+      const aiMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'ai',
+        text: response.message || '',
+        intent: response.intent,
+        timestamp: Date.now(),
+      };
+
+      // Attach results based on intent
+      if (response.intent === 'flights') {
+        aiMsg.flights = response.flights;
+      } else if (response.intent === 'hotels') {
+        aiMsg.hotels = response.hotels;
+      } else if (response.intent === 'both') {
+        aiMsg.flights = response.flights;
+        aiMsg.hotels = response.hotels;
+        aiMsg.flightsError = response.flights_error;
+        aiMsg.hotelsError = response.hotels_error;
+      } else if (response.intent === 'incomplete' || response.intent === 'ambiguous') {
+        aiMsg.missingFields = response.missing_fields;
+      }
+
+      setMessages((prev) => [...prev, aiMsg]);
+    },
+    onError: (err: unknown) => {
+      let errorText: string;
+
+      if (err instanceof SearchAIError) {
+        errorText = ERROR_MESSAGES[err.code] || err.detail;
+
+        if (err.code === 'CONVERSATION_NOT_FOUND') {
+          setConversationId(null);
+          setTurnInfo(null);
+          setMessages([]);
+        }
+
+        if (err.code === 'TURN_LIMIT_EXCEEDED') {
+          setTurnInfo((prev) =>
+            prev ? { ...prev, current: prev.max } : null,
+          );
+        }
+      } else if (err instanceof Error) {
+        errorText = err.message;
+      } else {
+        errorText = 'Error inesperado al procesar tu consulta.';
+      }
+
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'ai',
+        text: errorText,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      setError(errorText);
+    },
+  });
 
   // --- Persist conversation state ---
   useEffect(() => {
@@ -117,105 +208,15 @@ export default function AISearchPage() {
 
   // --- Check if input should be disabled ---
   const turnLimitReached = turnInfo !== null && turnInfo.current >= turnInfo.max;
-  const inputDisabled = isLoading || turnLimitReached || rateLimitBlocked;
+  const inputDisabled = sendMutation.isPending || turnLimitReached || rateLimitBlocked;
 
   // --- Handle send ---
   const handleSend = useCallback(
-    async (text: string) => {
+    (text: string) => {
       if (inputDisabled) return;
-
-      // Clear previous non-persistent error
-      setError(null);
-
-      // 1. Append user message
-      const userMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        text,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-
-      // 2. Set loading
-      setIsLoading(true);
-
-      try {
-        // 3. Call API
-        const response: AIResponse = await searchAI(text, conversationId || undefined);
-
-        // 4. Update conversation state
-        if (response.conversation_id && !conversationId) {
-          setConversationId(response.conversation_id);
-        }
-        setTurnInfo({
-          current: response.turn_count,
-          max: response.max_turns,
-        });
-
-        // 5. Build AI message
-        const aiMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'ai',
-          text: response.message || '',
-          intent: response.intent,
-          timestamp: Date.now(),
-        };
-
-        // Attach results based on intent
-        if (response.intent === 'flights') {
-          aiMsg.flights = response.flights;
-        } else if (response.intent === 'hotels') {
-          aiMsg.hotels = response.hotels;
-        } else if (response.intent === 'both') {
-          aiMsg.flights = response.flights;
-          aiMsg.hotels = response.hotels;
-          aiMsg.flightsError = response.flights_error;
-          aiMsg.hotelsError = response.hotels_error;
-        } else if (response.intent === 'incomplete' || response.intent === 'ambiguous') {
-          aiMsg.missingFields = response.missing_fields;
-        }
-
-        setMessages((prev) => [...prev, aiMsg]);
-        setError(null);
-      } catch (err: unknown) {
-        let errorText: string;
-
-        if (err instanceof SearchAIError) {
-          errorText = ERROR_MESSAGES[err.code] || err.detail;
-
-          // Handle conversation-not-found: reset state
-          if (err.code === 'CONVERSATION_NOT_FOUND') {
-            setConversationId(null);
-            setTurnInfo(null);
-            setMessages([]);
-          }
-
-          // Handle turn limit: mark as reached
-          if (err.code === 'TURN_LIMIT_EXCEEDED') {
-            setTurnInfo((prev) =>
-              prev ? { ...prev, current: prev.max } : null,
-            );
-          }
-        } else if (err instanceof Error) {
-          errorText = err.message;
-        } else {
-          errorText = 'Error inesperado al procesar tu consulta.';
-        }
-
-        // Append error as AI message
-        const errorMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'ai',
-          text: errorText,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
-        setError(errorText);
-      } finally {
-        setIsLoading(false);
-      }
+      sendMutation.mutate({ text, cid: conversationId });
     },
-    [conversationId, inputDisabled],
+    [inputDisabled, conversationId, sendMutation],
   );
 
   // --- Handle missing field chip click ---
@@ -286,7 +287,7 @@ export default function AISearchPage() {
         ========================================== */}
         <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4">
           {/* Empty state */}
-          {messages.length === 0 && !isLoading && (
+          {messages.length === 0 && !sendMutation.isPending && (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mb-6">
                 <Sparkles className="w-8 h-8 text-white" />
@@ -305,7 +306,7 @@ export default function AISearchPage() {
                   <button
                     key={prompt}
                     onClick={() => handleSend(prompt)}
-                    disabled={isLoading || rateLimitBlocked}
+                    disabled={sendMutation.isPending || rateLimitBlocked}
                     className="
                       text-left px-4 py-3 rounded-xl border border-gray-200
                       bg-white text-sm text-gray-700 hover:border-[#c54141]/30
@@ -350,7 +351,7 @@ export default function AISearchPage() {
           ))}
 
           {/* Typing indicator */}
-          {isLoading && <AITypingIndicator />}
+          {sendMutation.isPending && <AITypingIndicator />}
 
           {/* Scroll anchor */}
           <div ref={chatEndRef} />

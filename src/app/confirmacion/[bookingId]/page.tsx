@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Calendar, Users, Moon, Download, Home, Phone, Mail } from 'lucide-react';
 
 export default function ConfirmacionPage() {
@@ -10,32 +10,29 @@ export default function ConfirmacionPage() {
   const bookingId = params.bookingId as string;
 
   // ==================== LEER DATOS DEL BACKEND (futuro) ====================
-  // Por ahora reconstruimos lo que podemos desde localStorage
-  // En Apartado 13 esto vendrá de GET /v1/bookings/{bookingId}
-  const [bookingData, setBookingData] = useState<any>(null);
+  const { data: bookingData, isLoading } = useQuery({
+    queryKey: ['booking', bookingId],
+    queryFn: async () => {
+      // 🚧 MOCK - En Apartado 13 reemplazar con:
+      // const response = await apiFetch(`/v1/bookings/${bookingId}`);
+      // return await response.json();
 
-  useEffect(() => {
-    // 🚧 MOCK - En Apartado 13 reemplazar con:
-    // const response = await apiFetch(`/v1/bookings/${bookingId}`);
-    // const data = await response.json();
-    // setBookingData(data);
-
-    // Por ahora usamos fecha actual y bookingId de la URL
-    setBookingData({
-      booking_id: bookingId,
-      status: 'confirmed',
-      created_at: new Date().toISOString(),
-    });
-
-    // Limpiar checkout_data del localStorage por si acaso no se limpió en checkout
-    localStorage.removeItem('checkout_data');
-  }, [bookingId]);
+      // Por ahora usamos fecha actual y bookingId de la URL
+      localStorage.removeItem('checkout_data');
+      return {
+        booking_id: bookingId,
+        status: 'confirmed',
+        created_at: new Date().toISOString(),
+      };
+    },
+    enabled: !!bookingId,
+  });
 
   const handleDownload = () => {
     window.print();
   };
 
-  if (!bookingData) {
+  if (isLoading || !bookingData) {
     return (
       <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#FF6B6B] border-t-transparent rounded-full animate-spin" />

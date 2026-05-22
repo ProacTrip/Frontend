@@ -1,10 +1,12 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, Suspense } from 'react';
+import { Suspense } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import RoomCard from './components/RoomCard';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
 import { getHotelRooms } from '@/app/lib/api';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
 
 function HabitacionesContent() {
   const params = useParams();
@@ -23,15 +25,16 @@ function HabitacionesContent() {
   const childrenParam = searchParams.get('children') || '0';
   const infantsParam = searchParams.get('infants') || '0';
 
-  const [hotelRooms, setHotelRooms] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadRooms() {
-      if (!checkIn || !checkOut) {
-        setIsLoading(false);
-        return;
-      }
+  // ==========================================
+  // LOAD ROOMS via useQuery
+  // ==========================================
+  const {
+    data: hotelRooms = [],
+    isLoading,
+  } = useQuery({
+    queryKey: [...queryKeys.hotels.rooms(hotelId), checkIn, checkOut, adults, childrenParam],
+    queryFn: async () => {
+      if (!checkIn || !checkOut) return [];
 
       try {
         const roomsData = await getHotelRooms(hotelId, {
@@ -42,22 +45,16 @@ function HabitacionesContent() {
         });
 
         if (roomsData && Array.isArray(roomsData) && roomsData.length > 0) {
-          setHotelRooms(roomsData);
-        } else {
-          const mockData = await getHotelRoomsMock(hotelId);
-          setHotelRooms(mockData);
+          return roomsData;
         }
+        return getHotelRoomsMock(hotelId);
       } catch (error) {
         console.error('❌ Error cargando habitaciones:', error);
-        const mockData = await getHotelRoomsMock(hotelId);
-        setHotelRooms(mockData);
-      } finally {
-        setIsLoading(false);
+        return getHotelRoomsMock(hotelId);
       }
-    }
-
-    loadRooms();
-  }, [hotelId, checkIn, checkOut, adults, childrenParam]);
+    },
+    enabled: !!hotelId && !!checkIn && !!checkOut,
+  });
 
   const handleSelectRoom = (roomId: string) => {
     const room = hotelRooms.find(r => r.id === roomId);
