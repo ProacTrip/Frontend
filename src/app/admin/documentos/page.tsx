@@ -33,7 +33,6 @@ import {
   DashboardApiError,
 } from '@/app/lib/api/documents-admin';
 import type {
-  DocumentVerification as DocVerification,
   DocumentVerificationStatus,
   UpdateVerificationBody,
 } from '@/app/lib/types/admin';

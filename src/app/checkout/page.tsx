@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import BookingSummary, { CheckoutData } from './components/BookingSummary';
-import PaymentForm, { GuestData, CardData } from './components/PaymentForm';
-import { apiFetch } from '@/app/lib/api';
+import PaymentForm, { GuestData } from './components/PaymentForm';
 
 // Clave de localStorage donde cada módulo guarda los datos antes de redirigir aquí
 const CHECKOUT_KEY = 'checkout_data';
@@ -31,24 +30,12 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  // Devuelve el endpoint correcto según el tipo de reserva
-  const getBookingEndpoint = (type: CheckoutData['type']): string => {
-    switch (type) {
-      case 'hotel': return '/v1/bookings/hotels';
-      case 'vuelo': return '/v1/bookings/flights';
-      case 'plan': return '/v1/bookings/plans';
-      case 'experiencia': return '/v1/bookings/experiences';
-    }
-  };
-
   // ==================== CONFIRMAR RESERVA (useMutation) ====================
   const { mutate: confirmBooking, isPending: isLoading } = useMutation({
     mutationFn: async ({
       guest,
-      card,
     }: {
       guest: GuestData;
-      card: CardData;
     }) => {
       // 🚧 VERSIÓN MOCK - COMENTAR CUANDO ACTIVES EL BACKEND REAL
       console.log('🚧 [MOCK] Simulando confirmación de reserva...');
@@ -73,10 +60,10 @@ export default function CheckoutPage() {
     },
   });
 
-  const handleConfirm = (guest: GuestData, card: CardData) => {
+  const handleConfirm = (guest: GuestData) => {
     if (!checkoutData) return;
     setMutationError(null);
-    confirmBooking({ guest, card });
+    confirmBooking({ guest });
   };
 
   // ==================== LOADING INICIAL ====================

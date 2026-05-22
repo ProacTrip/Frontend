@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
-import type { EnvironmentResponse } from '@/app/lib/api/context';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { ENV_STALE_TIME } from '@/app/lib/queries/staleTimes';
 

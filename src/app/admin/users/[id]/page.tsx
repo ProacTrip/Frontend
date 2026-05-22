@@ -30,7 +30,6 @@ import {
   updateAccountStatus,
 } from '@/app/lib/api';
 import { DashboardApiError } from '@/app/lib/api/management';
-import type { UserAdminDetail } from '@/app/lib/types/admin';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { ADMIN_STALE_TIME } from '@/app/lib/queries/staleTimes';
 import FeatureLimitsCard from './feature-limits-card';

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProfile, updateProfile } from '@/app/lib/api';
-import type { ProfileResponse, UpdateProfileBody } from '@/app/lib/types/user';
+import type { UpdateProfileBody } from '@/app/lib/types/user';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
 

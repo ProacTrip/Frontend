@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plane, RotateCcw, MapPin, SlidersHorizontal, AlertCircle, Shield, Sparkles, Clock, Filter, ArrowUpDown, Timer } from 'lucide-react';
+import { Plane, MapPin, SlidersHorizontal, AlertCircle, Shield, Sparkles, Clock, Filter, Timer } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
@@ -13,8 +13,7 @@ import FlightFilters, { FlightFiltersState } from './components/FlightFilters';
 import FlightDetailModal from './components/FlightDetailModal';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
 
-import { searchFlights, getFlightDetails, FlightApiError } from '@/app/lib/api/flights';
-import type { FlightErrorCode } from '@/app/lib/api/flights';
+import { searchFlights, getFlightDetails } from '@/app/lib/api/flights';
 import type {
   FlightSearchResponse,
   FlightSearchRequest,
@@ -22,7 +21,6 @@ import type {
   FlightDetailsResponse
 } from '@/app/lib/types/flight';
 import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
-import { SEARCH_CONFIG } from '@/app/lib/constants/flights';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { FLIGHTS_STALE_TIME } from '@/app/lib/queries/staleTimes';

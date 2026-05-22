@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { FileText, Trash2, Download, Loader, Eye } from 'lucide-react';
 import type { DocumentListItem, DocumentType } from '@/app/lib/types/document';
 

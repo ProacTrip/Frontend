@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FileText, Loader, AlertCircle, Upload } from 'lucide-react';
+import { FileText, AlertCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listDocuments,
@@ -18,7 +18,6 @@ import DocumentDeleteDialog from './components/DocumentDeleteDialog';
 import DocumentDetailModal from './components/DocumentDetailModal';
 import type {
   DocumentListItem,
-  DocumentType,
   DocumentUploadResponse,
   DocumentEvent,
 } from '@/app/lib/types/document';

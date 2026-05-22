@@ -2,14 +2,14 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, AlertCircle, Timer, RefreshCw } from 'lucide-react';
+import { Sparkles, AlertCircle, Timer } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { searchAI } from '@/app/lib/api/search-ai';
 import { SearchAIError } from '@/app/lib/types/search-ai';
 import type { AIErrorCode } from '@/app/lib/types/search-ai';
 import type { AIResponse, ChatMessage } from '@/app/lib/types/search-ai';
-import { rateLimitStore, type RateLimitInfo } from '@/app/lib/api/rate-limit';
+import { rateLimitStore } from '@/app/lib/api/rate-limit';
 
 import ChatBubble from './components/ChatBubble';
 import ChatInput from './components/ChatInput';

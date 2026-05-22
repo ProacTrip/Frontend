@@ -8,7 +8,7 @@ import SearchForm, { SearchParams } from './components/SearchForm';
 import HotelFilters, { FilterValues } from './components/HotelFilters';
 import HotelsList from './components/HotelsList';
 import HotelDetailModal from './components/HotelDetailModal';
-import { searchHotels, HotelApiError } from '@/app/lib/api/hotels';
+import { searchHotels } from '@/app/lib/api/hotels';
 import { useRateLimit } from '@/hooks/useRateLimit';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
