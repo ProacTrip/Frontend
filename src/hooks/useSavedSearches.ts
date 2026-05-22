@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listSavedSearches,
   createSavedSearch,
@@ -13,139 +14,161 @@ import type {
   SavedSearch,
   CreateSavedSearchBody,
   UpdateSavedSearchBody,
+  SavedSearchListResponse,
   CreateSavedSearchResponse,
   UpdateSavedSearchResponse,
 } from '@/app/lib/types/saved-search';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { SAVED_SEARCHES_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
 export function useSavedSearches() {
-  const [searches, setSearches] = useState<SavedSearch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.savedSearches.all;
 
-  // ==========================================
-  // LOAD
-  // ==========================================
+  // ── LIST (query) ────────────────────────────────────
+  const {
+    data,
+    isPending,
+    isLoading: isQueryLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => listSavedSearches(signal),
+    staleTime: SAVED_SEARCHES_STALE_TIME,
+  });
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await listSavedSearches();
-      setSearches(data.searches);
-    } catch (err: unknown) {
-      if (err instanceof UserApiError) {
-        setError(err.detail);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Error al cargar las búsquedas guardadas.');
+  const searches: SavedSearch[] = data?.searches ?? [];
+
+  const queryErrorMsg =
+    queryError instanceof Error
+      ? queryError.message
+      : null;
+
+  // ── CREATE (mutation) ───────────────────────────────
+  const createMutation = useMutation({
+    mutationFn: (body: CreateSavedSearchBody) => createSavedSearch(body),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // ── UPDATE (mutation) ───────────────────────────────
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: UpdateSavedSearchBody;
+    }) => updateSavedSearch(id, body),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // ── REMOVE (mutation + optimistic) ──────────────────
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteSavedSearch(id),
+
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SavedSearchListResponse>(queryKey);
+
+      if (previous) {
+        queryClient.setQueryData<SavedSearchListResponse>(queryKey, {
+          searches: previous.searches.filter((s) => s.id !== id),
+        });
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+      return { previous };
+    },
 
-  // ==========================================
-  // CREATE
-  // ==========================================
-
-  const create = useCallback(
-    async (body: CreateSavedSearchBody): Promise<CreateSavedSearchResponse | { conflict: true }> => {
-      try {
-        const result = await createSavedSearch(body);
-
-        // Conflict — search already exists
-        if ('conflict' in result) {
-          return result;
-        }
-
-        // Success — re-fetch full list (API returns {search_id, message}, not full entity)
-        await load();
-        return result;
-      } catch (err) {
-        throw err;
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
       }
     },
-    [load],
-  );
 
-  // ==========================================
-  // UPDATE
-  // ==========================================
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // ── TOGGLE ALERT (mutation + optimistic) ────────────
+  const toggleAlertMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      togglePriceAlert(id, enabled),
+
+    onMutate: async ({ id, enabled }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SavedSearchListResponse>(queryKey);
+
+      // Optimistic: toggle alert_enabled in-place
+      if (previous) {
+        queryClient.setQueryData<SavedSearchListResponse>(queryKey, {
+          searches: previous.searches.map((s) =>
+            s.id === id ? { ...s, alert_enabled: enabled } : s,
+          ),
+        });
+      }
+
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // ── DERIVED ─────────────────────────────────────────
+  const isLoading = isPending || isQueryLoading;
+
+  // ── PUBLIC API ──────────────────────────────────────
+  const create = useCallback(
+    async (
+      body: CreateSavedSearchBody,
+    ): Promise<CreateSavedSearchResponse | { conflict: true }> => {
+      return createMutation.mutateAsync(body);
+    },
+    [createMutation],
+  );
 
   const update = useCallback(
-    async (id: string, body: UpdateSavedSearchBody): Promise<UpdateSavedSearchResponse> => {
-      try {
-        const result = await updateSavedSearch(id, body);
-
-        // Re-fetch full list (API returns {message}, not full entity)
-        await load();
-
-        return result;
-      } catch (err) {
-        throw err;
-      }
+    async (
+      id: string,
+      body: UpdateSavedSearchBody,
+    ): Promise<UpdateSavedSearchResponse> => {
+      return updateMutation.mutateAsync({ id, body });
     },
-    [load],
+    [updateMutation],
   );
 
-  // ==========================================
-  // REMOVE
-  // ==========================================
-
-  const remove = useCallback(async (id: string): Promise<void> => {
-    try {
-      await deleteSavedSearch(id);
-
-      // Optimistic: remove from list
-      setSearches((prev) => prev.filter((s) => s.id !== id));
-    } catch (err) {
-      throw err;
-    }
-  }, []);
-
-  // ==========================================
-  // TOGGLE ALERT
-  // ==========================================
+  const remove = useCallback(
+    async (id: string): Promise<void> => {
+      await removeMutation.mutateAsync(id);
+    },
+    [removeMutation],
+  );
 
   const toggleAlert = useCallback(
     async (id: string, enabled: boolean): Promise<void> => {
-      // Snapshot current state for rollback
-      const previous = searches.find((s) => s.id === id);
-      if (!previous) return;
-
-      // Optimistic update
-      setSearches((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, alert_enabled: enabled } : s,
-        ),
-      );
-
-      try {
-        await togglePriceAlert(id, enabled);
-        // Success — backend confirmed, no action needed
-      } catch {
-        // Revert on failure
-        setSearches((prev) =>
-          prev.map((s) =>
-            s.id === id ? { ...s, alert_enabled: previous.alert_enabled } : s,
-          ),
-        );
-        throw new Error('No se pudo cambiar el estado de la alerta.');
-      }
+      await toggleAlertMutation.mutateAsync({ id, enabled });
     },
-    [searches],
+    [toggleAlertMutation],
   );
 
   return {
     searches,
     isLoading,
-    error,
-    load,
+    error: queryErrorMsg,
+    load: () => refetch(),
     create,
     update,
     remove,

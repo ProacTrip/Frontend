@@ -140,7 +140,7 @@ async function parseDashboardError(response: Response, endpoint: string): Promis
  * Lista usuarios con paginación por cursor y filtros combinables.
  * Requiere permiso: users:read
  */
-export async function listUsers(params: UserListParams = {}): Promise<UserListResponse> {
+export async function listUsers(params: UserListParams = {}, signal?: AbortSignal): Promise<UserListResponse> {
   const query = new URLSearchParams();
   if (params.limit) query.set('limit', String(params.limit));
   if (params.cursor) query.set('cursor', params.cursor);
@@ -151,14 +151,17 @@ export async function listUsers(params: UserListParams = {}): Promise<UserListRe
   if (params.created_after) query.set('created_after', params.created_after);
 
   const endpoint = `/v1/dashboard/users?${query.toString()}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10_000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
       credentials: 'include',
-      signal: controller.signal,
+      signal: effectiveSignal,
     });
 
     clearTimeout(timeoutId);

@@ -1,105 +1,174 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { listFavorites, addFavorite, deleteFavorite } from '@/app/lib/api'; // ← Usando el barrel export
-import { Favorite, EntityType, CreateFavoriteBody, AddFavoriteResponse } from '@/app/lib/types/user';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { listFavorites, addFavorite, deleteFavorite } from '@/app/lib/api';
+import type {
+  Favorite,
+  EntityType,
+  CreateFavoriteBody,
+  FavoritesResponse,
+  AddFavoriteResponse,
+} from '@/app/lib/types/user';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { FAVORITES_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
 export function useFavorites(entityType?: EntityType) {
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false); // ← Estado separado para el spinner del corazón
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.favorites.byType(entityType);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await listFavorites(entityType);
-      setFavorites(data.favorites);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [entityType]);
+  // ── LIST (query) ────────────────────────────────────
+  const {
+    data,
+    isPending,
+    isLoading: isQueryLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => listFavorites(entityType, signal),
+    staleTime: FAVORITES_STALE_TIME,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const favorites: Favorite[] = data?.favorites ?? [];
+
+  const queryErrorMsg =
+    queryError instanceof Error ? queryError.message : null;
+
+  // ── TOGGLE (mutation + optimistic) ───────────────────
+  const toggleMutation = useMutation({
+    mutationFn: async (
+      body: CreateFavoriteBody,
+    ): Promise<
+      | { _result: 'removed'; id: string }
+      | { _result: 'added'; response: AddFavoriteResponse | { conflict: true } }
+    > => {
+      // Determine whether to add or remove based on current cache
+      const current = queryClient.getQueryData<FavoritesResponse>(queryKey);
+      const existing = current?.favorites.find(
+        (f) => f.entity_id === body.entity_id,
+      );
+
+      if (existing) {
+        await deleteFavorite(existing.id);
+        return { _result: 'removed', id: existing.id };
+      }
+
+      const response = await addFavorite(body);
+      return { _result: 'added', response };
+    },
+
+    onMutate: async (body) => {
+      // Cancel in-flight list queries so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      const previous = queryClient.getQueryData<FavoritesResponse>(queryKey);
+
+      if (previous) {
+        const exists = previous.favorites.some(
+          (f) => f.entity_id === body.entity_id,
+        );
+
+        const updated: FavoritesResponse = exists
+          ? {
+              favorites: previous.favorites.filter(
+                (f) => f.entity_id !== body.entity_id,
+              ),
+            }
+          : {
+              favorites: [
+                ...previous.favorites,
+                {
+                  id: `optimistic-${body.entity_id}`,
+                  entity_id: body.entity_id,
+                  entity_type: body.entity_type,
+                  title: body.title,
+                  notes: body.notes ?? null,
+                  created_at: new Date().toISOString(),
+                },
+              ],
+            };
+
+        queryClient.setQueryData(queryKey, updated);
+      }
+
+      return { previous };
+    },
+
+    onError: (_err, _body, context) => {
+      // Rollback to snapshot on failure
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+
+    onSettled: () => {
+      // Always re-sync with server after mutation settles
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites.all });
+    },
+  });
+
+  // ── REMOVE (mutation) ───────────────────────────────
+  const removeMutation = useMutation({
+    mutationFn: (favoriteId: string) => deleteFavorite(favoriteId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites.all });
+    },
+  });
+
+  // ── DERIVED HELPERS ─────────────────────────────────
+  const isLoading = isPending || isQueryLoading;
 
   const isFavorite = useCallback(
-    (entityId: string) => favorites.some((f) => f.entity_id === entityId),
-    [favorites]
+    (entityId: string): boolean =>
+      favorites.some((f) => f.entity_id === entityId),
+    [favorites],
   );
 
+  // ── PUBLIC API ──────────────────────────────────────
   const toggleFavorite = useCallback(
-    async (body: CreateFavoriteBody) => {
-      // ← Prevenir doble click
-      if (isToggling) return;
-
-      const existing = favorites.find((f) => f.entity_id === body.entity_id);
-      setIsToggling(true);
+    async (body: CreateFavoriteBody): Promise<boolean> => {
+      // Prevent double-click
+      if (toggleMutation.isPending) return false;
 
       try {
-        if (existing) {
-          // ELIMINAR
-          await deleteFavorite(existing.id);
-          setFavorites((prev) => prev.filter((f) => f.id !== existing.id));
+        const result = await toggleMutation.mutateAsync(body);
+
+        if (result._result === 'removed') {
           return false;
-        } else {
-          // AGREGAR
-          const res = await addFavorite(body);
+        }
 
-          // El favorito ya existía — estado local desincronizado
-          if ('conflict' in res && res.conflict) {
-            await load(); // Sincronizar con el backend
-            return true;
-          }
-
-          // Construir localmente para evitar el GET extra (await load())
-          const addRes = res as AddFavoriteResponse;
-          const newFavorite: Favorite = {
-            id: addRes.favorite_id,
-            entity_id: body.entity_id,
-            entity_type: body.entity_type,
-            title: body.title,
-            notes: body.notes ?? null,
-            created_at: new Date().toISOString(),
-          };
-          setFavorites((prev) => [...prev, newFavorite]);
+        // Added — check for conflict
+        const addResult = result.response;
+        if ('conflict' in addResult && addResult.conflict) {
+          // Already exists on server, refetch
+          await refetch();
           return true;
         }
-      } catch (err: any) {
-        throw err;
-      } finally {
-        setIsToggling(false);
+
+        return true;
+      } catch {
+        throw new Error('Error al modificar favorito.');
       }
     },
-    [favorites, isToggling, load]
+    [toggleMutation, refetch],
   );
 
-  // ← NUEVO: Eliminar directamente por ID (para página de favoritos)
   const removeFavorite = useCallback(
-    async (favoriteId: string) => {
-      try {
-        await deleteFavorite(favoriteId);
-        setFavorites((prev) => prev.filter((f) => f.id !== favoriteId));
-      } catch (err) {
-        console.error('Error al eliminar favorito:', err);
-        throw err;
-      }
+    async (favoriteId: string): Promise<void> => {
+      await removeMutation.mutateAsync(favoriteId);
     },
-    []
+    [removeMutation],
   );
 
-  return { 
-    favorites, 
-    isLoading, 
-    isToggling, 
-    error, 
-    isFavorite, 
-    toggleFavorite, 
-    removeFavorite, 
-    refresh: load 
+  return {
+    favorites,
+    isLoading,
+    isToggling: toggleMutation.isPending,
+    error: queryErrorMsg,
+    isFavorite,
+    toggleFavorite,
+    removeFavorite,
+    refresh: () => refetch(),
   };
 }
