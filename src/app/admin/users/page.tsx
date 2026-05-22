@@ -62,12 +62,13 @@ export default function AdminUsersPage() {
   // ---- useAdminUsers hook ----
   const {
     data: users,
-    fetchNextPage,
-    hasNextPage,
+    meta,
     isLoading,
-    isFetchingNextPage,
     error,
     refetch,
+    goToPage,
+    hasNextPage,
+    hasPrevPage,
   } = useAdminUsers({
     limit,
     search: debouncedSearch || undefined,
@@ -277,12 +278,12 @@ export default function AdminUsersPage() {
         columns={columns}
         data={users}
         total={users.length}
-        loading={isLoading || searchLoading || isFetchingNextPage}
+        loading={isLoading || searchLoading}
         paginationMode="cursor"
         hasNext={hasNextPage}
-        hasPrev={false}
-        onNextPage={() => fetchNextPage()}
-        onPrevPage={() => {}}
+        hasPrev={hasPrevPage}
+        onNextPage={() => meta?.next_cursor && goToPage(meta.next_cursor)}
+        onPrevPage={() => meta?.prev_cursor && goToPage(meta.prev_cursor)}
         onRowClick={(row) => router.push(`/admin/users/${row.id}`)}
         emptyMessage={
           searchQuery.trim()

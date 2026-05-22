@@ -6,6 +6,8 @@
 // browser gets a stable singleton for the lifetime of the page.
 
 import { QueryClient } from '@tanstack/react-query';
+import { rateLimitStore } from '@/app/lib/api/rate-limit';
+import { AuthApiError } from '@/app/lib/api/auth';
 
 /** Seconds in a minute — avoids magic numbers. */
 const MS_PER_MINUTE = 60_000;
@@ -27,7 +29,15 @@ export function makeQueryClient(): QueryClient {
       queries: {
         staleTime: 60_000,
         gcTime: 5 * MS_PER_MINUTE,
-        retry: 2,
+        retry: (failureCount, error) => {
+          // Don't retry if rate limited
+          if (!rateLimitStore.canRetry()) return false;
+          // Don't retry on 4xx errors (except 429 which is handled above)
+          if (error instanceof AuthApiError && error.status >= 400 && error.status < 500 && error.status !== 429) return false;
+          // Max 2 retries
+          if (failureCount >= 2) return false;
+          return true;
+        },
       },
       mutations: {
         retry: 0,

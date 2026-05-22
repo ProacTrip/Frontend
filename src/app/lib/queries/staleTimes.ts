@@ -11,15 +11,15 @@
 // DOMAIN: Environment (env)
 // ==========================================
 
-/** Environment config — rarely changes. Value: 5 minutes */
-export const ENV_STALE_TIME = 5 * 60_000;
+/** Environment config — rarely changes. Value: 10 minutes */
+export const ENV_STALE_TIME = 10 * 60_000;
 
 // ==========================================
 // DOMAIN: Profile
 // ==========================================
 
-/** User profile — personal data, changes infrequently. Value: 5 minutes */
-export const PROFILE_STALE_TIME = 5 * 60_000;
+/** User profile — per spec REQ-DX04: 30 seconds for user data */
+export const PROFILE_STALE_TIME = 30_000;
 
 // ==========================================
 // DOMAIN: Flights
@@ -43,25 +43,11 @@ export const HOTELS_STALE_TIME = 0;
 export const FAVORITES_STALE_TIME = 30_000;
 
 // ==========================================
-// DOMAIN: Saved Searches
-// ==========================================
-
-/** Saved searches — user-managed, moderate churn. Value: 30 seconds */
-export const SAVED_SEARCHES_STALE_TIME = 30_000;
-
-// ==========================================
 // DOMAIN: Admin
 // ==========================================
 
 /** Admin data — needs near-real-time for monitoring. Value: 60 seconds */
 export const ADMIN_STALE_TIME = 60_000;
-
-// ==========================================
-// DOMAIN: Notifications
-// ==========================================
-
-/** Notifications — should reflect recent activity. Value: 15 seconds */
-export const NOTIFICATIONS_STALE_TIME = 15_000;
 
 // ==========================================
 // DEFAULT

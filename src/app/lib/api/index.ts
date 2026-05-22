@@ -51,33 +51,13 @@ export {
 } from './management';
 
 // ==========================================
-// 5. NOTIFICACIONES (ADMIN)
-// ==========================================
-export {
-  listTemplates,
-  createTemplate,
-  updateTemplate,
-  toggleTemplate,
-  sendNotification,
-} from './notifications-admin';
-
-// ==========================================
-// 6. NOTIFICACIONES (USUARIO)
-// ==========================================
-export {
-  listUserNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from './notifications';
-
-// ==========================================
-// 7. ENVIRONMENT (ubicación GeoIP + clima)
+// 5. ENVIRONMENT (ubicación GeoIP + clima)
 // ==========================================
 export { getEnvironment } from './context';
 export type { EnvironmentResponse, LocationData, WeatherData } from './context';
 
 // ==========================================
-// 8. USER PROFILE (NUEVO)
+// 6. USER PROFILE (NUEVO)
 // ==========================================
 export {
   getProfile,
@@ -93,9 +73,6 @@ export {
   getUploadAvatarUrl,
   uploadAvatarToR2,
   confirmAvatarUpload,
-  listFavorites,
-  addFavorite,
-  deleteFavorite,
   UserApiError,
   parseUserError,
 } from './user';
@@ -130,7 +107,7 @@ export type {
 } from '@/app/lib/types/user';
 
 // ==========================================
-// 9. DOCUMENTOS — ADMIN (VERIFICACIÓN)
+// 7. DOCUMENTOS — ADMIN (VERIFICACIÓN)
 // ==========================================
 export {
   getDocumentVerification,
@@ -140,7 +117,7 @@ export {
 } from './documents-admin';
 
 // ==========================================
-// 10. DOCUMENTOS (USUARIO)
+// 8. DOCUMENTOS (USUARIO)
 // ==========================================
 export {
   listDocumentTypes,
@@ -163,28 +140,7 @@ export type {
 } from '@/app/lib/types/document';
 
 // ==========================================
-// 11. BÚSQUEDAS GUARDADAS
-// ==========================================
-export {
-  createSavedSearch,
-  listSavedSearches,
-  updateSavedSearch,
-  deleteSavedSearch,
-  togglePriceAlert,
-} from './saved-searches';
-
-export type {
-  SavedSearch,
-  CreateSavedSearchBody,
-  UpdateSavedSearchBody,
-  SavedSearchListResponse,
-  ToggleAlertResponse,
-  CreateSavedSearchResponse,
-  UpdateSavedSearchResponse,
-} from '@/app/lib/types/saved-search';
-
-// ==========================================
-// 12. AI SEARCH
+// 9. AI SEARCH
 // ==========================================
 export { searchAI } from './search-ai';
 export { SearchAIError } from '@/app/lib/types/search-ai';

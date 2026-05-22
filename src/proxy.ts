@@ -4,13 +4,11 @@ import type { NextRequest } from "next/server";
 const PROTECTED_ROUTES = [
   "/perfil",
   "/documentos",
-  "/busquedas",
   "/busqueda-ai",
   "/favoritos",
   "/compras",
   "/checkout",
   "/confirmacion",
-  "/notificaciones",
   "/admin",
 ];
 
@@ -74,13 +72,11 @@ export const config = {
     "/auth/:path*",
     "/perfil/:path*",
     "/documentos/:path*",
-    "/busquedas/:path*",
     "/busqueda-ai/:path*",
     "/favoritos/:path*",
     "/compras/:path*",
     "/checkout/:path*",
     "/confirmacion/:path*",
-    "/notificaciones/:path*",
     "/admin/:path*",
   ],
 };

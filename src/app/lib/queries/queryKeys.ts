@@ -87,37 +87,13 @@ const hotelKeys = {
 };
 
 // ==========================================
-// DOMAIN: Saved Searches
-// ==========================================
-const savedSearchesKeys = {
-  /** ['saved-searches'] — user's saved flight/hotel searches */
-  all: ['saved-searches'] as const,
-};
-
-// ==========================================
-// DOMAIN: Notifications
-// ==========================================
-export interface NotificationQueryParams {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
-
-const notificationKeys = {
-  /** ['notifications'] — root */
-  all: ['notifications'] as const,
-  /** ['notifications', { status?, limit?, offset? }] — filtered */
-  list: (params: NotificationQueryParams = {}) =>
-    ['notifications', params] as const,
-};
-
-// ==========================================
 // DOMAIN: Admin
 // ==========================================
 export interface AdminUsersParams {
   page?: number;
   limit?: number;
   search?: string;
+  cursor?: string;
 }
 
 const adminKeys = {
@@ -147,7 +123,5 @@ export const queryKeys = {
   favorites: favoritesKeys,
   flights: flightKeys,
   hotels: hotelKeys,
-  savedSearches: savedSearchesKeys,
-  notifications: notificationKeys,
   admin: adminKeys,
 };

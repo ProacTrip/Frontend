@@ -94,6 +94,29 @@ class RateLimitStore {
   }
 
   /**
+   * Check if a retry should be attempted based on rate limit state.
+   * Returns false if currently blocked (429 received) or if remaining
+   * requests are at zero or close to zero.
+   */
+  canRetry(): boolean {
+    if (this.isBlocked) return false;
+    const current = this.current;
+    if (current && current.remaining <= 1) return false;
+    return true;
+  }
+
+  /**
+   * Record that an error occurred on an endpoint for rate limit tracking.
+   * Decrements the remaining counter if we have tracking for this endpoint.
+   */
+  recordError(endpoint: string): void {
+    const info = this.endpoints.get(endpoint);
+    if (info && info.remaining > 0) {
+      this.endpoints.set(endpoint, { ...info, remaining: info.remaining - 1, timestamp: Date.now() });
+    }
+  }
+
+  /**
    * Retorna la info más restrictiva entre todos los endpoints trackeados.
    * Criterio: menor ratio remaining/limit. En empate, menor remaining absoluto.
    * null si no hay ningún endpoint trackeado.
