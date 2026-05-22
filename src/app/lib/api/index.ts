@@ -15,7 +15,6 @@ export {
   resetPassword,
   getOAuthUrl,
   logoutUser,
-  logoutAllSessions,
   FEATURE_PASSWORD_RESET,
   RateLimitError,
   AuthApiError,

@@ -82,8 +82,6 @@ El rol `admin` existe a nivel de base de datos como una agrupación de permisos.
 | `PermUsersRead` | `users:read` | ✅ Grupo base — requerido en todos los endpoints |
 | `PermUsersWrite` | `users:write` | ✅ Account Status |
 | `PermFeatureLimitsWrite` | `feature_limits:write` | ✅ Feature Limits (crear/eliminar) |
-| `PermSessionsWrite` | `sessions:write` | ✅ Account Status — requerido para invalidar sesiones al deshabilitar |
-| `PermSessionsRead` | `sessions:read` | — |
 
 ### Modelo de Grupo Base + Aditivo
 
@@ -92,7 +90,7 @@ Cada endpoint del dashboard recibe una combinación de permisos:
 1. **Grupo base**: `users:read` — aplicado a nivel de grupo (`RequirePermission` en `app.go:527`). Todo endpoint del dashboard requiere este permiso como mínimo.
 
 2. **Permisos aditivos**: los endpoints de mutación añaden un segundo `RequirePermission` con un permiso más específico:
-   - `PUT /users/:id/status` → `users:read` + `users:write` + `sessions:write`
+   - `PUT /users/:id/status` → `users:read` + `users:write`
    - `POST/DELETE /users/:id/feature-limits` → `users:read` + `feature_limits:write`
 
 ### Quién puede acceder
@@ -341,9 +339,7 @@ curl -X GET "http://localhost:8080/v1/dashboard/users/0193c8c6-1234-7abc-8def-01
   "effective_permissions": [
     "users:read",
     "users:write",
-    "feature_limits:write",
-    "sessions:read",
-    "sessions:write"
+    "feature_limits:write"
   ]
 }
 ```
@@ -400,7 +396,7 @@ PUT /v1/dashboard/users/:id/status
 |-----------|------|-----------|-------------|
 | `id` | UUID | Sí | ID del usuario objetivo |
 
-**Permisos requeridos:** `users:read` (grupo base) + `users:write` + `sessions:write` (aditivo)
+**Permisos requeridos:** `users:read` (grupo base) + `users:write` (aditivo)
 
 **Body:**
 
@@ -427,8 +423,7 @@ curl -X PUT "http://localhost:8080/v1/dashboard/users/0193c8c6-1234-7abc-8def-01
   "user_id": "0193c8c6-1234-7abc-8def-0123456789ab",
   "previous_status": "active",
   "new_status": "disabled",
-  "token_version": 3,
-  "sessions_invalidated": 2
+  "token_version": 3
 }
 ```
 
@@ -440,7 +435,6 @@ curl -X PUT "http://localhost:8080/v1/dashboard/users/0193c8c6-1234-7abc-8def-01
 | `PreviousStatus` | string | `previous_status` | Estado anterior a la modificación |
 | `NewStatus` | string | `new_status` | Nuevo estado aplicado |
 | `TokenVersion` | int | `token_version` | Nueva versión del token (incrementada en disable) |
-| `SessionsInvalidated` | int | `sessions_invalidated` | Cantidad de sesiones activas invalidadas |
 
 #### Posibles Errores
 
@@ -449,7 +443,7 @@ curl -X PUT "http://localhost:8080/v1/dashboard/users/0193c8c6-1234-7abc-8def-01
 | `TOKEN_INVALID` | 401 | `unauthorized` | Cookie ausente, token inválido o expirado |
 | `TOKEN_EXPIRED` | 401 | `unauthorized` | Token PASETO expirado |
 | `NOT_AUTHENTICATED` | 401 | `unauthorized` | No hay token de acceso en la cookie |
-| `PERMISSION_DENIED` | 403 | `forbidden` | El usuario no tiene `users:read` + `users:write` + `sessions:write` |
+| `PERMISSION_DENIED` | 403 | `forbidden` | El usuario no tiene `users:read` + `users:write` |
 | `USER_NOT_FOUND` | 404 | `not-found` | El `:id` no existe en la DB |
 | `INVALID_INPUT` | 400 | `invalid-input` | UUID inválido, `status` faltante, o valor no permitido (distinto de `active`/`disabled`) |
 | `CANNOT_DISABLE_SELF` | 400 | `bad-request` | El `actorID` (extraído del token PASETO) coincide con el `:id` del path param — un admin no puede deshabilitar su propia cuenta |

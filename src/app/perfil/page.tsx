@@ -14,7 +14,6 @@ import {
   HeartPulse,
   Bell,
   Image as ImageIcon,
-  ShieldAlert,
 } from 'lucide-react';
 
 import {
@@ -37,7 +36,6 @@ const TABS = [
 
 export default function ProfilePage() {
   const { user } = useAuthContext();
-  const { logoutAll } = useAuthContext();
   const [activeTab, setActiveTab] = useState('personal');
 
   // ---- useProfile hook ----
@@ -206,19 +204,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ─── CERRAR TODAS LAS SESIONES ─── */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <button
-          onClick={() => logoutAll()}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
-        >
-          <ShieldAlert className="w-4 h-4" />
-          Cerrar sesión en todos los dispositivos
-        </button>
-        <p className="text-xs text-gray-400 mt-1">
-          Esto invalidará todas tus sesiones activas en cualquier dispositivo.
-        </p>
-      </div>
+
     </div>
   );
 }

@@ -77,7 +77,6 @@ export interface AccountStatusResponse {
   previous_status: string;
   new_status: string;
   token_version: number;
-  sessions_invalidated: number;
 }
 
 // ==========================================

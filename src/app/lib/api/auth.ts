@@ -745,37 +745,3 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
-/**
- * Cierra TODAS las sesiones del usuario.
- * El backend responde con Clear-Site-Data: "cookies" que limpia las cookies automáticamente.
- */
-export async function logoutAllSessions(): Promise<void> {
-  const endpoint = '/v1/auth/logout/all';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'POST',
-      credentials: 'include',
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-    extractRateLimitHeaders(response, endpoint);
-
-    if (!response.ok) {
-      await parseAuthError(response, endpoint);
-    }
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-
-    if (error instanceof AuthApiError) throw error;
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('La petición ha excedido el tiempo de espera.');
-    }
-
-    throw error;
-  }
-}

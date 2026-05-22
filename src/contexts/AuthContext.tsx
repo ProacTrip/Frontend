@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@/app/lib/types/auth';
-import { logoutUser, logoutAllSessions, getCurrentUser, AuthApiError } from '@/app/lib/api/auth';
+import { logoutUser, getCurrentUser, AuthApiError } from '@/app/lib/api/auth';
 import { type EnvironmentResponse } from '@/app/lib/api/context';
 import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
 import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
@@ -24,7 +24,6 @@ export interface AuthContextType {
   setUser: (user: AuthUser | null) => void;
   setContext: (context: EnvironmentResponse | null) => void;
   logout: () => Promise<void>;
-  logoutAll: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -155,24 +154,6 @@ export function AuthProvider({
       try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
       try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
       // Full page reload para que el server re-evalúe serverAuthenticated
-      window.location.href = '/';
-    }
-  }, []);
-
-  const logoutAll = useCallback(async () => {
-    try {
-      await logoutAllSessions();
-    } catch {
-      // El backend limpia las cookies con Clear-Site-Data aunque falle el fetch
-    } finally {
-      setUserState(null);
-      setContext(null);
-      try { sessionStorage.setItem('just_logged_out', '1'); } catch { /* noop */ }
-      try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      try { localStorage.removeItem('user_environment'); } catch { /* noop */ }
-      try { localStorage.removeItem('user_environment_stored_at'); } catch { /* noop */ }
-      try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
-      try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
       window.location.href = '/';
     }
   }, []);
@@ -370,7 +351,6 @@ export function AuthProvider({
         setUser,
         setContext,
         logout,
-        logoutAll,
         refreshUser,
       }}
     >
