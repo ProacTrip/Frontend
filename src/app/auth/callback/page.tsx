@@ -2,117 +2,88 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import Loader from "@/components/ui/Loader";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { getProfile } from "@/app/lib/api";
-import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
+import { queryKeys } from "@/app/lib/queries/queryKeys";
 
 const OAUTH_ERROR_MAP: Record<string, string> = {
-  OAUTH_CODE_MISSING:
-    "Error al procesar la autenticación con Google. Intentá de nuevo.",
-  OAUTH_STATE_MISSING:
-    "Error de seguridad en la autenticación. Intentá de nuevo.",
-  OAUTH_STATE_INVALID:
-    "La sesión de autenticación ha expirado. Intentá de nuevo.",
+  OAUTH_EXCHANGE_FAILED: "Error al conectar con Google. Intentá de nuevo.",
   OAUTH_ACCESS_DENIED:
-    "Acceso denegado. Asegurate de otorgar los permisos necesarios.",
-  OAUTH_EXCHANGE_FAILED:
-    "Error al completar la autenticación. Intentá de nuevo.",
+    "Acceso denegado. No autorizaste la aplicación.",
+  OAUTH_STATE_INVALID: "Error de seguridad. Intentá de nuevo.",
+  OAUTH_STATE_MISSING: "Error de seguridad. Intentá de nuevo.",
+  OAUTH_CODE_MISSING:
+    "Error al procesar la autenticación. Intentá de nuevo.",
   OAUTH_PROVIDER_NOT_FOUND: "Proveedor de autenticación no soportado.",
-  EMAIL_NOT_VERIFIED: "El email de tu cuenta de Google no está verificado.",
+  EMAIL_NOT_VERIFIED:
+    "El email de tu cuenta de Google no está verificado.",
   ACCOUNT_LOCKED:
     "Tu cuenta está bloqueada temporalmente. Intentá más tarde.",
-  ACCOUNT_DISABLED: "Tu cuenta ha sido deshabilitada. Contactá al soporte.",
-  ACCOUNT_SUSPENDED: "Tu cuenta ha sido suspendida. Contactá al soporte.",
-  ACCOUNT_INACTIVE: "Tu cuenta está inactiva. Contactá al soporte.",
+  ACCOUNT_SUSPENDED:
+    "Tu cuenta fue suspendida. Contactá a soporte.",
+  ACCOUNT_DISABLED:
+    "Tu cuenta fue deshabilitada. Contactá a soporte.",
+  ACCOUNT_INACTIVE:
+    "Tu cuenta está inactiva. Contactá a soporte.",
 };
 
-function GoogleCallbackContent() {
+function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser, setContext } = useAuthContext();
-  const [errorMessage, setErrorMessage] = useState("");
+  const queryClient = useQueryClient();
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"processing" | "success" | "error">(
-    "processing"
+    "processing",
   );
 
   useEffect(() => {
-    const processCallback = async () => {
-      const oauthStatus = searchParams.get("status");
-      const errorCode = searchParams.get("code");
+    const oauthStatus = searchParams.get("status");
+    const errorCode = searchParams.get("code");
 
-      // ── Error branch ──────────────────────────
-      if (oauthStatus === "error") {
-        const message =
-          errorCode && OAUTH_ERROR_MAP[errorCode]
-            ? OAUTH_ERROR_MAP[errorCode]
-            : "Error al autenticar con Google. Intentá de nuevo.";
-        setErrorMessage(message);
-        setStatus("error");
-        setTimeout(() => router.push("/auth/login"), 4000);
-        return;
-      }
+    // ── Error branch ──────────────────────────────────────────
+    if (oauthStatus === "error") {
+      const message =
+        errorCode && OAUTH_ERROR_MAP[errorCode]
+          ? OAUTH_ERROR_MAP[errorCode]
+          : "Error al autenticar con Google. Intentá de nuevo.";
+      setErrorMessage(message);
+      setStatus("error");
+      return;
+    }
 
-      if (oauthStatus !== "success") {
-        setErrorMessage("Acceso directo a esta página no está permitido.");
-        setStatus("error");
-        setTimeout(() => router.push("/auth/login"), 3000);
-        return;
-      }
+    // ── Invalid access ────────────────────────────────────────
+    if (oauthStatus !== "success") {
+      setErrorMessage("Acceso directo a esta página no está permitido.");
+      setStatus("error");
+      return;
+    }
 
-      // ── Success branch — session bootstrap per AUTH_API.md ──
-      // Backend already set __Secure-access_token + __Secure-refresh_token cookies.
-      // Verify session by calling documented endpoints (not /v1/auth/me).
+    // ── Success branch — session bootstrap via TanStack Query ──
+    // Backend already set __Secure-access_token + __Secure-refresh_token cookies.
+    // Invalidate profile + environment queries so AuthContext reactively
+    // picks up the new session. NO getCurrentUser(), NO localStorage hacks,
+    // NO avatar_url caching.
+    const bootstrap = async () => {
       try {
-        // Step 1: Verify session via /v1/user/profile (documented endpoint).
-        // Also fetches travel_preferences in the same call.
-        let profileOk = false;
-        try {
-          await getProfile();
-          profileOk = true;
-        } catch {
-          // Profile might fail if user just created and backend hasn't
-          // finished creating the profile yet. Not fatal — redirect anyway.
-        }
-
-        // PROFILE OK — session verified.
-
-        // Step 2: Pre-cache environment for immediate UI on landing
-        try {
-          const env = await fetchAndStoreEnvironment();
-          if (env) setContext(env);
-        } catch {
-          /* non-critical */
-        }
-
-        // If profile succeeded OR getCurrentUser succeeded, session is valid.
-        if (!profileOk) {
-          // Fallback: check if we got user data
-          // If neither worked, cookies might not be readable.
-          // Still redirect — AuthContext handles 401 gracefully.
-        }
-
-        // Signal that OAuth just completed — AuthProvider reads this on the
-        // landing page to force /v1/auth/me even when cookies aren't visible
-        // to the Next.js server (different origins in dev, cookie Domain mismatch).
-        try {
-          localStorage.setItem("proactrip_oauth_login", "1");
-        } catch {
-          /* noop */
-        }
-
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.profile.all,
+        });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.env.all,
+        });
         setStatus("success");
-        setTimeout(() => router.push("/"), 800);
+        router.push("/home");
       } catch {
         setErrorMessage("Error al verificar la sesión. Intentá de nuevo.");
         setStatus("error");
-        setTimeout(() => router.push("/auth/login"), 4000);
       }
     };
 
-    processCallback();
-  }, [router, searchParams, setUser, setContext]);
+    bootstrap();
+  }, [searchParams, queryClient, router]);
 
   return (
     <AuthPageLayout
@@ -133,6 +104,7 @@ function GoogleCallbackContent() {
       variant="card"
     >
       <div className="text-center space-y-5">
+        {/* ── Loading ── */}
         {status === "processing" && (
           <>
             <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto">
@@ -153,6 +125,8 @@ function GoogleCallbackContent() {
             <Loader text="Completando autenticación..." />
           </>
         )}
+
+        {/* ── Success ── */}
         {status === "success" && (
           <>
             <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
@@ -173,6 +147,8 @@ function GoogleCallbackContent() {
             <p className="text-neutral-500 text-sm">Redirigiendo al home...</p>
           </>
         )}
+
+        {/* ── Error ── */}
         {status === "error" && (
           <>
             <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
@@ -191,9 +167,12 @@ function GoogleCallbackContent() {
               </svg>
             </div>
             <p className="text-neutral-500 text-sm">{errorMessage}</p>
-            <p className="text-xs text-neutral-400">
-              Redirigiendo al inicio de sesión...
-            </p>
+            <Link
+              href="/auth/login"
+              className="inline-flex items-center justify-center w-full px-4 py-3 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-colors"
+            >
+              Intentar de nuevo
+            </Link>
           </>
         )}
       </div>
@@ -210,7 +189,7 @@ export default function GoogleCallbackPage() {
         </div>
       }
     >
-      <GoogleCallbackContent />
+      <OAuthCallbackContent />
     </Suspense>
   );
 }
