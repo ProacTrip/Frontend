@@ -17,7 +17,6 @@ export default function AccountDisabledPage() {
       localStorage.removeItem("user_environment");
       localStorage.removeItem("user_environment_stored_at");
       localStorage.removeItem("user_currency_preference");
-      localStorage.removeItem("proactrip_email_verified");
     } catch {
       /* private browsing mode may fail */
     }
