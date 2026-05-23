@@ -336,61 +336,7 @@ async function parseAuthError(response: Response, endpoint: string): Promise<nev
 }
 
 // ==========================================
-// 4. AUTH ME
-// ==========================================
-
-/**
- * GET /v1/auth/me
- * Obtiene los datos del usuario autenticado usando la cookie __Secure-access_token.
- * El backend maneja el refresco de tokens transparentemente vía middleware.
- *
- * Throws AuthApiError con status 401 cuando no hay sesión activa.
- * Throws AuthApiError para otros errores del backend.
- * Los callers deben distinguir: 401 = "no autenticado" (no es error), otros = error real.
- */
-export async function getCurrentUser(): Promise<AuthUser | null> {
-  const endpoint = '/v1/auth/me';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'GET',
-      credentials: 'include',
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-    extractRateLimitHeaders(response, endpoint);
-
-    if (!response.ok) {
-      // 401 = no session cookie or expired — typed error so callers can distinguish
-      if (response.status === 401) {
-        throw new AuthApiError('NOT_AUTHENTICATED', 401, 'No autenticado');
-      }
-      // Other errors — parse via standard error handler
-      await parseAuthError(response, endpoint);
-    }
-
-    const data = await response.json();
-    return data.user ?? null;
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-
-    // Re-throw typed errors as-is
-    if (error instanceof AuthApiError) throw error;
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('La petición ha excedido el tiempo de espera.');
-    }
-
-    // Network errors, JSON parse errors, etc. — propagate
-    throw error;
-  }
-}
-
-// ==========================================
-// 5. AUTH — Funciones centralizadas
+// 4. AUTH — Funciones centralizadas
 // ==========================================
 
 /**

@@ -6,7 +6,6 @@
 // ==========================================
 export {
   apiFetch,
-  getCurrentUser,
   loginUser,
   registerUser,
   verifyEmail,
