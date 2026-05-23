@@ -103,7 +103,10 @@ function OAuthCallbackContent() {
       }
       variant="card"
     >
-      <div className="text-center space-y-5">
+      <div
+        className="text-center space-y-5"
+        aria-busy={status === "processing" ? true : undefined}
+      >
         {/* ── Loading ── */}
         {status === "processing" && (
           <>
@@ -113,6 +116,7 @@ function OAuthCallbackContent() {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -128,13 +132,14 @@ function OAuthCallbackContent() {
 
         {/* ── Success ── */}
         {status === "success" && (
-          <>
+          <div role="status" aria-live="polite">
             <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
               <svg
                 className="w-8 h-8 text-green-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -145,18 +150,19 @@ function OAuthCallbackContent() {
               </svg>
             </div>
             <p className="text-neutral-500 text-sm">Redirigiendo al home...</p>
-          </>
+          </div>
         )}
 
         {/* ── Error ── */}
         {status === "error" && (
-          <>
+          <div role="alert" aria-live="assertive">
             <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
               <svg
                 className="w-8 h-8 text-red-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -173,7 +179,7 @@ function OAuthCallbackContent() {
             >
               Intentar de nuevo
             </Link>
-          </>
+          </div>
         )}
       </div>
     </AuthPageLayout>

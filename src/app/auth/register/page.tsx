@@ -169,6 +169,7 @@ export default function RegisterPage() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             role="alert"
+            aria-live="assertive"
             className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
           >
             {serverError}
@@ -181,6 +182,8 @@ export default function RegisterPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            role="status"
+            aria-live="polite"
             className="mb-5 p-3.5 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm"
           >
             ¡Cuenta creada!{" "}
@@ -194,7 +197,12 @@ export default function RegisterPage() {
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        aria-label="Formulario de registro"
+        className="space-y-4"
+      >
         <InputField
           label="Nombre"
           name="first_name"
@@ -254,7 +262,7 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <div className="relative my-5">
+      <div className="relative my-5" aria-hidden="true">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-neutral-200" />
         </div>

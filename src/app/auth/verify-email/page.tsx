@@ -30,13 +30,14 @@ function VerifyEmailContent() {
         subtitle=""
         variant="card"
       >
-        <div className="text-center space-y-5">
+        <div className="text-center space-y-5" role="alert" aria-live="assertive">
           <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
             <svg
               className="w-8 h-8 text-red-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -69,13 +70,14 @@ function VerifyEmailContent() {
         subtitle="Esto tomará solo un momento..."
         variant="card"
       >
-        <div className="text-center space-y-5">
+        <div className="text-center space-y-5" aria-busy="true">
           <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto">
             <svg
               className="w-8 h-8 text-neutral-400 animate-pulse"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -102,13 +104,14 @@ function VerifyEmailContent() {
         subtitle="Redirigiendo..."
         variant="card"
       >
-        <div className="text-center space-y-5">
+        <div className="text-center space-y-5" role="status" aria-live="polite">
           <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
             <svg
               className="w-8 h-8 text-green-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -138,13 +141,14 @@ function VerifyEmailContent() {
         subtitle=""
         variant="card"
       >
-        <div className="text-center space-y-5">
+        <div className="text-center space-y-5" role="alert" aria-live="assertive">
           <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
             <svg
               className="w-8 h-8 text-red-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
