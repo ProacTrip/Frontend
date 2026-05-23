@@ -13,16 +13,7 @@ import { validateLoginField, isValid } from "@/app/lib/validations/auth";
 import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
-
-const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  INVALID_CREDENTIALS: "Email o contraseña incorrectos",
-  EMAIL_NOT_VERIFIED: "Verificá tu email primero. ¿No recibiste el email?",
-  ACCOUNT_LOCKED:
-    "Cuenta bloqueada por demasiados intentos. Esperá unos minutos.",
-  ACCOUNT_SUSPENDED: "Tu cuenta fue suspendida. Contactá a soporte.",
-  ACCOUNT_INACTIVE: "Tu cuenta está deshabilitada.",
-  RATE_LIMIT_EXCEEDED: "Demasiados intentos. Esperá unos segundos.",
-};
+import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-errors";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,25 +60,32 @@ export default function LoginPage() {
         },
         onError: (err: unknown) => {
           const code =
-            err instanceof AuthApiError
-              ? err.code
-              : (err as Record<string, unknown>)?.code as string | undefined;
+            err instanceof AuthApiError ? err.code : undefined;
 
           if (code === "RATE_LIMIT_EXCEEDED") {
-            const msg =
+            setRateLimitError(
               err instanceof AuthApiError
                 ? err.message
-                : "Demasiadas peticiones. Intentá más tarde.";
-            setRateLimitError(msg);
+                : "Demasiadas peticiones. Intentá más tarde.",
+            );
             return;
           }
 
-          const message =
-            AUTH_ERROR_MESSAGES[code || ""] ||
-            (err instanceof AuthApiError
-              ? err.message
-              : "Error al iniciar sesión");
-          setServerError(message);
+          // Extract server-side field errors (RFC 9457)
+          const serverFieldErrs = extractFieldErrors(
+            err instanceof AuthApiError ? err : err,
+          );
+          if (Object.keys(serverFieldErrs).length > 0) {
+            setFieldErrors((prev) => {
+              const merged = { ...prev };
+              for (const key of Object.keys(serverFieldErrs)) {
+                merged[key] = serverFieldErrs[key];
+              }
+              return merged;
+            });
+          }
+
+          setServerError(getAuthErrorMessage(err));
         },
       },
     );

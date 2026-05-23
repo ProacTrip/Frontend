@@ -13,13 +13,7 @@ import { validateRegisterField, isValid } from "@/app/lib/validations/auth";
 import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
-
-const REGISTER_ERROR_MESSAGES: Record<string, string> = {
-  EMAIL_ALREADY_EXISTS: "Este email ya está registrado",
-  WEAK_PASSWORD: "La contraseña no cumple los requisitos de seguridad",
-  VALIDATION_ERROR: "Revisá los datos ingresados",
-  RATE_LIMIT_EXCEEDED: "Demasiadas peticiones. Esperá unos segundos.",
-};
+import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-errors";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -85,25 +79,32 @@ export default function RegisterPage() {
         },
         onError: (err: unknown) => {
           const code =
-            err instanceof AuthApiError
-              ? err.code
-              : (err as Record<string, unknown>)?.code as string | undefined;
+            err instanceof AuthApiError ? err.code : undefined;
 
           if (code === "RATE_LIMIT_EXCEEDED") {
-            const msg =
+            setRateLimitError(
               err instanceof AuthApiError
                 ? err.message
-                : "Demasiadas peticiones. Intentá más tarde.";
-            setRateLimitError(msg);
+                : "Demasiadas peticiones. Intentá más tarde.",
+            );
             return;
           }
 
-          const message =
-            REGISTER_ERROR_MESSAGES[code || ""] ||
-            (err instanceof AuthApiError
-              ? err.message
-              : "Error al registrarse");
-          setServerError(message);
+          // Extract server-side field errors (RFC 9457)
+          const serverFieldErrs = extractFieldErrors(
+            err instanceof AuthApiError ? err : err,
+          );
+          if (Object.keys(serverFieldErrs).length > 0) {
+            setFieldErrors((prev) => {
+              const merged = { ...prev };
+              for (const key of Object.keys(serverFieldErrs)) {
+                merged[key] = serverFieldErrs[key];
+              }
+              return merged;
+            });
+          }
+
+          setServerError(getAuthErrorMessage(err));
         },
       },
     );
