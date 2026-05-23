@@ -69,8 +69,8 @@ export function AuthProvider({
   const [manualUser, setManualUser] = useState<AuthUser | null>(null);
   const [context, setContextState] = useState<EnvironmentResponse | null>(null);
 
-  // ── Profile query — declarative session bootstrap ────────────────────────────
-  //     Replaces all imperative getCurrentUser() → /v1/auth/me calls.
+   // ── Profile query — declarative session bootstrap ────────────────────────────
+  //     Replaced all imperative getCurrentUser() → /v1/auth/me calls.
   //     TanStack Query handles cache, refetch on window focus, and staleTime.
   const profileQuery = useQuery({
     queryKey: queryKeys.profile.all,

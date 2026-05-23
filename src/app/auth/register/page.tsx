@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
@@ -17,7 +16,6 @@ import PasswordStrengthBar from "@/components/ui/PasswordStrengthBar";
 import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-errors";
 
 export default function RegisterPage() {
-  const router = useRouter();
 
   const [formData, setFormData] = useState({
     email: "",

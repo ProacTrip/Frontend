@@ -64,8 +64,8 @@ function OAuthCallbackContent() {
     // ── Success branch — session bootstrap via TanStack Query ──
     // Backend already set __Secure-access_token + __Secure-refresh_token cookies.
     // Invalidate profile + environment queries so AuthContext reactively
-    // picks up the new session. NO getCurrentUser(), NO localStorage hacks,
-    // NO avatar_url caching.
+    // picks up the new session. Replaces the old getCurrentUser() →
+    // /v1/auth/me imperative calls and localStorage/sessionStorage hacks.
     const bootstrap = async () => {
       try {
         await queryClient.invalidateQueries({
