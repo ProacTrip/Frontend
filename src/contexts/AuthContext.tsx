@@ -4,15 +4,18 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useCallback,
   type ReactNode,
 } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthUser } from '@/app/lib/types/auth';
-import { logoutUser, getCurrentUser, AuthApiError } from '@/app/lib/api/auth';
-import { type EnvironmentResponse } from '@/app/lib/api/context';
-import { fetchAndStoreEnvironment } from '@/app/lib/utils/location';
-import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
+import { logoutUser } from '@/app/lib/api/auth';
+import { getProfile, UserApiError } from '@/app/lib/api/user';
+import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
+import type { EnvironmentResponse } from '@/app/lib/api/context';
 
 export interface AuthContextType {
   user: AuthUser | null;
@@ -21,27 +24,34 @@ export interface AuthContextType {
   isAccountDisabled: boolean;
   error: string | null;
   context: EnvironmentResponse | null;
+  /** @deprecated Will be removed in PR 3 — use profile query invalidation instead. */
   setUser: (user: AuthUser | null) => void;
+  /** @deprecated Will be replaced by useEnvironment() hook in PR 3. */
   setContext: (context: EnvironmentResponse | null) => void;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const SESSION_KEY = 'user_session';
-
 /**
- * Recupera la sesión del usuario desde sessionStorage.
- * Retorna null si no existe o si el JSON está corrupto.
+ * Extract identity fields ({id, email, role_name}) from the profile response.
+ *
+ * The Profile type in types/user.ts does not declare id/email/role_name,
+ * but the backend returns them at the top level of the profile object
+ * (verified against AUTH_API.md §172).
+ *
+ * Falls back to role_name='client' when the backend omits it.
  */
-function getStoredSession(): AuthUser | null {
-  try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    return stored ? (JSON.parse(stored) as AuthUser) : null;
-  } catch {
-    return null;
-  }
+// deno-lint-ignore no-explicit-any
+function extractAuthUser(profile: Record<string, unknown>): AuthUser | null {
+  const id = profile.id;
+  const email = profile.email;
+  if (typeof id !== 'string' || typeof email !== 'string') return null;
+  return {
+    id,
+    email,
+    role_name: typeof profile.role_name === 'string' ? profile.role_name : 'client',
+  };
 }
 
 export function AuthProvider({
@@ -49,311 +59,119 @@ export function AuthProvider({
   serverAuthenticated,
 }: {
   children: ReactNode;
-  /** Indica si el server detectó cookies de auth. Evita llamadas innecesarias a /v1/auth/me. */
+  /** Indica si el server detectó cookies de auth. Evita llamadas innecesarias a la API. */
   serverAuthenticated: boolean;
 }) {
+  const queryClient = useQueryClient();
 
-  const [user, setUserState] = useState<AuthUser | null>(null);
-  const [context, setContext] = useState<EnvironmentResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAccountDisabled, setIsAccountDisabled] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ── Manual overrides — backward compat for pages that call setUser/setContext ──
+  //     These will be removed in PR 3 when pages switch to useMutation hooks.
+  const [manualUser, setManualUser] = useState<AuthUser | null>(null);
+  const [context, setContextState] = useState<EnvironmentResponse | null>(null);
 
-  /**
-   * Establece el usuario en memoria y en sessionStorage.
-   * sessionStorage permite restaurar la sesión sin llamar a /v1/auth/me en page refresh.
-   * Las cookies HttpOnly son gestionadas exclusivamente por el backend.
-   * El frontend NO almacena tokens ni datos sensibles.
-   */
-  const setUser = useCallback((user: AuthUser | null) => {
-    setUserState(user);
-    try {
-      if (user) {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
-        sessionStorage.setItem('session_saved_at', Date.now().toString());
-      } else {
-        sessionStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem('session_saved_at');
-      }
-    } catch {
-      // sessionStorage puede fallar en modo privado
+  // ── Profile query — declarative session bootstrap ────────────────────────────
+  //     Replaces all imperative getCurrentUser() → /v1/auth/me calls.
+  //     TanStack Query handles cache, refetch on window focus, and staleTime.
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile.all,
+    queryFn: ({ signal }) => getProfile(signal),
+    enabled: serverAuthenticated,
+    retry: false,
+    staleTime: PROFILE_STALE_TIME,
+  });
+
+  // ── Derived state ────────────────────────────────────────────────────────────
+
+  // Extract identity from the profile query data (raw fields not in Profile type)
+  const profileUser = useMemo(() => {
+    if (!profileQuery.data) return null;
+    return extractAuthUser(profileQuery.data.profile as unknown as Record<string, unknown>);
+  }, [profileQuery.data]);
+
+  // Effective user: profile query wins; manualUser is a bridge for pre-PR3 pages
+  const user = profileUser ?? manualUser;
+
+  // Loading: true while profile query is pending AND we expected auth cookies
+  const isLoading = serverAuthenticated && profileQuery.isPending;
+
+  // Account-disabled detection: derived from error, no separate useState
+  const isAccountDisabled = useMemo(() => {
+    if (!profileQuery.error) return false;
+    const err = profileQuery.error;
+    return (
+      err instanceof UserApiError &&
+      err.code === 'PERMISSION_DENIED' &&
+      err.detail?.toLowerCase().includes('deshabilitada')
+    );
+  }, [profileQuery.error]);
+
+  // Error: 401 = normal (no session), account-disabled = redirect, other = surface
+  const error = useMemo(() => {
+    if (!profileQuery.error) return null;
+    const err = profileQuery.error;
+
+    // 401 / TOKEN_INVALID → no valid session — normal state, not an error
+    if (err instanceof UserApiError && err.code === 'TOKEN_INVALID') {
+      return null;
     }
+
+    // Account disabled — handled by useEffect redirect below
+    if (isAccountDisabled) {
+      return null;
+    }
+
+    if (err instanceof Error) return err.message;
+    return 'Error al cargar el perfil';
+  }, [profileQuery.error, isAccountDisabled]);
+
+  // ── Effect: redirect on account-disabled ────────────────────────────────
+  useEffect(() => {
+    if (isAccountDisabled) {
+      window.location.href = '/auth/account-disabled';
+    }
+  }, [isAccountDisabled]);
+
+  // ── Public API (backward-compat bridge) ──────────────────────────────────────
+
+  const setUser = useCallback((u: AuthUser | null) => {
+    setManualUser(u);
   }, []);
 
-  /**
-   * Carga el environment usando cache-first (10 min localStorage).
-   * Si el cache es válido no hace ninguna llamada de red.
-   * Si expiró o no existe llama GET /v1/environment y cachea la respuesta.
-   */
-  const loadEnvironment = useCallback(async () => {
-    try {
-      const env = await fetchAndStoreEnvironment();
-      if (env) setContext(env);
-    } catch {
-      // Environment no es crítico — no bloqueamos la sesión si falla
-    }
+  const setContext = useCallback((c: EnvironmentResponse | null) => {
+    setContextState(c);
   }, []);
-
-  /**
-   * Refresca el usuario llamando a GET /v1/auth/me.
-   * El backend valida la cookie __Secure-access_token automáticamente.
-   * Si hay sesión activa también recarga el environment con cache-first.
-   *
-   * getCurrentUser ahora lanza AuthApiError en vez de retornar null:
-   * - AuthApiError con status 401 → no hay sesión (setUserState(null), sin error)
-   * - Otros errores → setError con el mensaje
-   */
-  const refreshUser = useCallback(async () => {
-    try {
-      const currentUser = await getCurrentUser();
-      setUserState(currentUser);
-      setError(null);
-
-      if (currentUser) {
-        await loadEnvironment();
-      } else {
-        setContext(null);
-      }
-    } catch (err) {
-      const isDisabled =
-        (err instanceof AuthApiError && err.code === 'ACCOUNT_DISABLED') ||
-        (err instanceof AuthApiError && err.code === 'FORBIDDEN' &&
-         err.message?.toLowerCase().includes('deshabilitada'));
-      if (isDisabled) {
-        setUserState(null);
-        setContext(null);
-        setIsAccountDisabled(true);
-        window.location.href = '/auth/account-disabled';
-        return;
-      }
-      if (err instanceof AuthApiError && err.status === 401) {
-        // No hay sesión activa — no es un error, es estado normal
-        setUserState(null);
-        setContext(null);
-      } else {
-        setUserState(null);
-        setContext(null);
-        setError(err instanceof AuthApiError ? err.message : 'Error al refrescar el usuario');
-      }
-    }
-  }, [loadEnvironment]);
 
   const logout = useCallback(async () => {
     try {
       await logoutUser();
     } catch {
-      // El backend limpia las cookies con Clear-Site-Data aunque falle el fetch
-    } finally {
-      setUserState(null);
-      setContext(null);
-      // Flag para que restoreAuth NO re-popule environment en el refresh
-      try { sessionStorage.setItem('just_logged_out', '1'); } catch { /* noop */ }
-      try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-      try { localStorage.removeItem('user_environment'); } catch { /* noop */ }
-      try { localStorage.removeItem('user_environment_stored_at'); } catch { /* noop */ }
-      try { localStorage.removeItem('user_currency_preference'); } catch { /* noop */ }
-      try { localStorage.removeItem(USER_AVATAR_CACHE_KEY); } catch { /* noop */ }
-      // Full page reload para que el server re-evalúe serverAuthenticated
-      window.location.href = '/';
+      // Best effort — backend still emits Clear-Site-Data
     }
-  }, []);
+    queryClient.clear();
+    setManualUser(null);
+    setContextState(null);
+    window.location.href = '/';
+  }, [queryClient]);
 
-  /**
-   * Al montar, restaura la sesión y carga el environment.
-   *
-   * Según AUTH_API.md, /v1/auth/me solo se necesita después de OAuth callback.
-   * Login, register y verify-email ya devuelven los datos del usuario.
-   *
-   * Estrategia:
-   * 1. Sin cookies de auth → anónimo: solo cargar environment (público)
-   * 2. Con cookies + sessionStorage → restaurar de sessionStorage (0 HTTP)
-   * 3. Con cookies + sin sessionStorage → GET /v1/auth/me (OAuth callback)
-   *
-   * EXCEPCIÓN — Verificación de email cross-tab:
-   * En desarrollo, las cookies pueden tener Domain=.proactrip.com y no ser
-   * visibles para el server de Next.js en localhost. La página register
-   * escribe una señal en localStorage que forzamos a leer acá.
-   */
-  /**
-   * Limpia cookies via logout (fire-and-forget), sessionStorage, y redirige.
-   *
-   * El orden importa: primero disparamos el logout al backend para que emita
-   * Clear-Site-Data y borre la cookie stale. No esperamos la respuesta —
-   * el middleware ya permite /auth/login?reason=session_expired como safety net.
-   */
-  const clearAndRedirect = useCallback((path: string) => {
-    logoutUser().catch(() => { /* fire-and-forget — best effort */ });
-    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* noop */ }
-    try { sessionStorage.removeItem('session_saved_at'); } catch { /* noop */ }
-    window.location.href = path;
-  }, []);
+  // ── Memoized context value ───────────────────────────────────────────────────
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function restoreAuth() {
-      try {
-        // After logout we set this flag so we don't immediately re-fetch and re-cache
-        // environment on the post-redirect page load.
-        const justLoggedOut = sessionStorage.getItem('just_logged_out');
-        if (justLoggedOut) {
-          sessionStorage.removeItem('just_logged_out');
-        }
-
-        // Señal cross-tab: el usuario acaba de completar OAuth login.
-        // Las cookies pueden no ser visibles para el server de Next.js
-        // (distintos orígenes en dev, Domain mismatch). Forzamos /v1/auth/me.
-        const justLoggedIn = localStorage.getItem('proactrip_oauth_login');
-        if (justLoggedIn) {
-          localStorage.removeItem('proactrip_oauth_login');
-        }
-
-        // Señal cross-tab: el usuario acaba de verificar su email.
-        // Forzamos /v1/auth/me aunque serverAuthenticated sea false
-        // (las cookies pueden no ser visibles para el server en localhost).
-        const justVerified = localStorage.getItem('proactrip_email_verified');
-        const effectiveAuth = serverAuthenticated || !!justVerified || !!justLoggedIn;
-
-        if (justVerified) {
-          localStorage.removeItem('proactrip_email_verified');
-        }
-
-        if (!effectiveAuth) {
-          // Sin cookies de auth → anónimo.
-          // Si acabamos de hacer logout, NO fetchear environment — se limpiaron las keys.
-          if (!justLoggedOut) {
-            const env = await fetchAndStoreEnvironment();
-            if (cancelled) return;
-            if (env) setContext(env);
-          }
-          setUserState(null);
-        } else {
-          // Hay cookies de auth (o señal de verificación) → ¿tenemos datos en sessionStorage?
-          const stored = getStoredSession();
-          if (stored) {
-            // Verificar frescura de la sesión en sessionStorage
-            const savedAt = sessionStorage.getItem('session_saved_at');
-            const isSessionFresh = savedAt && (Date.now() - parseInt(savedAt, 10)) < 60_000; // 1 min (antes 5 min)
-
-            if (isSessionFresh) {
-              // Sesión reciente (< 5 min) → restaurar sin llamada HTTP
-              setUserState(stored);
-              if (!justLoggedOut) {
-                const env = await fetchAndStoreEnvironment();
-                if (cancelled) return;
-                if (env) setContext(env);
-              }
-            } else {
-              // Sesión stale (> 5 min) → validar contra el backend
-              try {
-                const currentUser = await getCurrentUser();
-                if (cancelled) return;
-
-                if (currentUser) {
-                  setUserState(currentUser);
-                  try {
-                    sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-                    sessionStorage.setItem('session_saved_at', Date.now().toString());
-                  } catch { /* noop */ }
-                } else {
-                  // El servidor rechazó la sesión → redirigir
-                  setUserState(null);
-                  clearAndRedirect('/auth/login?reason=session_expired');
-                  return;
-                }
-              } catch (validationErr) {
-                if (!cancelled) {
-                  setUserState(null);
-                  // El backend devuelve type=".../errors/forbidden" con detail="Cuenta deshabilitada"
-                  // parseAuthError lo mapea a FORBIDDEN (no a ACCOUNT_DISABLED).
-                  const isDisabled =
-                    (validationErr instanceof AuthApiError && validationErr.code === 'ACCOUNT_DISABLED') ||
-                    (validationErr instanceof AuthApiError && validationErr.code === 'FORBIDDEN' &&
-                     validationErr.message?.toLowerCase().includes('deshabilitada'));
-                   if (isDisabled) {
-                     clearAndRedirect('/auth/account-disabled');
-                   } else {
-                     clearAndRedirect('/auth/login?reason=session_expired');
-                   }
-                   return;
-                }
-              }
-
-              if (!justLoggedOut) {
-                const env = await fetchAndStoreEnvironment();
-                if (cancelled) return;
-                if (env) setContext(env);
-              }
-            }
-          } else {
-            // sessionStorage vacío → OAuth callback, primera visita, o post-verificación.
-            const [currentUser, env] = await Promise.all([
-              getCurrentUser(),
-              justLoggedOut ? Promise.resolve(null) : fetchAndStoreEnvironment(),
-            ]);
-
-            if (cancelled) return;
-
-            setUserState(currentUser);
-            if (currentUser) {
-              try {
-                sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-                sessionStorage.setItem('session_saved_at', Date.now().toString());
-              } catch { /* noop */ }
-            }
-            if (env) setContext(env);
-          }
-        }
-        setError(null);
-      } catch (err) {
-        if (!cancelled) {
-          const isDisabled =
-            (err instanceof AuthApiError && err.code === 'ACCOUNT_DISABLED') ||
-            (err instanceof AuthApiError && err.code === 'FORBIDDEN' &&
-             err.message?.toLowerCase().includes('deshabilitada'));
-          if (isDisabled) {
-            setUserState(null);
-            setIsAccountDisabled(true);
-            clearAndRedirect('/auth/account-disabled');
-            return;
-          }
-          if (err instanceof AuthApiError && err.status === 401) {
-            // No hay sesión activa — no es un error, es estado normal
-            setUserState(null);
-          } else {
-            setUserState(null);
-            setError(err instanceof AuthApiError ? err.message : 'Error al restaurar la sesión');
-          }
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    restoreAuth();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [serverAuthenticated, clearAndRedirect]);
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      isLoading,
+      isAuthenticated: !!user,
+      isAccountDisabled,
+      error,
+      context,
+      setUser,
+      setContext,
+      logout,
+    }),
+    [user, isLoading, isAccountDisabled, error, context, setUser, setContext, logout],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        isAccountDisabled,
-        error,
-        context,
-        setUser,
-        setContext,
-        logout,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

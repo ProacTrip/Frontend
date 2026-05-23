@@ -5,10 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Loader from "@/components/ui/Loader";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { getCurrentUser } from "@/app/lib/api/auth";
 import { getProfile } from "@/app/lib/api";
 import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
-import { USER_AVATAR_CACHE_KEY } from "@/app/lib/constants/avatars";
 
 const OAUTH_ERROR_MAP: Record<string, string> = {
   OAUTH_CODE_MISSING:
@@ -78,26 +76,9 @@ function GoogleCallbackContent() {
           // finished creating the profile yet. Not fatal — redirect anyway.
         }
 
-        // Step 2: Pre-fetch user identity (id, email, role_name) for AuthContext.
-        // This calls /v1/auth/me internally — optional bonus, not strictly
-        // required since AuthContext does this at boot anyway.
-        try {
-          const currentUser = await getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            if (currentUser.avatar_url) {
-              localStorage.setItem(
-                USER_AVATAR_CACHE_KEY,
-                currentUser.avatar_url
-              );
-            }
-          }
-        } catch {
-          // /v1/auth/me may not be implemented yet (AUTH_API.md says so).
-          // That's fine — AuthContext will bootstrap on the landing page.
-        }
+        // PROFILE OK — session verified.
 
-        // Step 3: Pre-cache environment for immediate UI on landing
+        // Step 2: Pre-cache environment for immediate UI on landing
         try {
           const env = await fetchAndStoreEnvironment();
           if (env) setContext(env);

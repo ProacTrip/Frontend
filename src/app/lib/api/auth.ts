@@ -2,7 +2,7 @@
 // 1. CONFIGURACIÓN
 // ==========================================
 
-import type { AuthUser, LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthApiErrorCode } from '@/app/lib/types/auth';
+import type { LoginSuccessResponse, LoginMfaResponse, RegisterResponse, VerifyEmailResponse, ResendVerificationResponse, ForgotPasswordResponse, ResetPasswordResponse, AuthApiErrorCode } from '@/app/lib/types/auth';
 import { generateUUIDv7 } from '@/app/lib/utils/uuid';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
 import { parseProblemDetails } from '@/app/lib/utils/problem-details';

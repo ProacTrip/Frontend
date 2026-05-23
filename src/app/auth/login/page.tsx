@@ -19,7 +19,6 @@ import {
   AuthApiError,
 } from "@/app/lib/api";
 import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
-import { USER_AVATAR_CACHE_KEY } from "@/app/lib/constants/avatars";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
@@ -71,9 +70,9 @@ export default function LoginPage() {
         return;
       }
       setUser(data.user);
-      if (data.user.avatar_url) {
-        localStorage.setItem(USER_AVATAR_CACHE_KEY, data.user.avatar_url);
-      }
+      // NOTE: avatar_url caching removed — AuthUser no longer carries avatar_url.
+      // Avatar will be loaded from profile query in PR 3 of fix-auth-frontend-may-2026.
+      
       try {
         await getProfile();
       } catch {
