@@ -1,11 +1,7 @@
 export interface AuthUser {
   id: string;
   email: string;
-  email_verified: boolean;
   role_name: string;
-  avatar_url?: string | null;
-  /** Permisos efectivos del usuario (opcional — el backend puede no devolverlos aún). */
-  permissions?: string[];
 }
 
 /**
@@ -42,14 +38,6 @@ export interface RegisterResponse {
  * El backend NO devuelve context en verify-email. El frontend debe llamar GET /v1/environment por separado.
  */
 export interface VerifyEmailResponse {
-  user: AuthUser;
-}
-
-/**
- * GET /v1/auth/me
- * Retorna los datos del usuario autenticado usando la cookie __Secure-access_token.
- */
-export interface MeResponse {
   user: AuthUser;
 }
 
