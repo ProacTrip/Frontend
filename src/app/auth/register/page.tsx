@@ -1,27 +1,28 @@
 "use client";
 
-import { useState, type FormEvent, useEffect } from "react";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 import GoogleIcon from "@/components/iconos/GoogleIcon";
-import Loader from "@/components/ui/Loader";
 import { AnimatePresence, motion } from "framer-motion";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
-import { useAuthContext } from "@/contexts/AuthContext";
-import {
-  registerUser,
-  getOAuthUrl,
-  RateLimitError,
-  AuthApiError,
-} from "@/app/lib/api";
-import { validatePassword } from "@/app/lib/utils/validation";
-import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
+import { useRegisterMutation } from "@/hooks/useRegisterMutation";
+import { validateRegisterField, isValid } from "@/app/lib/validations/auth";
+import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
+const REGISTER_ERROR_MESSAGES: Record<string, string> = {
+  EMAIL_ALREADY_EXISTS: "Este email ya está registrado",
+  WEAK_PASSWORD: "La contraseña no cumple los requisitos de seguridad",
+  VALIDATION_ERROR: "Revisá los datos ingresados",
+  RATE_LIMIT_EXCEEDED: "Demasiadas peticiones. Esperá unos segundos.",
+};
+
 export default function RegisterPage() {
-  const { setUser, setContext } = useAuthContext();
+  const router = useRouter();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -29,123 +30,144 @@ export default function RegisterPage() {
     confirmPassword: "",
     first_name: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
+  const registerMutation = useRegisterMutation();
   const { isBlocked } = useRateLimit();
 
-  useEffect(() => {
-    if (!success) return;
-    const STORAGE_KEY = "proactrip_email_verified";
-    const redirectToHome = () => {
-      window.location.href = "/";
-    };
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) redirectToHome();
-    };
-    window.addEventListener("storage", handleStorage);
-    const interval = setInterval(() => {
-      if (localStorage.getItem(STORAGE_KEY)) redirectToHome();
-    }, 2000);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      clearInterval(interval);
-    };
-  }, [success]);
+  // ── Validation ─────────────────────────────────────────────────────
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function validate(): boolean {
+    const errors: Record<string, string | undefined> = {};
+    const nameErr = validateRegisterField("first_name", formData.first_name);
+    const emailErr = validateRegisterField("email", formData.email);
+    const passErr = validateRegisterField("password", formData.password);
+    const confirmErr = validateRegisterField(
+      "confirmPassword",
+      formData.confirmPassword,
+      formData.password,
+    );
+    if (nameErr) errors.first_name = nameErr;
+    if (emailErr) errors.email = emailErr;
+    if (passErr) errors.password = passErr;
+    if (confirmErr) errors.confirmPassword = confirmErr;
+    setFieldErrors(errors);
+    return isValid(errors);
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setServerError(null);
+    setRateLimitError(null);
+    if (!validate()) return;
+
+    registerMutation.mutate(
+      {
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.first_name.trim(),
+      },
+      {
+        onSuccess: () => {
+          setSuccess(true);
+          setFormData({
+            email: "",
+            password: "",
+            confirmPassword: "",
+            first_name: "",
+          });
+          setFieldErrors({});
+        },
+        onError: (err: unknown) => {
+          const code =
+            err instanceof AuthApiError
+              ? err.code
+              : (err as Record<string, unknown>)?.code as string | undefined;
+
+          if (code === "RATE_LIMIT_EXCEEDED") {
+            const msg =
+              err instanceof AuthApiError
+                ? err.message
+                : "Demasiadas peticiones. Intentá más tarde.";
+            setRateLimitError(msg);
+            return;
+          }
+
+          const message =
+            REGISTER_ERROR_MESSAGES[code || ""] ||
+            (err instanceof AuthApiError
+              ? err.message
+              : "Error al registrarse");
+          setServerError(message);
+        },
+      },
+    );
+  }
+
+  // ── Field change (clears errors on edit) ───────────────────────────
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (error) setError("");
-    if (name === "password") {
-      const result = validatePassword(value);
-      setPasswordErrors(result.valid ? [] : result.errors);
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-  };
+    if (serverError) setServerError(null);
+  }
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword ||
-      !formData.first_name.trim()
-    ) {
-      setError("Completá todos los campos");
-      return;
-    }
-    if (!formData.email.includes("@")) {
-      setError("Introducí un email válido");
-      return;
-    }
-    const validation = validatePassword(formData.password);
-    if (!validation.valid) {
-      setError(validation.errors.join(". "));
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return;
-    }
+  // ── Google login ───────────────────────────────────────────────────
 
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const registerData = await registerUser(
-        formData.email,
-        formData.password,
-        formData.first_name.trim()
-      );
-      if (registerData.user) setUser(registerData.user);
-      try {
-        const env = await fetchAndStoreEnvironment();
-        if (env) setContext(env);
-      } catch {
-        /* non-critical */
-      }
-      setSuccess(true);
-      setFormData({
-        email: "",
-        password: "",
-        confirmPassword: "",
-        first_name: "",
-      });
-      setPasswordErrors([]);
-    } catch (err) {
-      if (err instanceof RateLimitError) {
-        setError(err.message);
-        setRateLimitError(err.message);
-      } else if (err instanceof AuthApiError) {
-        setError(err.message);
-      } else {
-        setError("Error al conectar con el servidor. Intentá de nuevo.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
+  async function handleGoogleLogin() {
     try {
       const data = await getOAuthUrl("google");
       window.location.href = data.auth_url;
     } catch (err) {
-      if (err instanceof RateLimitError) {
-        setError(err.message);
-        setRateLimitError(err.message);
+      if (err instanceof AuthApiError) {
+        if (err.code === "RATE_LIMIT_EXCEEDED") {
+          setRateLimitError(err.message);
+          return;
+        }
+        setServerError(err.message);
       } else {
-        setError(
-          err instanceof AuthApiError
-            ? err.message
-            : "Error al conectar con el servidor."
-        );
+        setServerError("Error al conectar con Google. Intentá de nuevo.");
       }
     }
-  };
+  }
+
+  // ── Password checklist items ───────────────────────────────────────
+
+  const passwordChecks = [
+    {
+      met: formData.password.length >= 8,
+      text: "Mínimo 8 caracteres",
+    },
+    {
+      met: /[A-Z]/.test(formData.password),
+      text: "Al menos una mayúscula",
+    },
+    {
+      met: /[a-z]/.test(formData.password),
+      text: "Al menos una minúscula",
+    },
+    {
+      met: /[0-9]/.test(formData.password),
+      text: "Al menos un dígito",
+    },
+    {
+      met: /[!@#$%^&*]/.test(formData.password),
+      text: "Al menos un carácter especial (!@#$%^&*)",
+    },
+  ];
+  const showPasswordChecks = formData.password.length > 0;
+
+  // ── Render ─────────────────────────────────────────────────────────
+
+  const isPending = registerMutation.isPending;
 
   return (
     <AuthPageLayout
@@ -159,21 +181,25 @@ export default function RegisterPage() {
         rateLimitError={rateLimitError}
         onRetryReady={() => {
           setRateLimitError(null);
-          setError("");
+          setServerError(null);
         }}
       />
 
+      {/* ── Server error banner ── */}
       <AnimatePresence>
-        {error && !isBlocked && (
+        {serverError && !isBlocked && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            role="alert"
             className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
           >
-            {error}
+            {serverError}
           </motion.div>
         )}
+
+        {/* ── Success banner ── */}
         {success && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -181,7 +207,13 @@ export default function RegisterPage() {
             exit={{ opacity: 0, height: 0 }}
             className="mb-5 p-3.5 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm"
           >
-            ¡Cuenta creada! Revisá tu correo para verificar tu cuenta.
+            ¡Cuenta creada!{" "}
+            <Link
+              href="/auth/login?registered=true"
+              className="font-semibold underline hover:no-underline"
+            >
+              Iniciá sesión
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
@@ -195,6 +227,7 @@ export default function RegisterPage() {
           value={formData.first_name}
           onChange={handleInputChange}
           placeholder="Tu nombre"
+          error={fieldErrors.first_name}
         />
         <InputField
           label="Email"
@@ -204,6 +237,7 @@ export default function RegisterPage() {
           value={formData.email}
           onChange={handleInputChange}
           placeholder="correo@ejemplo.com"
+          error={fieldErrors.email}
         />
         <div>
           <InputField
@@ -215,35 +249,16 @@ export default function RegisterPage() {
             onChange={handleInputChange}
             placeholder="••••••••"
             showPasswordToggle
+            error={fieldErrors.password}
           />
-          {passwordErrors.length > 0 && (
-            <ul className="mt-2 space-y-0.5 text-xs text-red-500">
-              {[
-                {
-                  met: formData.password.length >= 8,
-                  text: "Mínimo 8 caracteres",
-                },
-                {
-                  met: /[A-Z]/.test(formData.password),
-                  text: "Al menos una mayúscula",
-                },
-                {
-                  met: /[a-z]/.test(formData.password),
-                  text: "Al menos una minúscula",
-                },
-                {
-                  met: /[0-9]/.test(formData.password),
-                  text: "Al menos un dígito",
-                },
-                {
-                  met: /[!@#$%^&*]/.test(formData.password),
-                  text: "Al menos un carácter especial (!@#$%^&*)",
-                },
-              ].map((req, i) => (
-                <li key={i} className="flex items-center gap-1.5">
-                  <span className={req.met ? "text-green-500" : "text-red-400"}>
-                    {req.met ? "✓" : "✗"}
-                  </span>
+          {showPasswordChecks && (
+            <ul className="mt-2 space-y-0.5 text-xs">
+              {passwordChecks.map((req, i) => (
+                <li
+                  key={i}
+                  className={`flex items-center gap-1.5 ${req.met ? "text-green-600" : "text-red-500"}`}
+                >
+                  <span>{req.met ? "✓" : "✗"}</span>
                   {req.text}
                 </li>
               ))}
@@ -259,22 +274,18 @@ export default function RegisterPage() {
           onChange={handleInputChange}
           placeholder="••••••••"
           showPasswordToggle
+          error={fieldErrors.confirmPassword}
         />
 
         <Button
           type="submit"
           variant="primary"
           className="!py-3.5 mt-2"
-          disabled={isLoading || isBlocked}
+          isLoading={isPending}
+          disabled={isBlocked}
         >
           Crear cuenta
         </Button>
-
-        {isLoading && (
-          <div className="flex justify-center pt-2">
-            <Loader text="Creando cuenta..." />
-          </div>
-        )}
       </form>
 
       <div className="relative my-5">
