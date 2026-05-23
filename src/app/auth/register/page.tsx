@@ -13,6 +13,7 @@ import { validateRegisterField, isValid } from "@/app/lib/validations/auth";
 import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
+import PasswordStrengthBar from "@/components/ui/PasswordStrengthBar";
 import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-errors";
 
 export default function RegisterPage() {
@@ -140,32 +141,6 @@ export default function RegisterPage() {
     }
   }
 
-  // ── Password checklist items ───────────────────────────────────────
-
-  const passwordChecks = [
-    {
-      met: formData.password.length >= 8,
-      text: "Mínimo 8 caracteres",
-    },
-    {
-      met: /[A-Z]/.test(formData.password),
-      text: "Al menos una mayúscula",
-    },
-    {
-      met: /[a-z]/.test(formData.password),
-      text: "Al menos una minúscula",
-    },
-    {
-      met: /[0-9]/.test(formData.password),
-      text: "Al menos un dígito",
-    },
-    {
-      met: /[!@#$%^&*]/.test(formData.password),
-      text: "Al menos un carácter especial (!@#$%^&*)",
-    },
-  ];
-  const showPasswordChecks = formData.password.length > 0;
-
   // ── Render ─────────────────────────────────────────────────────────
 
   const isPending = registerMutation.isPending;
@@ -252,18 +227,8 @@ export default function RegisterPage() {
             showPasswordToggle
             error={fieldErrors.password}
           />
-          {showPasswordChecks && (
-            <ul className="mt-2 space-y-0.5 text-xs">
-              {passwordChecks.map((req, i) => (
-                <li
-                  key={i}
-                  className={`flex items-center gap-1.5 ${req.met ? "text-green-600" : "text-red-500"}`}
-                >
-                  <span>{req.met ? "✓" : "✗"}</span>
-                  {req.text}
-                </li>
-              ))}
-            </ul>
+          {formData.password.length > 0 && (
+            <PasswordStrengthBar password={formData.password} />
           )}
         </div>
         <InputField
