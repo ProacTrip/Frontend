@@ -112,7 +112,56 @@ export function validateForgotPassword(
   return errors;
 }
 
-/** Whether the errors record is empty (form is valid). */
-export function isValid(errors: Record<string, string>): boolean {
-  return Object.keys(errors).length === 0;
+/** Whether the errors record is empty (form is valid). Handles optional-field records. */
+export function isValid(errors: Record<string, string | undefined>): boolean {
+  return Object.keys(errors).every((key) => !errors[key]);
+}
+
+// ── Field-level validators (for real-time per-field feedback) ──
+
+/** Returns error message or null for a single login field. */
+export function validateLoginField(
+  field: 'email' | 'password',
+  value: string,
+): string | null {
+  if (field === 'email') {
+    if (!value?.trim()) return 'El email es requerido';
+    if (!EMAIL_RE.test(value)) return 'Email inválido';
+    return null;
+  }
+  if (field === 'password') {
+    if (!value) return 'La contraseña es requerida';
+    return null;
+  }
+  return null;
+}
+
+/** Returns error message or null for a single register field. */
+export function validateRegisterField(
+  field: 'email' | 'password' | 'first_name' | 'confirmPassword',
+  value: string,
+  confirmValue?: string,
+): string | null {
+  switch (field) {
+    case 'email':
+      if (!value?.trim()) return 'El email es requerido';
+      if (!EMAIL_RE.test(value)) return 'Email inválido';
+      return null;
+    case 'first_name':
+      if (!value?.trim()) return 'El nombre es requerido';
+      if (value.length > 100) return 'El nombre no puede exceder 100 caracteres';
+      return null;
+    case 'password':
+      if (!value) return 'La contraseña es requerida';
+      if (value.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+      if (!PASSWORD_COMPLEXITY_RE.test(value))
+        return 'La contraseña debe incluir mayúscula, minúscula, número y carácter especial';
+      return null;
+    case 'confirmPassword':
+      if (typeof confirmValue === 'string' && value !== confirmValue)
+        return 'Las contraseñas no coinciden';
+      return null;
+    default:
+      return null;
+  }
 }

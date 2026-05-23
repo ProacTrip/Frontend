@@ -1,136 +1,138 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 import GoogleIcon from "@/components/iconos/GoogleIcon";
-import Loader from "@/components/ui/Loader";
 import { AnimatePresence, motion } from "framer-motion";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
-import { useAuthContext } from "@/contexts/AuthContext";
-import {
-  loginUser,
-  resendVerification,
-  getOAuthUrl,
-  getProfile,
-  RateLimitError,
-  AuthApiError,
-} from "@/app/lib/api";
-import { fetchAndStoreEnvironment } from "@/app/lib/utils/location";
+import { useLoginMutation } from "@/hooks/useLoginMutation";
+import { validateLoginField, isValid } from "@/app/lib/validations/auth";
+import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_CREDENTIALS: "Email o contraseña incorrectos",
+  EMAIL_NOT_VERIFIED: "Verificá tu email primero. ¿No recibiste el email?",
+  ACCOUNT_LOCKED:
+    "Cuenta bloqueada por demasiados intentos. Esperá unos minutos.",
+  ACCOUNT_SUSPENDED: "Tu cuenta fue suspendida. Contactá a soporte.",
+  ACCOUNT_INACTIVE: "Tu cuenta está deshabilitada.",
+  RATE_LIMIT_EXCEEDED: "Demasiados intentos. Esperá unos segundos.",
+};
+
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setContext } = useAuthContext();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl") || "/home";
 
-  const [formData, setFormData] = useState({ email: "", password: "" });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [errorAction, setErrorAction] = useState<"verify_email" | "none">(
-    "none"
-  );
-  const [resendSent, setResendSent] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
+  const loginMutation = useLoginMutation();
   const { isBlocked } = useRateLimit();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (error) {
-      setError("");
-      setErrorAction("none");
-      setResendSent(false);
-    }
-  };
+  // ── Validation ─────────────────────────────────────────────────────
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  function validate(): boolean {
+    const errors: Record<string, string | undefined> = {};
+    const emailErr = validateLoginField("email", email);
+    const passErr = validateLoginField("password", password);
+    if (emailErr) errors.email = emailErr;
+    if (passErr) errors.password = passErr;
+    setFieldErrors(errors);
+    return isValid(errors);
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      setError("Completá todos los campos");
-      return;
-    }
-    if (!formData.email.includes("@")) {
-      setError("Introducí un email válido");
-      return;
-    }
+    setServerError(null);
+    setRateLimitError(null);
+    if (!validate()) return;
 
-    setIsLoading(true);
-    setError("");
-    setErrorAction("none");
+    loginMutation.mutate(
+      { email, password },
+      {
+        onSuccess: (data) => {
+          // Hook already handles MFA check + query invalidation.
+          // Override the default redirect with returnUrl.
+          if ("mfa_required" in data && data.mfa_required) return;
+          router.push(returnUrl);
+        },
+        onError: (err: unknown) => {
+          const code =
+            err instanceof AuthApiError
+              ? err.code
+              : (err as Record<string, unknown>)?.code as string | undefined;
 
-    try {
-      const data = await loginUser(formData.email, formData.password);
-      if (data.mfa_required) {
-        setError("MFA no está disponible aún en el frontend");
-        setIsLoading(false);
-        return;
-      }
-      setUser(data.user);
-      // NOTE: avatar_url caching removed — AuthUser no longer carries avatar_url.
-      // Avatar will be loaded from profile query in PR 3 of fix-auth-frontend-may-2026.
-      
-      try {
-        await getProfile();
-      } catch {
-        /* non-critical */
-      }
-      try {
-        const env = await fetchAndStoreEnvironment();
-        if (env) setContext(env);
-      } catch {
-        /* non-critical */
-      }
-      const redirectTo = data.user.role_name === "admin" ? "/admin" : "/";
-      setTimeout(() => router.push(redirectTo), 600);
-    } catch (err) {
-      if (err instanceof RateLimitError) {
-        setError(err.message);
-        setRateLimitError(err.message);
-      } else if (err instanceof AuthApiError) {
-        setError(err.message);
-        setErrorAction(err.action);
-      } else {
-        setError("Error al conectar con el servidor. Intentá de nuevo.");
-      }
-      setIsLoading(false);
+          if (code === "RATE_LIMIT_EXCEEDED") {
+            const msg =
+              err instanceof AuthApiError
+                ? err.message
+                : "Demasiadas peticiones. Intentá más tarde.";
+            setRateLimitError(msg);
+            return;
+          }
+
+          const message =
+            AUTH_ERROR_MESSAGES[code || ""] ||
+            (err instanceof AuthApiError
+              ? err.message
+              : "Error al iniciar sesión");
+          setServerError(message);
+        },
+      },
+    );
+  }
+
+  // ── Field change (clears errors on edit) ───────────────────────────
+
+  function handleEmailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setEmail(e.target.value);
+    if (fieldErrors.email) {
+      setFieldErrors((prev) => ({ ...prev, email: undefined }));
     }
-  };
+    if (serverError) setServerError(null);
+  }
 
-  const handleResendVerification = async () => {
-    setResendSent(false);
-    try {
-      await resendVerification(formData.email);
-      setResendSent(true);
-    } catch (err) {
-      setError(
-        err instanceof AuthApiError
-          ? err.message
-          : "Error al reenviar el correo. Intentá de nuevo."
-      );
+  function handlePasswordChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPassword(e.target.value);
+    if (fieldErrors.password) {
+      setFieldErrors((prev) => ({ ...prev, password: undefined }));
     }
-  };
+    if (serverError) setServerError(null);
+  }
 
-  const handleGoogleLogin = async () => {
+  // ── Google login ───────────────────────────────────────────────────
+
+  async function handleGoogleLogin() {
     try {
       const data = await getOAuthUrl("google");
       window.location.href = data.auth_url;
     } catch (err) {
-      if (err instanceof RateLimitError) {
-        setError(err.message);
-        setRateLimitError(err.message);
+      if (err instanceof AuthApiError) {
+        if (err.code === "RATE_LIMIT_EXCEEDED") {
+          setRateLimitError(err.message);
+          return;
+        }
+        setServerError(err.message);
       } else {
-        setError(
-          err instanceof AuthApiError
-            ? err.message
-            : "Error al conectar con el servidor."
-        );
+        setServerError("Error al conectar con Google. Intentá de nuevo.");
       }
     }
-  };
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────
+
+  const isPending = loginMutation.isPending;
 
   return (
     <AuthPageLayout
@@ -144,33 +146,30 @@ export default function LoginPage() {
         rateLimitError={rateLimitError}
         onRetryReady={() => {
           setRateLimitError(null);
-          setError("");
+          setServerError(null);
         }}
       />
 
+      {/* ── Server error banner ── */}
       <AnimatePresence>
-        {error && !isBlocked && (
+        {serverError && !isBlocked && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            role="alert"
             className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
           >
-            <p>{error}</p>
-            {errorAction === "verify_email" && !resendSent && (
-              <button
-                type="button"
-                onClick={handleResendVerification}
-                className="mt-2 text-neutral-700 font-medium underline hover:no-underline text-xs"
-              >
-                Reenviar correo de verificación
-              </button>
-            )}
-            {resendSent && (
-              <p className="mt-2 text-green-600 text-xs font-medium">
-                Correo reenviado. Revisá tu bandeja de entrada.
-              </p>
-            )}
+            <p>{serverError}</p>
+            {loginMutation.error instanceof AuthApiError &&
+              loginMutation.error.code === "EMAIL_NOT_VERIFIED" && (
+                <Link
+                  href={`/auth/resend-verification?email=${encodeURIComponent(email)}`}
+                  className="mt-2 inline-block text-neutral-700 font-medium underline hover:no-underline text-xs"
+                >
+                  Reenviar correo de verificación
+                </Link>
+              )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -181,9 +180,10 @@ export default function LoginPage() {
           name="email"
           type="email"
           id="login-email"
-          value={formData.email}
-          onChange={handleInputChange}
+          value={email}
+          onChange={handleEmailChange}
           placeholder="correo@ejemplo.com"
+          error={fieldErrors.email}
         />
 
         <div className="space-y-1">
@@ -192,10 +192,11 @@ export default function LoginPage() {
             name="password"
             type="password"
             id="login-password"
-            value={formData.password}
-            onChange={handleInputChange}
+            value={password}
+            onChange={handlePasswordChange}
             placeholder="••••••••"
             showPasswordToggle
+            error={fieldErrors.password}
           />
           <div className="text-right">
             <Link
@@ -211,16 +212,11 @@ export default function LoginPage() {
           type="submit"
           variant="primary"
           className="!py-3.5 mt-2"
-          disabled={isLoading || isBlocked}
+          isLoading={isPending}
+          disabled={isBlocked}
         >
           Iniciar sesión
         </Button>
-
-        {isLoading && (
-          <div className="flex justify-center pt-2">
-            <Loader text="Iniciando sesión..." />
-          </div>
-        )}
       </form>
 
       <div className="relative my-6">
