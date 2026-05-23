@@ -81,7 +81,10 @@ export function parseCacheMaxAge(header: string | null): number {
   if (!match) return ENV_CACHE_TTL_MS;
   const seconds = parseInt(match[1], 10);
   if (Number.isNaN(seconds) || seconds <= 0) return ENV_CACHE_TTL_MS;
-  return Math.min(seconds * 1000, ENV_CACHE_TTL_MS);
+  // Trust the backend's Cache-Control header — no artificial cap.
+  // The backend controls TTL via ENVIRONMENT_WEATHER_CACHE_TTL and changes
+  // propagate through this header automatically.
+  return seconds * 1000;
 }
 
 /**
@@ -187,8 +190,14 @@ export async function getEnvironment(): Promise<EnvironmentResponse | null> {
     const headers: Record<string, string> = { 'Accept': 'application/json' };
 
     // Send browser language so the backend can localise error messages (ENVIRONMENT_API.md)
+    // Normalize to ISO 639-1: navigator.language may be "en-US", backend expects "en"
     if (typeof navigator !== 'undefined' && navigator.language) {
-      headers['Accept-Language'] = navigator.language;
+      headers['Accept-Language'] = navigator.language.split('-')[0] || 'es';
+    }
+
+    // X-Real-IP override for development/testing — only sent when env var is set
+    if (process.env.NEXT_PUBLIC_SIMULATE_IP) {
+      headers['X-Real-IP'] = process.env.NEXT_PUBLIC_SIMULATE_IP;
     }
 
     const response = await fetch(`${API_URL}/v1/environment`, {
@@ -230,6 +239,22 @@ export async function getEnvironment(): Promise<EnvironmentResponse | null> {
       }
       // Unexpected 400 — still treat as non-critical and return null
       console.warn('[env] Bad request:', detail);
+      return null;
+    }
+
+    // 502 = Bad gateway (ipquery.io unreachable). Graceful — log, return null.
+    if (response.status === 502) {
+      const problem = await parseProblemDetails(response);
+      const traceId = problem.traceparent || problem.trace_id;
+      console.warn('[Environment] Location provider unavailable (502)', { traceId });
+      return null;
+    }
+
+    // 500 = Internal server error. Graceful — log, return null, don't break UI.
+    if (response.status === 500) {
+      const problem = await parseProblemDetails(response);
+      const traceId = problem.traceparent || problem.trace_id;
+      console.error('[Environment] Internal server error (500)', { traceId });
       return null;
     }
 

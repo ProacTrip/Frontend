@@ -1,5 +1,5 @@
 // app/api/v1/management/users/[id]/role/route.ts
-//Utilidad: Proxy: cambiar rol de usuario (user → staff → admin)
+//Utilidad: Proxy: cambiar rol de usuario (client → admin)
 
 // Proxy: Asignar rol a usuario (POST /v1/management/users/:id/role)
 
