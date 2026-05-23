@@ -10,6 +10,8 @@ const PROTECTED_ROUTES = [
   "/checkout",
   "/confirmacion",
   "/admin",
+  "/hoteles",
+  "/vuelos",
 ];
 
 const AUTH_ROUTES = [
@@ -20,7 +22,7 @@ const AUTH_ROUTES = [
   "/auth/resend-verification",
 ];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken =
     request.cookies.get("__Secure-access_token")?.value ||
@@ -31,20 +33,21 @@ export function proxy(request: NextRequest) {
   const hasSessionExpired =
     request.nextUrl.searchParams.get("reason") === "session_expired";
 
+  // Redirect authenticated users away from auth pages (unless their session
+  // is known to be broken — prevents infinite refresh loop when AuthContext
+  // redirects to /auth/login?reason=session_expired).
   if (
     isAuthenticated &&
     AUTH_ROUTES.some((route) => pathname.startsWith(route))
   ) {
-    // Allow auth pages when the session is known to be broken (stale cookie
-    // rejected by the backend). Without this guard, the AuthContext redirect
-    // to /auth/login?reason=session_expired would be bounced back to / by
-    // this middleware — an infinite refresh loop.
     if (hasSessionExpired) {
       return NextResponse.next();
     }
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  // Protect authenticated routes: redirect unauthenticated users to login
+  // and preserve the intended destination as returnUrl.
   if (
     !isAuthenticated &&
     PROTECTED_ROUTES.some((route) => pathname.startsWith(route))
@@ -55,6 +58,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
+  // Hide password-reset pages when the feature flag is off
   if (process.env.NEXT_PUBLIC_FEATURE_PASSWORD_RESET !== "true") {
     if (
       pathname.startsWith("/auth/forgot-password") ||
@@ -78,5 +82,7 @@ export const config = {
     "/checkout/:path*",
     "/confirmacion/:path*",
     "/admin/:path*",
+    "/hoteles/:path*",
+    "/vuelos/:path*",
   ],
 };
