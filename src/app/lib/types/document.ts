@@ -1,17 +1,27 @@
 // app/lib/types/document.ts
 //
 // Tipos para el módulo de documentos de viaje (pasaporte, visa, seguro, etc.).
-// Alineado con los 7 endpoints del backend REST /v1/user/documents/*.
+// Alineado con USER_API.md (May 2026): paths con /profile/, DTOs corregidos.
 
 // ==========================================
 // OCR STATUS (pipeline asíncrono)
 // ==========================================
 export type OcrStatus =
-  | 'uploaded'
+  | 'queued'          // ← renamed from 'uploaded'
   | 'processing'
   | 'completed'
   | 'rejected'
   | 'failed';
+
+// ==========================================
+// VERIFICATION STATUS (admin dashboard)
+// ==========================================
+export type VerificationStatus =
+  | 'verified'
+  | 'unverified'
+  | 'rejected'
+  | 'manual_review'
+  | 'suspicious';
 
 // ==========================================
 // DOCUMENT TYPE (catálogo del backend)
@@ -25,20 +35,20 @@ export interface DocumentType {
 }
 
 // ==========================================
-// LIST ITEM (GET /v1/user/documents)
+// LIST ITEM (GET /v1/user/profile/documents)
 // ==========================================
 export interface DocumentListItem {
   id: string;
   file_name: string;
-  document_type: string;
+  document_type: string | null;
   ocr_status: OcrStatus;
   ocr_confidence: number | null;
-  is_verified: boolean;
+  verification_status: VerificationStatus;  // ← was: is_verified: boolean
   created_at: string;
 }
 
 // ==========================================
-// FULL DETAIL (GET /v1/user/documents/:id)
+// FULL DETAIL (GET /v1/user/profile/documents/:id)
 // ==========================================
 export interface DocumentDetail {
   id: string;
@@ -47,25 +57,22 @@ export interface DocumentDetail {
   file_size: number;
   mime_type: string;
   detected_mime_type: string | null;
+  detected_size_bytes: number;                 // ← new field
   document_type: string;
   storage_key: string;
   ocr_status: OcrStatus;
   ocr_confidence: number | null;
-  extracted_data: Record<string, unknown> | null;
+  extracted_data: Record<string, unknown> | null;  // ← valid_from, valid_until, document_number, issuing_country live HERE now
   failure_reason: string | null;
-  is_verified: boolean;
-  verified_at: string | null;
-  verified_by: string | null;
-  valid_from: string | null;
-  valid_until: string | null;
-  document_number: string | null;
-  issuing_country: string | null;
+  verification_status: VerificationStatus;     // ← was: is_verified: boolean
+  verified_at: string | null;                  // ← optional (admin-only, may be null for user module)
+  verified_by: string | null;                  // ← optional
   created_at: string;
   updated_at: string;
 }
 
 // ==========================================
-// UPLOAD RESPONSE (POST /v1/user/documents)
+// UPLOAD RESPONSE (POST /v1/user/profile/documents)
 // ==========================================
 export interface DocumentUploadResponse {
   document_id: string;
@@ -75,7 +82,16 @@ export interface DocumentUploadResponse {
 }
 
 // ==========================================
-// SSE EVENT (GET /v1/user/documents/:id/events)
+// DOWNLOAD URL RESPONSE (GET .../download-url)
+// ==========================================
+export interface DocumentDownloadUrlResponse {
+  download_url: string;
+  expires_at: string;
+  file_name: string;
+}
+
+// ==========================================
+// SSE EVENT
 // ==========================================
 export interface DocumentEvent {
   status: OcrStatus;
@@ -88,7 +104,7 @@ export interface DocumentEvent {
 }
 
 // ==========================================
-// LIST RESPONSE (GET /v1/user/documents)
+// LIST RESPONSE (GET /v1/user/profile/documents)
 // ==========================================
 export interface DocumentListResponse {
   documents: DocumentListItem[];

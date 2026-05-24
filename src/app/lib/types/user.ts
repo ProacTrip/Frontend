@@ -1,5 +1,6 @@
 // app/lib/types/user.ts
-// Tipos exactos del módulo User Profile según la guía de Marco Aurelio
+// Tipos exactos del módulo User Profile según USER_API.md (May 2026)
+// Backend corregido en PR #1 / PR #2: paths, métodos, DTOs, medical profile tipado
 
 // ─────────────────────────────────────────────────────────────
 // ENUMS (valores exactos que valida el backend)
@@ -15,10 +16,80 @@ export type Channel = 'email' | 'sms' | 'websocket';
 
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
-export interface MedicalField<T> {
+// ─────────────────────────────────────────────────────────────
+// MEDICAL — source tracing & field value wrapper
+// ─────────────────────────────────────────────────────────────
+
+export interface MedicalSourceDetail {
+  type: 'manual' | 'ocr';
+  document_id: string | null;
+  confidence: number | null;
+}
+
+export interface MedicalFieldValue<T> {
   value: T;
-  source: string;
+  source: MedicalSourceDetail;
   updated_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MEDICAL — sub-types for structured values
+// ─────────────────────────────────────────────────────────────
+
+export interface Medication {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  status: string;
+}
+
+export interface Vaccination {
+  name: string;
+  doses_received: number;
+  status: string;
+}
+
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string | null;
+}
+
+export interface InsuranceInfo {
+  company: string;
+  policy_number: string;
+  plan_type: string | null;
+  expiration_date: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MEDICAL PROFILE (tipado — backend devuelve rich values, NO stringified JSON)
+// ─────────────────────────────────────────────────────────────
+
+export interface MedicalProfile {
+  blood_type: MedicalFieldValue<string | null>;
+  allergies: MedicalFieldValue<string[]>;
+  medications: MedicalFieldValue<Medication[]>;
+  conditions: MedicalFieldValue<string[]>;
+  vaccinations: MedicalFieldValue<Vaccination[]>;
+  emergency_contact: MedicalFieldValue<EmergencyContact | null>;
+  insurance_info: MedicalFieldValue<InsuranceInfo | null>;
+}
+
+/** API response wrapper: GET /v1/user/profile/medical → { data: MedicalProfile } */
+export interface GetMedicalProfileResponse {
+  data: MedicalProfile;
+}
+
+export interface UpdateMedicalProfileBody {
+  blood_type?: BloodType | null;
+  allergies?: string[] | null;
+  medications?: Medication[] | null;
+  conditions?: string[] | null;
+  vaccinations?: Vaccination[] | null;
+  emergency_contact?: EmergencyContact | null;
+  insurance_info?: InsuranceInfo | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -26,22 +97,20 @@ export interface MedicalField<T> {
 // ─────────────────────────────────────────────────────────────
 
 export interface Profile {
+  id: string;                           // UUID v7 — profile ID (≠ user_id)
+  user_id: string;                      // UUID v7 — auth users FK
+  email: string;
   first_name: string | null;
   last_name: string | null;
-  date_of_birth: string | null;        // ISO 8601: YYYY-MM-DD
+  date_of_birth: string | null;         // ISO 8601: YYYY-MM-DD
   gender: Gender | null;
-  nationality: string | null;          // ISO 3166-1 alpha-2 (ej: "ES")
-  phone: string | null;                // E.164 (ej: "+34600123456")
-  phone_verified: boolean;
-  current_location: string | null;
+  nationality: string | null;           // ISO 3166-1 alpha-2 (ej: "AR")
+  phone: string | null;                 // E.164 (ej: "+5491123456789")
   bio: string | null;
-  is_public: boolean;
   avatar_url: string | null;
-  language_code: string | null;        // ISO 639-1 (ej: "es")
-  currency_code: string | null;        // ISO 4217 (ej: "EUR")
-  timezone_name: string | null;        // IANA (ej: "Europe/Madrid")
-  created_at: string;                  // ISO 8601
-  updated_at: string;                  // ISO 8601
+  language_code: string | null;         // adapter-derived from location.language
+  currency_code: string | null;         // adapter-derived from location.currency
+  timezone_name: string | null;         // adapter-derived from location.timezone (optional)
 }
 
 export interface UpdateProfileBody {
@@ -52,7 +121,8 @@ export interface UpdateProfileBody {
   nationality?: string | null;
   phone?: string | null;
   bio?: string | null;
-  is_public?: boolean;
+  language?: string | null;             // ISO 639-1 — merged from old LocaleUpdate
+  currency?: string | null;             // ISO 4217 — merged from old LocaleUpdate
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -82,34 +152,6 @@ export interface UpdateTravelPreferencesBody {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PERFIL MÉDICO
-// ─────────────────────────────────────────────────────────────
-
-export interface MedicalProfile {
-  blood_type: MedicalField<BloodType | null>;
-  allergies: MedicalField<string | null>;
-  medications: MedicalField<string | null>;
-  conditions: MedicalField<string | null>;
-  vaccinations: MedicalField<string | null>;
-  emergency_contact: MedicalField<string | null>;
-  insurance_info: MedicalField<string | null>;
-  is_shared: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface UpdateMedicalProfileBody {
-  blood_type?: BloodType | null;
-  allergies?: string | null;          // ← FIX: string, no string[]
-  medications?: string | null;        // ← FIX: string, no string[]
-  conditions?: string | null;         // ← FIX: string, no string[]
-  vaccinations?: string | null;       // ← FIX: string, no string[]
-  emergency_contact?: string | null;
-  insurance_info?: string | null;
-  is_shared?: boolean;
-}
-
-// ─────────────────────────────────────────────────────────────
 // NOTIFICACIONES
 // ─────────────────────────────────────────────────────────────
 
@@ -119,22 +161,8 @@ export interface NotificationPreference {
   enabled: boolean;
 }
 
-export interface UpdateNotificationPreferenceBody {
-  channel: Channel;
-  notification_type: string;
-  enabled: boolean;
-}
-
-// ─────────────────────────────────────────────────────────────
-// LOCALIZACIÓN
-// ─────────────────────────────────────────────────────────────
-
-export interface LocaleUpdate {
-  timezone_name?: string | null;
-  language_code?: string | null;
-  currency_code?: string | null;
-  current_location?: string;
-}
+// NOTE: updateNotificationPreference() removed — endpoint doesn't exist yet.
+// Notification preferences are read-only via getProfile().
 
 // ─────────────────────────────────────────────────────────────
 // AVATARES
@@ -165,28 +193,31 @@ export interface MedicalConflict {
   current_value: string;
   proposed_value: string;
   source: {
-    type: 'ocr' | 'nlp';
+    type: 'ocr';                        // ONLY 'ocr' — NLP deprecated
     document_id: string;
     file_name: string;
   };
+  status: string;                       // 'pending' | 'resolved' | 'rejected'
   suggested_at: string;
   expires_at: string;
+  resolved_at: string | null;
+  resolution: string | null;
 }
 
 export interface PendingConflictsResponse {
   conflicts: MedicalConflict[];
 }
 
+/** Body for POST /v1/user/profile/medical-conflicts/:conflict_id/resolve */
 export interface ResolveConflictBody {
-  pending_update_id: string;
   action: ConflictAction;
-  custom_value?: string;
+  value?: string;                       // required when action='custom'
 }
 
 export type PendingConflicts = MedicalConflict[];
 
 // ─────────────────────────────────────────────────────────────
-// RESPUESTA PRINCIPAL
+// RESPUESTA PRINCIPAL (GET /v1/user/profile)
 // ─────────────────────────────────────────────────────────────
 
 export interface ProfileResponse {
