@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.agoda.net" },
       { protocol: "https", hostname: "**.gstatic.com" },
       { protocol: "https", hostname: "openweathermap.org" },
+      { protocol: "http", hostname: "localhost" },
     ],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
