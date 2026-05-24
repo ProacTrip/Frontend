@@ -29,7 +29,11 @@ export function middleware(request: NextRequest) {
     request.cookies.get("__Secure-access_token")?.value ||
     request.cookies.get("access_token")?.value ||
     "";
-  const isAuthenticated = !!accessToken;
+  const refreshToken =
+    request.cookies.get("__Secure-refresh_token")?.value ||
+    request.cookies.get("refresh_token")?.value ||
+    "";
+  const isAuthenticated = !!(accessToken || refreshToken);
 
   const hasSessionExpired =
     request.nextUrl.searchParams.get("reason") === "session_expired";

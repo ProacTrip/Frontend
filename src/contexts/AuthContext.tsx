@@ -155,6 +155,25 @@ export function AuthProvider({
     }
   }, [isAccountDisabled]);
 
+  // ── Effect: redirect on session expiry (TOKEN_INVALID) ─────────────────────
+  // Guards:
+  //   • serverAuthenticated=true → profile query actually ran (not cold load)
+  //   • Skip if already on /auth/login → prevents redirect loop (middleware
+  //     already forwarded with ?reason=session_expired)
+  //   • Preserves returnUrl so login can redirect back after re-auth
+  useEffect(() => {
+    if (!serverAuthenticated) return;
+    if (window.location.pathname.startsWith('/auth/login')) return;
+
+    const err = profileQuery.error;
+    if (err instanceof UserApiError && err.code === 'TOKEN_INVALID') {
+      const returnUrl = encodeURIComponent(
+        window.location.pathname + window.location.search
+      );
+      window.location.href = `/auth/login?reason=session_expired&returnUrl=${returnUrl}`;
+    }
+  }, [serverAuthenticated, profileQuery.error]);
+
   // ── Public API (backward-compat bridge) ──────────────────────────────────────
 
   const setUser = useCallback((u: AuthUser | null) => {
