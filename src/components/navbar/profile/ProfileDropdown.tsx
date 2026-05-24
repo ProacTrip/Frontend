@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { User, UserCircle, LogOut, LogIn } from "lucide-react";
+import { User, UserCircle, LogOut, LogIn, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/hooks/useEnvironment";
@@ -111,6 +111,20 @@ export default function ProfileDropdown({
                 >
                   <UserCircle className="w-[18px] h-[18px] text-[#6A7282]" />
                   <span className="text-[14px] text-[#0A0A0A]">Perfil</span>
+                </button>
+              )}
+            </MenuItem>
+
+            <MenuItem>
+              {({ focus }) => (
+                <button
+                  onClick={() => router.push("/documentos")}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                    focus ? "bg-[#FAFAFA]" : ""
+                  }`}
+                >
+                  <FileText className="w-[18px] h-[18px] text-[#6A7282]" />
+                  <span className="text-[14px] text-[#0A0A0A]">Documentos</span>
                 </button>
               )}
             </MenuItem>
