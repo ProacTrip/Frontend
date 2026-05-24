@@ -38,7 +38,7 @@ export default function ProfilePage() {
   // ---- useProfile hook ----
   const {
     profile: data,
-    isLoading,
+    isPending,
     error,
   } = useProfile();
 
@@ -51,7 +51,7 @@ export default function ProfilePage() {
     // the single source of truth, no localStorage cache needed.
   }, [queryClient]);
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader text="Cargando perfil..." />

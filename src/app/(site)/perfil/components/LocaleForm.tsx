@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
@@ -48,14 +48,27 @@ export function LocaleForm({ profile, onSave }: Props) {
   const updateProfileMutation = useUpdateProfile();
   const { setActiveCurrency } = useCurrencyContext();
 
+  const hasModified = useRef(false);
+
   const [form, setForm] = useState({
     language_code: profile.language_code ?? '',
     currency_code: profile.currency_code ?? '',
   });
   const [error, setError] = useState('');
 
-  const setLanguage = (code: string) => setForm((prev) => ({ ...prev, language_code: code }));
-  const setCurrency = (code: string) => setForm((prev) => ({ ...prev, currency_code: code }));
+  // Sync form state with fresh profile data from background refetches.
+  // Only sync if the user hasn't made any edits.
+  useEffect(() => {
+    if (!hasModified.current) {
+      setForm({
+        language_code: profile.language_code ?? '',
+        currency_code: profile.currency_code ?? '',
+      });
+    }
+  }, [profile]);
+
+  const setLanguage = (code: string) => { hasModified.current = true; setForm((prev) => ({ ...prev, language_code: code })); };
+  const setCurrency = (code: string) => { hasModified.current = true; setForm((prev) => ({ ...prev, currency_code: code })); };
 
   const selectedLanguage = LANGUAGES.find((l) => l.code === form.language_code) ?? null;
   const selectedCurrency = CURRENCIES.find((c) => c.code === form.currency_code) ?? null;
@@ -73,6 +86,7 @@ export function LocaleForm({ profile, onSave }: Props) {
       if (payload.currency) {
         setActiveCurrency(payload.currency);
       }
+      hasModified.current = false;
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { useUpdateTravelPreferences } from '@/hooks/useUpdateTravelPreferences';
 import { TravelPreferences } from '@/app/lib/types/user';
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2, ChevronDown } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
@@ -38,21 +38,34 @@ const SEAT_OPTIONS = [
 export function TravelForm({ prefs, onSave }: Props) {
   const updatePrefsMutation = useUpdateTravelPreferences();
 
-  const [form, setForm] = useState({
-    preferred_class: prefs.preferred_class ?? '',
-    seat_preference: prefs.seat_preference ?? '',
-    meal_preference: prefs.meal_preference ?? '',
-    special_assistance: (prefs.special_assistance ?? []).join(ARRAY_SEPARATOR),
-    preferred_airlines: (prefs.preferred_airlines ?? []).join(ARRAY_SEPARATOR),
-    preferred_hotels: (prefs.preferred_hotels ?? []).join(ARRAY_SEPARATOR),
-    avoid_layovers: prefs.avoid_layovers ?? false,
-    max_layover_duration: prefs.max_layover_duration ?? '',
+  const hasModified = useRef(false);
+
+  const buildInitialForm = (p: TravelPreferences) => ({
+    preferred_class: p.preferred_class ?? '',
+    seat_preference: p.seat_preference ?? '',
+    meal_preference: p.meal_preference ?? '',
+    special_assistance: (p.special_assistance ?? []).join(ARRAY_SEPARATOR),
+    preferred_airlines: (p.preferred_airlines ?? []).join(ARRAY_SEPARATOR),
+    preferred_hotels: (p.preferred_hotels ?? []).join(ARRAY_SEPARATOR),
+    avoid_layovers: p.avoid_layovers ?? false,
+    max_layover_duration: p.max_layover_duration ?? '',
   });
+
+  const [form, setForm] = useState(() => buildInitialForm(prefs));
   const [error, setError] = useState('');
+
+  // Sync form state with fresh travel preferences from background refetches.
+  // Only sync if the user hasn't made any edits — don't overwrite unsaved changes.
+  useEffect(() => {
+    if (!hasModified.current) {
+      setForm(buildInitialForm(prefs));
+    }
+  }, [prefs]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
+    hasModified.current = true;
     const { name, value, type } = e.target;
     setForm((prev) => ({
       ...prev,
@@ -60,8 +73,8 @@ export function TravelForm({ prefs, onSave }: Props) {
     }));
   };
 
-  const setPreferredClass = (value: string) => setForm((prev) => ({ ...prev, preferred_class: value }));
-  const setSeatPreference = (value: string) => setForm((prev) => ({ ...prev, seat_preference: value }));
+  const setPreferredClass = (value: string) => { hasModified.current = true; setForm((prev) => ({ ...prev, preferred_class: value })); };
+  const setSeatPreference = (value: string) => { hasModified.current = true; setForm((prev) => ({ ...prev, seat_preference: value })); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +114,7 @@ export function TravelForm({ prefs, onSave }: Props) {
       }
 
       await updatePrefsMutation.mutateAsync(payload);
+      hasModified.current = false;
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');

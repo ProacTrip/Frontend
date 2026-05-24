@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateTravelPreferences } from '@/app/lib/api';
 import type { UpdateTravelPreferencesBody } from '@/app/lib/types/user';
-import { userKeys } from '@/app/lib/queries/queryKeys';
+import { queryKeys, userKeys } from '@/app/lib/queries/queryKeys';
 
 /**
  * Mutation hook for updating travel preferences.
@@ -12,7 +12,10 @@ import { userKeys } from '@/app/lib/queries/queryKeys';
  *   const updatePrefs = useUpdateTravelPreferences();
  *   await updatePrefs.mutateAsync({ preferred_class: 'business' });
  *
- * On success, invalidates userKeys.travelPreferences().
+ * On success, invalidates both travelPreferences and profile caches.
+ * Travel preferences are returned inline in the GET /v1/user/profile
+ * response — not as a separate endpoint. Both keys must be invalidated
+ * so that useProfile() refetches and the TravelForm receives fresh data.
  */
 export function useUpdateTravelPreferences() {
   const queryClient = useQueryClient();
@@ -23,6 +26,11 @@ export function useUpdateTravelPreferences() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: userKeys.travelPreferences(),
+      });
+      // Also invalidate the main profile query since travel_preferences
+      // are returned inline in GET /v1/user/profile (ProfileResponse).
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.profile.all,
       });
     },
   });

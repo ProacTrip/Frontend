@@ -13,7 +13,7 @@ export function useProfile() {
   const {
     data: profile,
     isPending,
-    isLoading: isQueryLoading,
+    isFetching,
     error: queryError,
   } = useQuery({
     queryKey: queryKeys.profile.all,
@@ -34,7 +34,8 @@ export function useProfile() {
 
   return {
     profile: profile ?? null,
-    isLoading: isPending || isQueryLoading,
+    isPending,               // true only when no cached data exists (first load)
+    isFetching,              // true during ANY fetch (initial OR background refetch)
     error: queryErrorMsg,
     updateProfile: updateMutation.mutateAsync,
     isUpdating: updateMutation.isPending,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { Profile, UpdateProfileBody } from '@/app/lib/types/user';
 import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText } from 'lucide-react';
@@ -14,20 +14,34 @@ interface Props {
 export function PersonalDataForm({ profile, onSave }: Props) {
   const updateProfileMutation = useUpdateProfile();
 
-  const [form, setForm] = useState<UpdateProfileBody>({
-    first_name: profile.first_name ?? '',
-    last_name: profile.last_name ?? '',
-    date_of_birth: profile.date_of_birth ?? '',
-    gender: profile.gender ?? null,
-    nationality: profile.nationality ?? '',
-    phone: profile.phone ?? '',
-    bio: profile.bio ?? '',
+  const hasModified = useRef(false);
+
+  const buildInitialForm = (p: Profile): UpdateProfileBody => ({
+    first_name: p.first_name ?? '',
+    last_name: p.last_name ?? '',
+    date_of_birth: p.date_of_birth ?? '',
+    gender: p.gender ?? null,
+    nationality: p.nationality ?? '',
+    phone: p.phone ?? '',
+    bio: p.bio ?? '',
   });
+
+  const [form, setForm] = useState<UpdateProfileBody>(() => buildInitialForm(profile));
   const [error, setError] = useState('');
+
+  // Sync form state with profile data from background refetches (e.g., TanStack
+  // Query staleTime expires and refetch returns fresh data). Only sync if the
+  // user hasn't made any edits — we don't want to overwrite unsaved changes.
+  useEffect(() => {
+    if (!hasModified.current) {
+      setForm(buildInitialForm(profile));
+    }
+  }, [profile]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
+    hasModified.current = true;
     const { name, value, type } = e.target;
     setForm((prev) => ({
       ...prev,
@@ -58,21 +72,25 @@ export function PersonalDataForm({ profile, onSave }: Props) {
     try {
       const payload: UpdateProfileBody = {};
       Object.entries(form).forEach(([key, value]) => {
-        let finalValue = value;
+        let finalValue: unknown = value;
 
-        // 🔥 FIX ESPECÍFICO PARA ENUMS
-        // Si el select HTML está vacío (""), el backend necesita null, no ""
-        if (key === 'gender' && finalValue === '') {
+        // Convert empty strings to null for ALL fields.
+        // Backend rejects "" for validated formats: date_of_birth (ISO 8601),
+        // nationality (ISO 3166-1), phone (E.164), and enums like gender.
+        // Explicit null signals "clear this field" correctly.
+        if (finalValue === '') {
           finalValue = null;
         }
 
-        // El resto de campos (strings) pueden ir como "" para borrarse
+        // Only include non-null values in the payload.
+        // The backend treats omitted fields as "no change" and null as "clear".
         if (finalValue !== null && finalValue !== undefined) {
           (payload as Record<string, unknown>)[key] = finalValue;
         }
       });
 
       await updateProfileMutation.mutateAsync(payload);
+      hasModified.current = false;
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
