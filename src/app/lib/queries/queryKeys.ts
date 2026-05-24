@@ -87,6 +87,32 @@ const hotelKeys = {
 };
 
 // ==========================================
+// DOMAIN: User
+// ==========================================
+export const userKeys = {
+  /** ['user'] — root */
+  all: ['user'] as const,
+  /** ['user', 'profile'] — user profile */
+  profile: () => [...userKeys.all, 'profile'] as const,
+  /** ['user', 'medical'] — medical profile */
+  medical: () => [...userKeys.all, 'medical'] as const,
+  /** ['user', 'documents', filters?] — document list with optional filters */
+  documents: (filters?: { status?: string; document_type?: string }) =>
+    filters
+      ? ([...userKeys.all, 'documents', filters] as const)
+      : ([...userKeys.all, 'documents'] as const),
+  /** ['user', 'documents', id] — single document detail */
+  document: (id: string) => [...userKeys.all, 'documents', id] as const,
+  /** ['user', 'travel-preferences'] — travel preferences */
+  travelPreferences: () => [...userKeys.all, 'travel-preferences'] as const,
+  /** ['user', 'medical-conflicts', status?] — medical conflicts */
+  medicalConflicts: (status?: string) =>
+    status
+      ? ([...userKeys.all, 'medical-conflicts', status] as const)
+      : ([...userKeys.all, 'medical-conflicts'] as const),
+};
+
+// ==========================================
 // DOMAIN: Admin
 // ==========================================
 export interface AdminUsersParams {
@@ -120,6 +146,7 @@ const adminKeys = {
 export const queryKeys = {
   env: envKeys,
   profile: profileKeys,
+  user: userKeys,
   favorites: favoritesKeys,
   flights: flightKeys,
   hotels: hotelKeys,
