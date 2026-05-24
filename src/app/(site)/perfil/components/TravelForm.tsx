@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { useUpdateTravelPreferences } from '@/hooks/useUpdateTravelPreferences';
 import { TravelPreferences } from '@/app/lib/types/user';
-import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2, ChevronDown } from 'lucide-react';
+import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2, ChevronDown, CheckCircle } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
   prefs: TravelPreferences;
-  onSave: () => void;
 }
 
 /**
@@ -35,10 +34,11 @@ const SEAT_OPTIONS = [
   { value: 'no_preference', label: 'Sin preferencia (explícito)' },
 ];
 
-export function TravelForm({ prefs, onSave }: Props) {
+export function TravelForm({ prefs }: Props) {
   const updatePrefsMutation = useUpdateTravelPreferences();
 
   const hasModified = useRef(false);
+  const justSavedRef = useRef(false);
 
   const buildInitialForm = (p: TravelPreferences) => ({
     preferred_class: p.preferred_class ?? '',
@@ -54,12 +54,14 @@ export function TravelForm({ prefs, onSave }: Props) {
   const [form, setForm] = useState(() => buildInitialForm(prefs));
   const [initialValues, setInitialValues] = useState(() => buildInitialForm(prefs));
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
   // Sync form state with fresh travel preferences from background refetches.
   // Only sync if the user hasn't made any edits — don't overwrite unsaved changes.
   useEffect(() => {
+    if (justSavedRef.current) { justSavedRef.current = false; return; }
     if (!hasModified.current) {
       const newForm = buildInitialForm(prefs);
       setForm(newForm);
@@ -119,9 +121,11 @@ export function TravelForm({ prefs, onSave }: Props) {
       }
 
       await updatePrefsMutation.mutateAsync(payload);
+      justSavedRef.current = true;
       hasModified.current = false;
       setInitialValues({ ...form });
-      onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
     }
@@ -136,6 +140,12 @@ export function TravelForm({ prefs, onSave }: Props) {
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" /> {error}
+        </div>
+      )}
+
+      {saved && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" /> Guardado ✓
         </div>
       )}
 
@@ -220,6 +230,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             placeholder="ryanair; iberia; lufthansa..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
+          <p className="text-xs text-gray-400 mt-1">(separar con ;)</p>
         </div>
 
         {/* Hoteles preferidos */}
@@ -234,6 +245,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             placeholder="hilton; marriott; hyatt..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
+          <p className="text-xs text-gray-400 mt-1">(separar con ;)</p>
         </div>
 
         {/* Máx. escala */}
@@ -262,6 +274,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             placeholder="wheelchair; visual; hearing..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
+          <p className="text-xs text-gray-400 mt-1">(separar con ;)</p>
         </div>
       </div>
 

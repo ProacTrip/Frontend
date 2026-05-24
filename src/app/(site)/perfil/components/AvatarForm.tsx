@@ -7,22 +7,22 @@ import {
   uploadAvatarToR2,
   confirmAvatarUpload,
 } from '@/app/lib/api';
-import { Upload, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, Image as ImageIcon, AlertCircle, CheckCircle } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
   currentUrl: string | null;
-  onSave: () => void;
 }
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-export function AvatarForm({ currentUrl, onSave }: Props) {
+export function AvatarForm({ currentUrl }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +54,8 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
       const { upload_url, storage_key } = await getUploadAvatarUrl(file);
       await uploadAvatarToR2(upload_url, file);
       await confirmAvatarUpload(storage_key);
-      onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
       setFile(null);
       setPreview(null);
     } catch (err: unknown) {
@@ -80,6 +81,12 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" /> {error}
+        </div>
+      )}
+
+      {saved && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" /> Guardado ✓
         </div>
       )}
 

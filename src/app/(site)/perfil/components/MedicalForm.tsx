@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
 import { useUpdateMedicalProfile } from '@/hooks/useUpdateMedicalProfile';
+import { userKeys } from '@/app/lib/queries/queryKeys';
 import type {
   BloodType,
   UpdateMedicalProfileBody,
@@ -28,15 +30,12 @@ import {
   Loader,
   Info,
   AlertTriangle,
+  CheckCircle,
   ChevronDown,
   Plus,
   Trash2,
 } from 'lucide-react';
 import Button from "@/components/ui/Button";
-
-interface Props {
-  onSave: () => void;
-}
 
 const BLOOD_TYPES: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -67,7 +66,8 @@ const EMPTY_VACCINATION: Vaccination = { name: '', doses_received: 0, status: 'c
 const EMPTY_EMERGENCY: EmergencyContact = { name: '', phone: '', relationship: null };
 const EMPTY_INSURANCE: InsuranceInfo = { company: '', policy_number: '', plan_type: null, expiration_date: null };
 
-export function MedicalForm({ onSave }: Props) {
+export function MedicalForm() {
+  const queryClient = useQueryClient();
   const { medicalProfile, hasPendingConflicts, pendingConflictCount, isLoading, error: loadError, updateMutation } = useUpdateMedicalProfile();
 
   // ── Simple string fields ──
@@ -82,6 +82,8 @@ export function MedicalForm({ onSave }: Props) {
   const [insuranceInfo, setInsuranceInfo] = useState<InsuranceInfo>({ ...EMPTY_INSURANCE });
 
   const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const justSavedRef = useRef(false);
 
   // ── Dirty state tracking: compare current form vs last-saved snapshot ──
   const initialSnapshotRef = useRef<string>('');
@@ -125,6 +127,7 @@ export function MedicalForm({ onSave }: Props) {
 
   // ── Populate form from adapted medical profile ──
   useEffect(() => {
+    if (justSavedRef.current) { justSavedRef.current = false; return; }
     if (medicalProfile) {
       // Blood type
       const bt = (medicalProfile.blood_type as string) ?? '';
@@ -292,6 +295,7 @@ export function MedicalForm({ onSave }: Props) {
       }
 
       await updateMutation.mutateAsync(payload);
+      justSavedRef.current = true;
 
       // Update snapshot so isDirty becomes false until next edit
       initialSnapshotRef.current = JSON.stringify({
@@ -305,7 +309,8 @@ export function MedicalForm({ onSave }: Props) {
       });
       needsInitCapture.current = false;
 
-      onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar perfil médico');
     }
@@ -319,7 +324,11 @@ export function MedicalForm({ onSave }: Props) {
     try {
       await resolveMedicalConflict(conflict.id, { action, ...(action === 'custom' && { value: customValue }) });
       setConflicts(prev => prev.filter(c => c.id !== conflict.id));
-      onSave();
+      justSavedRef.current = true;
+      await queryClient.invalidateQueries({ queryKey: userKeys.medicalConflicts() });
+      await queryClient.invalidateQueries({ queryKey: userKeys.medical() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       const message = err instanceof UserApiError
         ? err.code === 'PENDING_UPDATE_EXPIRED' ? 'Este conflicto expiró.' : err.message
@@ -434,6 +443,12 @@ export function MedicalForm({ onSave }: Props) {
       {saveError && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" /> {saveError}
+        </div>
+      )}
+
+      {saved && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" /> Guardado ✓
         </div>
       )}
 

@@ -5,12 +5,11 @@ import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headless
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import type { Profile, UpdateProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, Globe, Languages, Coins, ChevronDown } from 'lucide-react';
+import { Save, AlertCircle, Globe, Languages, Coins, ChevronDown, CheckCircle } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
   profile: Profile;
-  onSave: () => void;
 }
 
 const LANGUAGES = [
@@ -44,11 +43,12 @@ const CURRENCIES = [
   { code: 'BRL', name: 'Real brasileño (R$)' },
 ];
 
-export function LocaleForm({ profile, onSave }: Props) {
+export function LocaleForm({ profile }: Props) {
   const updateProfileMutation = useUpdateProfile();
   const { setActiveCurrency } = useCurrencyContext();
 
   const hasModified = useRef(false);
+  const justSavedRef = useRef(false);
 
   const [form, setForm] = useState({
     language_code: profile.language_code ?? '',
@@ -59,12 +59,14 @@ export function LocaleForm({ profile, onSave }: Props) {
     currency_code: profile.currency_code ?? '',
   });
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
   // Sync form state with fresh profile data from background refetches.
   // Only sync if the user hasn't made any edits.
   useEffect(() => {
+    if (justSavedRef.current) { justSavedRef.current = false; return; }
     if (!hasModified.current) {
       const newForm = {
         language_code: profile.language_code ?? '',
@@ -94,9 +96,11 @@ export function LocaleForm({ profile, onSave }: Props) {
       if (payload.currency) {
         setActiveCurrency(payload.currency);
       }
+      justSavedRef.current = true;
       hasModified.current = false;
       setInitialValues({ language_code: form.language_code, currency_code: form.currency_code });
-      onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
     }
@@ -111,6 +115,12 @@ export function LocaleForm({ profile, onSave }: Props) {
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" /> {error}
+        </div>
+      )}
+
+      {saved && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" /> Guardado ✓
         </div>
       )}
 

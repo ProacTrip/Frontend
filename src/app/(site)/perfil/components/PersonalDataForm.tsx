@@ -3,18 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { Profile, UpdateProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText } from 'lucide-react';
+import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText, CheckCircle } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
   profile: Profile;
-  onSave: () => void;
 }
 
-export function PersonalDataForm({ profile, onSave }: Props) {
+export function PersonalDataForm({ profile }: Props) {
   const updateProfileMutation = useUpdateProfile();
 
   const hasModified = useRef(false);
+  const justSavedRef = useRef(false);
 
   const buildInitialForm = (p: Profile): UpdateProfileBody => ({
     first_name: p.first_name ?? '',
@@ -29,6 +29,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
   const [form, setForm] = useState<UpdateProfileBody>(() => buildInitialForm(profile));
   const [initialValues, setInitialValues] = useState<UpdateProfileBody>(() => buildInitialForm(profile));
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
@@ -36,6 +37,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
   // Query staleTime expires and refetch returns fresh data). Only sync if the
   // user hasn't made any edits — we don't want to overwrite unsaved changes.
   useEffect(() => {
+    if (justSavedRef.current) { justSavedRef.current = false; return; }
     if (!hasModified.current) {
       const newForm = buildInitialForm(profile);
       setForm(newForm);
@@ -74,6 +76,12 @@ export function PersonalDataForm({ profile, onSave }: Props) {
       }
     }
 
+    // Validación nacionalidad ISO 3166-1 alpha-2
+    if (form.nationality && !form.nationality.match(/^[A-Z]{2}$/)) {
+      setError('La nacionalidad debe ser un código ISO 3166-1 de 2 letras (ej: AR, ES, US)');
+      return;
+    }
+
     try {
       const payload: UpdateProfileBody = {};
       Object.entries(form).forEach(([key, value]) => {
@@ -95,9 +103,11 @@ export function PersonalDataForm({ profile, onSave }: Props) {
       });
 
       await updateProfileMutation.mutateAsync(payload);
+      justSavedRef.current = true;
       hasModified.current = false;
       setInitialValues({ ...form });
-      onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
     }
@@ -112,6 +122,12 @@ export function PersonalDataForm({ profile, onSave }: Props) {
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" /> {error}
+        </div>
+      )}
+
+      {saved && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" /> Guardado ✓
         </div>
       )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -44,13 +44,6 @@ export default function ProfilePage() {
 
   const queryClient = useQueryClient();
 
-  // Invalidate and refetch profile after form saves
-  const reloadProfile = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
-    // Avatar is now sourced from AuthContext.profileAvatar — TanStack Query is
-    // the single source of truth, no localStorage cache needed.
-  }, [queryClient]);
-
   if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -67,7 +60,7 @@ export default function ProfilePage() {
         </p>
         <p className="text-gray-600 mb-6">{error}</p>
         <button
-          onClick={reloadProfile}
+          onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.profile.all })}
           className="px-6 py-2 bg-[--color-brand-500] text-white rounded-xl font-medium hover:bg-[--color-brand-600] transition-colors"
         >
           Reintentar
@@ -142,10 +135,10 @@ export default function ProfilePage() {
       {/* ─── CONTENIDO ─── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         {activeTab === 'personal' && (
-          <PersonalDataForm profile={profile} onSave={reloadProfile} />
+          <PersonalDataForm profile={profile} />
         )}
         {activeTab === 'locale' && (
-          <LocaleForm profile={profile} onSave={reloadProfile} />
+          <LocaleForm profile={profile} />
         )}
         {activeTab === 'travel' && (
           <TravelForm
@@ -159,14 +152,13 @@ export default function ProfilePage() {
               avoid_layovers: false,
               max_layover_duration: null,
             }}
-            onSave={reloadProfile}
           />
         )}
         {activeTab === 'medical' && (
-          <MedicalForm onSave={reloadProfile} />
+          <MedicalForm />
         )}
         {activeTab === 'avatar' && (
-          <AvatarForm currentUrl={profile.avatar_url} onSave={reloadProfile} />
+          <AvatarForm currentUrl={profile.avatar_url} />
         )}
       </div>
 
