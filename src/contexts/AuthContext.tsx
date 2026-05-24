@@ -23,11 +23,16 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isAccountDisabled: boolean;
   error: string | null;
+  /** @deprecated Use useEnvironment() hook instead. */
   context: EnvironmentResponse | null;
   /** @deprecated Will be removed in PR 3 — use profile query invalidation instead. */
   setUser: (user: AuthUser | null) => void;
-  /** @deprecated Will be replaced by useEnvironment() hook in PR 3. */
+  /** @deprecated Replaced by useEnvironment() hook — no-op retained for backward compat. */
   setContext: (context: EnvironmentResponse | null) => void;
+  /** Profile language_code (ISO 639-1), null when profile not loaded or user unauthenticated. */
+  profileLanguage: string | null;
+  /** Profile currency_code (ISO 4217), null when profile not loaded or user unauthenticated. */
+  profileCurrency: string | null;
   logout: () => Promise<void>;
 }
 
@@ -67,7 +72,9 @@ export function AuthProvider({
   // ── Manual overrides — backward compat for pages that call setUser/setContext ──
   //     These will be removed in PR 3 when pages switch to useMutation hooks.
   const [manualUser, setManualUser] = useState<AuthUser | null>(null);
-  const [context, setContextState] = useState<EnvironmentResponse | null>(null);
+
+  // context removed — useEnvironment() is the single source of truth for env data.
+  // setContext retained as no-op for backward compat with any remaining consumers.
 
    // ── Profile query — declarative session bootstrap ────────────────────────────
   //     Replaced all imperative getCurrentUser() → /v1/auth/me calls.
@@ -90,6 +97,17 @@ export function AuthProvider({
 
   // Effective user: profile query wins; manualUser is a bridge for pre-PR3 pages
   const user = profileUser ?? manualUser;
+
+  // ── Profile locale — extracted from profile query for useLocalePreferences() ──
+  const profileLanguage = useMemo(() => {
+    if (!profileQuery.data?.profile) return null;
+    return profileQuery.data.profile.language_code ?? null;
+  }, [profileQuery.data]);
+
+  const profileCurrency = useMemo(() => {
+    if (!profileQuery.data?.profile) return null;
+    return profileQuery.data.profile.currency_code ?? null;
+  }, [profileQuery.data]);
 
   // Loading: true while profile query is pending AND we expected auth cookies
   const isLoading = serverAuthenticated && profileQuery.isPending;
@@ -137,8 +155,9 @@ export function AuthProvider({
     setManualUser(u);
   }, []);
 
-  const setContext = useCallback((c: EnvironmentResponse | null) => {
-    setContextState(c);
+  const setContext = useCallback((_ctx: EnvironmentResponse | null) => {
+    // No-op — useEnvironment() hook is the single source of truth for env data.
+    void _ctx;
   }, []);
 
   const logout = useCallback(async () => {
@@ -149,7 +168,6 @@ export function AuthProvider({
     }
     queryClient.clear();
     setManualUser(null);
-    setContextState(null);
     window.location.href = '/';
   }, [queryClient]);
 
@@ -162,12 +180,14 @@ export function AuthProvider({
       isAuthenticated: !!user,
       isAccountDisabled,
       error,
-      context,
+      context: null,
       setUser,
       setContext,
+      profileLanguage,
+      profileCurrency,
       logout,
     }),
-    [user, isLoading, isAccountDisabled, error, context, setUser, setContext, logout],
+    [user, isLoading, isAccountDisabled, error, setUser, setContext, profileLanguage, profileCurrency, logout],
   );
 
   return (

@@ -1,7 +1,8 @@
 'use client';
 
 import { AuthProvider } from '@/contexts/AuthContext';
-import { ContextInitializer } from '@/components/ContextInitializer';
+import { CurrencyProvider } from '@/contexts/CurrencyContext';
+import EnvironmentInitializer from '@/components/EnvironmentInitializer';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -20,7 +21,7 @@ function RealtimeProvider() {
 }
 
 /**
- * Client wrapper que provee AuthContext + TanStack Query + SSE a toda la app.
+ * Client wrapper que provee AuthContext + CurrencyContext + TanStack Query + SSE a toda la app.
  * Necesario porque Next.js 16 root layout es server component por default
  * y AuthProvider + QueryClientProvider usan hooks (client-only).
  *
@@ -28,9 +29,10 @@ function RealtimeProvider() {
  *   1. ErrorBoundary  — catches render errors from everything below
  *   2. QueryClientProvider — provides query client to AuthProvider, SSE, and all pages
  *   3. AuthProvider   — provides auth context; may use queries in the future
- *   4. ContextInitializer — runs after both providers are mounted
- *   5. RealtimeProvider — SSE connection (needs auth + queryClient)
- *   6. children       — page content
+ *   4. CurrencyProvider — provides active currency context (replaces AuthContext.context.currency)
+ *   5. EnvironmentInitializer — triggers useEnvironment() hook on mount (replaces ContextInitializer)
+ *   6. RealtimeProvider — SSE connection (needs auth + queryClient)
+ *   7. children       — page content
  *
  * serverAuthenticated viene del layout (Server Component) que ya leyó las cookies.
  * Evita llamadas innecesarias a GET /v1/auth/me cuando no hay sesión.
@@ -48,9 +50,11 @@ export function Providers({
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider serverAuthenticated={serverAuthenticated}>
-          <ContextInitializer />
-          <RealtimeProvider />
-          {children}
+          <CurrencyProvider>
+            <EnvironmentInitializer />
+            <RealtimeProvider />
+            {children}
+          </CurrencyProvider>
         </AuthProvider>
         {process.env.NODE_ENV === 'development' && (
           <ReactQueryDevtools initialIsOpen={false} />
