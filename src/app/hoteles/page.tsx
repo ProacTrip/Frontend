@@ -1,30 +1,108 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Timer } from 'lucide-react';
+import { MapPin, X, Calendar, Users, Search } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import SearchForm, { SearchParams } from './components/SearchForm';
-import HotelFilters, { FilterValues } from './components/HotelFilters';
-import HotelsList from './components/HotelsList';
+import dynamic from 'next/dynamic';
+import HotelCard from './components/HotelCard';
+import HotelFilters, { type FilterValues } from './components/HotelFilters';
 import HotelDetailModal from './components/HotelDetailModal';
 import { searchHotels } from '@/app/lib/api/hotels';
 import { useRateLimit } from '@/hooks/useRateLimit';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useEnvironment } from '@/hooks/useEnvironment';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { HOTELS_STALE_TIME } from '@/app/lib/queries/staleTimes';
+import type { FrontendHotel } from '@/app/lib/types/hotel';
+import LocationCombobox from '@/components/shared/LocationCombobox';
+import DateRangePicker from '@/components/shared/DateRangePicker';
+import GuestCounter, { type GuestType } from '@/components/shared/GuestCounter';
+
+// ─── DYNAMIC MAP (SSR-safe) ──────────────────
+const HotelMap = dynamic(() => import('./components/HotelMap'), { ssr: false });
+
+// ─── TYPES ────────────────────────────────────
+interface SearchParams {
+  query: string;
+  check_in_date: string;
+  check_out_date: string;
+  adults: number;
+  children: number;
+  children_ages: number[];
+  rooms: number;
+  vacation_rentals?: boolean;
+  currency?: string;
+}
+
+// ─── HELPERS ──────────────────────────────────
+function formatDateFull(d: Date): string {
+  return d.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function nightsBetween(start: string, end: string): number {
+  const diff = new Date(end).getTime() - new Date(start).getTime();
+  return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
 
 function HotelesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedHotelId = searchParams.get('hotel');
+  const { environment } = useEnvironment();
 
-  const { context: authContext } = useAuthContext();
+  // ─── INITIAL PARAMS FROM URL ──────────────────
+  const initialParams = useMemo(() => {
+    const q = searchParams.get('query');
+    const ci = searchParams.get('check_in_date');
+    const co = searchParams.get('check_out_date');
+    if (!q || !ci || !co) return null;
+    return {
+      query: q,
+      check_in_date: ci,
+      check_out_date: co,
+      adults: parseInt(searchParams.get('adults') || '2', 10),
+      children: parseInt(searchParams.get('children') || '0', 10),
+      children_ages: [],
+      rooms: parseInt(searchParams.get('rooms') || '1', 10),
+      vacation_rentals: searchParams.get('vacation_rentals') === 'true',
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- UI state ----
-  const [hasSearched, setHasSearched] = useState(false);
-  const [lastSearchParams, setLastSearchParams] = useState<SearchParams | null>(null);
+  // ─── STATE ────────────────────────────────────
+  const [lastSearchParams, setLastSearchParams] = useState<SearchParams | null>(initialParams);
+  const [hasSearched, setHasSearched] = useState(!!initialParams);
+  const [editingField, setEditingField] = useState<'dest'|'dates'|'guests'|null>(null);
+
+  // ─── SEARCH BAR EDIT STATE ────────────────────
+  const [editDest, setEditDest] = useState(lastSearchParams?.query ?? '');
+  const [editDateStart, setEditDateStart] = useState<Date | null>(
+    lastSearchParams?.check_in_date ? new Date(lastSearchParams.check_in_date) : null,
+  );
+  const [editDateEnd, setEditDateEnd] = useState<Date | null>(
+    lastSearchParams?.check_out_date ? new Date(lastSearchParams.check_out_date) : null,
+  );
+  const [editAdults, setEditAdults] = useState(lastSearchParams?.adults ?? 2);
+  const [editChildren, setEditChildren] = useState(lastSearchParams?.children ?? 0);
+
+  const applySearchBarEdit = useCallback(() => {
+    if (!lastSearchParams) return;
+    const newParams: SearchParams = {
+      ...lastSearchParams,
+      query: editDest,
+      check_in_date: editDateStart?.toISOString().split('T')[0] ?? lastSearchParams.check_in_date,
+      check_out_date: editDateEnd?.toISOString().split('T')[0] ?? lastSearchParams.check_out_date,
+      adults: editAdults,
+      children: editChildren,
+    };
+    setLastSearchParams(newParams);
+    setEditingField(null);
+    router.push(`/hoteles?query=${encodeURIComponent(editDest)}&check_in_date=${newParams.check_in_date}&check_out_date=${newParams.check_out_date}&adults=${editAdults}&children=${editChildren}`, { scroll: false });
+  }, [lastSearchParams, editDest, editDateStart, editDateEnd, editAdults, editChildren, router]);
+
+  const searchBarGuests: GuestType[] = [
+    { key: 'adults', label: 'Adultos', sublabel: '18 años o más', value: editAdults, min: 1, max: 9, onChange: (_, v) => setEditAdults(v) },
+    { key: 'children', label: 'Niños', sublabel: '2–17 años', value: editChildren, min: 0, max: 6, onChange: (_, v) => setEditChildren(v) },
+  ];
 
   const [filters, setFilters] = useState<FilterValues>({
     min_price: null,
@@ -35,14 +113,23 @@ function HotelesContent() {
     amenities: [],
   });
 
-  // ---- Rate limit ----
-  const {
-    info: rateLimitInfo,
-    isBlocked: rateLimitBlocked,
-    secondsLeft: rateLimitCountdown,
-  } = useRateLimit();
+  const [filterCount, setFilterCount] = useState(0);
+  const [sortBy, setSortBy] = useState<string | undefined>(undefined);
 
-  // ---- Infinite Query ----
+  // ─── AUTO-SEARCH on URL param arrival ─────────
+  const hasAutoSearched = useRef(false);
+  useEffect(() => {
+    if (initialParams && !hasAutoSearched.current) {
+      hasAutoSearched.current = true;
+      setLastSearchParams(initialParams);
+      setHasSearched(true);
+    }
+  }, [initialParams?.query, initialParams?.check_in_date, initialParams?.check_out_date]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── RATE LIMIT ──────────────────────────────
+  useRateLimit();
+
+  // ─── INFINITE QUERY ──────────────────────────
   const {
     data: pagesData,
     fetchNextPage,
@@ -58,12 +145,17 @@ function HotelesContent() {
       adults: lastSearchParams?.adults,
       children: lastSearchParams?.children,
     }),
-    queryFn: ({ pageParam, signal }) =>
-      searchHotels(
-        { ...lastSearchParams!, page_token: (pageParam as string | null) ?? null },
+    queryFn: ({ pageParam, signal }) => {
+      if (!lastSearchParams) throw new Error('No hay parámetros de búsqueda');
+      return searchHotels(
+        {
+          ...lastSearchParams,
+          page_token: (pageParam as string | null) ?? null,
+        },
         filters,
         signal,
-      ),
+      );
+    },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.pagination?.next_token ?? undefined,
     enabled: !!lastSearchParams,
@@ -71,194 +163,305 @@ function HotelesContent() {
   });
 
   const queryErrorMsg = queryError instanceof Error ? queryError.message : null;
-  const searchError = queryErrorMsg;
 
-  // ---- Computed: flatten pages ----
   const displayedHotels = useMemo(() => {
     return (pagesData?.pages ?? []).flatMap((p) => p.properties);
-  }, [pagesData]);
+  }, [pagesData]) as FrontendHotel[];
 
+  const totalResults = useMemo(() => {
+    const firstPage = pagesData?.pages?.[0];
+    if (!firstPage) return undefined;
+    return firstPage.properties.length > 0 ? displayedHotels.length : 0;
+  }, [pagesData, displayedHotels.length]);
+
+  const nonMatching = pagesData?.pages?.[0]?.results_state === 'non_matching_only';
+  const resultsLabel = pagesData?.pages?.[0]?.type === 'vacation_rentals' ? 'alquileres' : 'alojamientos';
+
+  // ─── SELECTED HOTEL ──────────────────────────
   const selectedHotel = selectedHotelId
-    ? displayedHotels.find((h) => h.id === selectedHotelId)
+    ? displayedHotels.find((h) => h.id === selectedHotelId) ?? null
     : null;
 
   const handleCloseModal = () => {
     router.push('/hoteles', { scroll: false });
   };
 
-  const handleSearch = (params: SearchParams, customFilters?: FilterValues) => {
-    const activeFilters = customFilters || filters;
-    setFilters(activeFilters);
-    setLastSearchParams(params);
-    setHasSearched(true);
-  };
-
-  const handleFilterChange = (newFilters: FilterValues) => {
+  // ─── HANDLERS ────────────────────────────────
+  const handleFilterChange = useCallback((newFilters: FilterValues, newSortBy?: string, count = 0) => {
     setFilters(newFilters);
+    setSortBy(newSortBy);
+    setFilterCount(count);
+    if (lastSearchParams) setLastSearchParams({ ...lastSearchParams });
+  }, [lastSearchParams]);
 
-    if (hasSearched && lastSearchParams) {
-      // Re-trigger search by setting params (forces query re-fetch)
-      setLastSearchParams({ ...lastSearchParams });
-    }
-  };
+  // ─── DERIVED ────────────────────────────────
+  const checkInDate = lastSearchParams?.check_in_date ? new Date(lastSearchParams.check_in_date) : null;
+  const checkOutDate = lastSearchParams?.check_out_date ? new Date(lastSearchParams.check_out_date) : null;
+  const guestTotal = (lastSearchParams?.adults ?? 0) + (lastSearchParams?.children ?? 0);
+  const nights = lastSearchParams ? nightsBetween(lastSearchParams.check_in_date, lastSearchParams.check_out_date) : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3]">
-      <div className="max-w-[1600px] mx-auto p-6">
+    <div className="min-h-screen bg-white">
+      {/* ── FILTER BAR ── */}
 
-        <div className="grid grid-cols-12 gap-6">
+      {/* ── COMPACT SEARCH SUMMARY ── */}
+      {hasSearched && lastSearchParams && (
+        <div className="fixed top-[72px] left-0 right-0 z-30 bg-white border-b border-[#E5E7EB]">
+          <div className="px-4 lg:px-8 py-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Destination chip */}
+              <button
+                onClick={() => setEditingField(editingField === 'dest' ? null : 'dest')}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+                  editingField === 'dest' ? 'bg-[#0A0A0A] text-white' : 'bg-[#F5F5F5] text-[#0A0A0A] hover:bg-[#E5E7EB]'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                {lastSearchParams.query}
+              </button>
 
-          <div className="col-span-3 space-y-6">
+              <span className="text-[#D1D5DB]">·</span>
 
-            <div className="border-4 border-[#FF6B6B] rounded-2xl p-4 bg-white shadow-lg">
-              <img
-                src="/logoMostrar.png"
-                alt="ProacTrip Logo"
-                className="w-full h-52 object-contain"
-              />
-            </div>
+              {/* Dates chip */}
+              <button
+                onClick={() => setEditingField(editingField === 'dates' ? null : 'dates')}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+                  editingField === 'dates' ? 'bg-[#0A0A0A] text-white' : 'bg-[#F5F5F5] text-[#0A0A0A] hover:bg-[#E5E7EB]'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {checkInDate && checkOutDate
+                  ? `${formatDateFull(checkInDate).split(' ')[1]} ${checkInDate.getDate()} - ${formatDateFull(checkOutDate).split(' ')[1]} ${checkOutDate.getDate()}`
+                  : 'Fechas'}
+              </button>
 
-            <HotelFilters onFilterChange={handleFilterChange} />
-          </div>
+              <span className="text-[#D1D5DB]">·</span>
 
-          <div className="col-span-9 space-y-2">
+              {/* Guests chip */}
+              <button
+                onClick={() => setEditingField(editingField === 'guests' ? null : 'guests')}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+                  editingField === 'guests' ? 'bg-[#0A0A0A] text-white' : 'bg-[#F5F5F5] text-[#0A0A0A] hover:bg-[#E5E7EB]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                {guestTotal} {guestTotal === 1 ? 'huésped' : 'huéspedes'}
+              </button>
 
-            <div className="mb-4">
-              <h2 className="text-3xl font-bold text-gray-900">Buscar Hoteles</h2>
-              <p className="text-gray-600 mt-2">Encuentra los mejores hoteles al mejor precio</p>
-              {authContext?.location && (
-                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
-                  <span>📍</span>
-                  {authContext.location.city}
-                  {authContext.location.country && `, ${authContext.location.country}`}
-                  {authContext.location.currency && ` · Moneda: ${authContext.location.currency}`}
-                </p>
+              {/* Search button to apply edits */}
+              {editingField && (
+                <button
+                  onClick={applySearchBarEdit}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0A0A0A] text-white text-sm font-medium hover:bg-[#262626] transition-colors"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Buscar
+                </button>
               )}
             </div>
 
-            <SearchForm onSearch={handleSearch} isLoading={isLoading && !hasSearched} />
-
-            {/* Error banner */}
-            {searchError && (
-              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
-                <div>
-                  <p className="font-medium text-red-800">Error en la búsqueda</p>
-                  <p className="text-sm text-red-600">{searchError}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    // Re-trigger search to clear error
-                    if (lastSearchParams) setLastSearchParams({ ...lastSearchParams });
-                  }}
-                  className="ml-auto text-xs text-red-500 hover:text-red-700 underline"
-                >
-                  Cerrar
-                </button>
-              </div>
-            )}
-
-            {/* Rate limit warning (non-blocking) */}
-            {rateLimitInfo && rateLimitInfo.remaining <= 2 && rateLimitInfo.remaining > 0 && (
-              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3 text-sm text-amber-800">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-500" />
-                <div>
-                  <p className="font-medium">
-                    Quedan {rateLimitInfo.remaining} búsqueda{rateLimitInfo.remaining !== 1 ? 's' : ''}.
-                  </p>
-                  <p className="text-xs text-amber-600">
-                    Se reinicia en {Math.max(0, rateLimitInfo.reset)}s.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Rate limit BLOCKED (429) */}
-            {rateLimitBlocked && rateLimitCountdown > 0 && (
-              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                <Timer className="w-5 h-5 flex-shrink-0 text-red-500 animate-pulse" />
-                <div>
-                  <p className="font-medium text-red-800">
-                    Límite alcanzado. Reintentá en {Math.floor(rateLimitCountdown / 60)}:{String(rateLimitCountdown % 60).padStart(2, '0')}.
-                  </p>
-                  <p className="text-xs text-red-600">
-                    La búsqueda estará disponible automáticamente.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {hasSearched ? (
-              displayedHotels.length > 0 ? (
-                <HotelsList
-                  hotels={displayedHotels}
-                  isLoading={isLoading || isFetchingNextPage}
-                  hasMore={hasNextPage}
-                  nextToken={null}
-                  onLoadMore={() => fetchNextPage()}
+            {/* Inline pickers */}
+            {editingField === 'dest' && (
+              <div className="mt-2 max-w-md">
+                <LocationCombobox
+                  value={editDest}
+                  onChange={(v) => { setEditDest(v); }}
+                  label="Destino"
+                  placeholder="¿Adónde vas?"
                 />
-              ) : (
-                !isLoading && (
-                  <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-                    <div className="text-6xl mb-4">😔</div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                      No se encontraron hoteles
-                    </h3>
-                    <p className="text-gray-600">
-                      Intenta ajustar tus filtros o cambiar las fechas
-                    </p>
-                  </div>
-                )
-              )
-            ) : (
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                <div className="grid grid-cols-2 min-h-[320px]">
+              </div>
+            )}
 
-                  <div className="flex flex-col justify-center px-12 py-10">
-                    <p className="text-xs font-semibold text-[#FF6B6B] uppercase tracking-widest mb-3">
-                      ProacTrip Hoteles
-                    </p>
-                    <h3 className="text-3xl font-bold text-gray-900 leading-tight mb-4">
-                      Encuentra tu alojamiento perfecto
-                    </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed mb-6">
-                      Introduce tu destino, selecciona las fechas y ajusta los huéspedes para ver los mejores hoteles al mejor precio.
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {[
-                        'Miles de alojamientos disponibles',
-                        'Cancelación gratuita en la mayoría de reservas',
-                        'Precios sin comisiones ocultas',
-                      ].map((item) => (
-                        <div key={item} className="flex items-center gap-2 text-sm text-gray-600">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B] flex-shrink-0" />
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {editingField === 'dates' && (
+              <div className="mt-2 flex justify-center">
+                <DateRangePicker
+                  isOpen={true}
+                  startDate={editDateStart}
+                  endDate={editDateEnd}
+                  onChange={(start, end) => { setEditDateStart(start); setEditDateEnd(end); }}
+                  onClose={() => {}}
+                  startLabel="Check-in"
+                  endLabel="Check-out"
+                />
+              </div>
+            )}
 
-                  <div className="relative bg-gradient-to-br from-[#fff0e6] to-[#ffd4b3] flex items-center justify-center">
-                    <div className="text-center px-8">
-                      <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-12 h-12 text-[#FF6B6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                      <p className="text-sm font-medium text-gray-700">Usa el buscador de arriba</p>
-                      <p className="text-xs text-gray-500 mt-1">y encuentra tu próxima estancia</p>
-                    </div>
-                  </div>
-
-                </div>
+            {editingField === 'guests' && (
+              <div className="mt-2 flex justify-center">
+                <GuestCounter
+                  isOpen={true}
+                  guests={searchBarGuests}
+                />
               </div>
             )}
           </div>
+        </div>
+      )}
 
+      <HotelFilters
+        onFilterChange={handleFilterChange}
+        sortBy={sortBy}
+        filterCount={filterCount}
+        vacationRentals={lastSearchParams?.vacation_rentals ?? false}
+        onVacationRentalsChange={(vr) => {
+          if (lastSearchParams) {
+            setLastSearchParams({ ...lastSearchParams, vacation_rentals: vr });
+          }
+        }}
+      />
+
+      {/* ── RESULTS HEADING ── */}
+      <div className="pt-[144px] lg:pt-[136px]">
+        <div className="px-4 lg:px-8 pb-4">
+          {hasSearched && !isLoading && (
+            <p className="font-display text-xl lg:text-2xl font-bold text-[#0A0A0A] tracking-tight">
+              {nonMatching
+                ? 'No encontramos resultados exactos'
+                : totalResults
+                  ? `Más de ${totalResults} ${resultsLabel}`
+                  : 'Sin resultados'}
+            </p>
+          )}
+          {hasSearched && lastSearchParams && (
+            <p className="text-sm text-[#6A7282] mt-1">
+              {lastSearchParams.query}
+              {checkInDate && checkOutDate && (
+                <> · {formatDateFull(checkInDate)} — {formatDateFull(checkOutDate)}</>
+              )}
+              {guestTotal > 0 && <> · {guestTotal} {guestTotal === 1 ? 'huésped' : 'huéspedes'}</>}
+            </p>
+          )}
         </div>
 
+        {/* ── MAIN SPLIT LAYOUT ── */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,740px)_1fr] lg:min-h-[calc(100vh-200px)]">
+          {/* LEFT: Results */}
+          <div className="px-4 lg:px-8 pb-16">
+            {!hasSearched ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center py-32 text-center">
+                <div className="w-24 h-24 rounded-2xl bg-[#F5F5F5] flex items-center justify-center mb-6">
+                  <MapPin className="w-12 h-12 text-[#A1A1A1]" />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-[#0A0A0A] mb-2">
+                  Buscá tu alojamiento ideal
+                </h2>
+                <p className="text-[#6A7282] max-w-md">
+                  Usá la barra de búsqueda para encontrar hoteles, resorts y alquileres vacacionales al mejor precio.
+                </p>
+              </div>
+            ) : isLoading ? (
+              /* Loading skeletons */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl overflow-hidden animate-pulse">
+                    <div className="aspect-[4/3] bg-[#F5F5F5]" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-[#F5F5F5] rounded w-3/4" />
+                      <div className="h-3 bg-[#F5F5F5] rounded w-1/2" />
+                      <div className="flex gap-2">
+                        <div className="h-5 w-16 bg-[#F5F5F5] rounded-lg" />
+                        <div className="h-5 w-20 bg-[#F5F5F5] rounded-lg" />
+                      </div>
+                      <div className="h-5 bg-[#F5F5F5] rounded w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : queryErrorMsg ? (
+              /* Error state */
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                  <X className="w-8 h-8 text-red-500" />
+                </div>
+                <p className="text-lg font-semibold text-[#0A0A0A] mb-1">Error en la búsqueda</p>
+                <p className="text-sm text-[#6A7282] mb-4 max-w-sm">{queryErrorMsg}</p>
+                <button
+                  onClick={() => lastSearchParams && setLastSearchParams({ ...lastSearchParams })}
+                  className="px-6 py-2.5 rounded-full bg-[#0A0A0A] text-white text-sm font-medium hover:bg-[#262626] transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : displayedHotels.length === 0 ? (
+              /* No results */
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-4">
+                  <MapPin className="w-8 h-8 text-[#A1A1A1]" />
+                </div>
+                <p className="text-lg font-semibold text-[#0A0A0A] mb-1">No se encontraron resultados</p>
+                <p className="text-sm text-[#6A7282]">Probá ajustando los filtros o cambiando el destino.</p>
+              </div>
+            ) : (
+              <>
+                {/* Non-matching banner */}
+                {nonMatching && (
+                  <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                    No encontramos resultados exactos con tus filtros. Mostrando los alojamientos más cercanos.
+                  </div>
+                )}
+
+                {/* Results grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {displayedHotels.map((hotel: FrontendHotel, idx: number) => (
+                    <div
+                      key={hotel.id}
+                      className="animate-card-enter"
+                      style={{ animationDelay: `${Math.min(idx * 0.05, 0.5)}s` }}
+                    >
+                      <HotelCard
+                        hotel={hotel}
+                        nights={nights}
+                        currency={lastSearchParams?.currency}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Load more */}
+                {hasNextPage && (
+                  <div className="flex justify-center py-10">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="px-8 py-3 rounded-full border-2 border-[#0A0A0A] text-[#0A0A0A] text-sm font-semibold hover:bg-[#0A0A0A] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isFetchingNextPage ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Cargando...
+                        </span>
+                      ) : (
+                        'Cargar más resultados'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* RIGHT: Map */}
+          <div className="hidden lg:block sticky top-[136px] h-[calc(100vh-136px)]">
+            {(hasSearched && displayedHotels.length > 0) || isLoading ? (
+              <HotelMap
+                hotels={isLoading ? [] : displayedHotels}
+                center={
+                  displayedHotels.length > 0 && environment?.location
+                    ? { lat: environment.location.latitude, lng: environment.location.longitude }
+                    : { lat: 43.065, lng: -89.39 }
+                }
+              />
+            ) : (
+              <div className="w-full h-full bg-[#F5F5F5] flex items-center justify-center">
+                <p className="text-[#A1A1A1] text-sm">Mapa disponible al buscar</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/* ── MODAL ── */}
       {selectedHotel && (
         <HotelDetailModal
           hotel={selectedHotel}
@@ -273,10 +476,10 @@ function HotelesContent() {
 export default function HotelesPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#FF6B6B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando...</p>
+          <div className="w-12 h-12 border-4 border-[#0A0A0A] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#6A7282] text-sm">Cargando búsqueda...</p>
         </div>
       </div>
     }>

@@ -1,11 +1,11 @@
-/* eslint-disable @next/next/no-img-element */
-// app/vuelos/page.tsx
-'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { Plane, MapPin, SlidersHorizontal, AlertCircle, Shield, Sparkles, Clock, Filter, Timer } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useEnvironment } from '@/hooks/useEnvironment';
+import { useLocalePreferences } from '@/hooks/useLocalePreferences';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 import FlightSearchForm from './components/FlightSearchForm';
@@ -40,7 +40,19 @@ type SortCriteria = 'none' | 'price_asc' | 'duration_asc' | 'departure_asc';
 
 export default function FlightsPage(): React.ReactElement {
   const router = useRouter();
-  const { isAuthenticated, context } = useAuth();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
+  const { environment } = useEnvironment();
+  const { currency: localeCurrency } = useLocalePreferences();
+
+  // ─── URL PARAM INITIAL VALUES ─────────────────
+  const urlOrigin = searchParams.get('origen') || '';
+  const urlDest = searchParams.get('destino') || '';
+  const urlFechaIda = searchParams.get('fecha_ida') || '';
+  const urlFechaVuelta = searchParams.get('fecha_vuelta') || '';
+  const urlHl = searchParams.get('hl') || '';
+  const urlGl = searchParams.get('gl') || '';
+  const urlCurrency = searchParams.get('currency') || '';
 
   const [searchRequest, setSearchRequest] = useState<FlightSearchRequest | null>(null);
   const [searchPhase, setSearchPhase] = useState<SearchPhase>('initial');
@@ -228,7 +240,7 @@ export default function FlightsPage(): React.ReactElement {
         const details: FlightDetailsResponse = await getFlightDetails(
           offer.offerId,
           searchRequest?.adults || 1,
-          context?.location?.currency || 'EUR',
+          localeCurrency || 'EUR',
           searchRequest ? {
             departure: searchRequest.departure || '',
             arrival: searchRequest.arrival || '',
@@ -249,7 +261,7 @@ export default function FlightsPage(): React.ReactElement {
   const handleShowDetails = useCallback((offer: FlightOfferUI): void => {
     setSelectedOfferForModal(offer);
     setIsModalOpen(true);
-  }, []);
+  }, [setSelectedOfferForModal, setIsModalOpen]);
 
   const handleConfirmSelection = useCallback((offer: FlightOfferUI): void => {
     if (!isAuthenticated) {
@@ -324,7 +336,18 @@ export default function FlightsPage(): React.ReactElement {
     };
 
     goToCheckout(router, checkoutData);
-  }, [isAuthenticated, router, selectedReturn, searchRequest, effectiveSearchState.phase, selectedOutbound]);
+  }, [
+    isAuthenticated,
+    router,
+    selectedReturn,
+    searchRequest,
+    effectiveSearchState.phase,
+    selectedOutbound,
+    setIsModalOpen,
+    setShowAuthError,
+    setSelectedOutbound,
+    setSearchRequest,
+  ]);
 
   const handleReset = useCallback((): void => {
     setSearchRequest(null);
@@ -350,7 +373,17 @@ export default function FlightsPage(): React.ReactElement {
 
     setTempFilters(resetFilters);
     setAppliedFilters(resetFilters);
-  }, []);
+  }, [
+    setSearchRequest,
+    setSearchPhase,
+    setSelectedOutbound,
+    setSelectedReturn,
+    setFlightDetails,
+    setSortCriteria,
+    setAppliedSort,
+    setTempFilters,
+    setAppliedFilters,
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] overflow-x-hidden">
@@ -373,9 +406,11 @@ export default function FlightsPage(): React.ReactElement {
 
             {/* Logo más pequeño */}
             <div className="border-4 border-[#c54141] rounded-2xl p-3 bg-white shadow-lg">
-              <img
+              <Image
                 src="/logoMostrar.png"
                 alt="ProacTrip Logo"
+                width={160}
+                height={160}
                 className="w-full h-28 md:h-32 lg:h-40 object-contain"
               />
             </div>
@@ -454,7 +489,7 @@ export default function FlightsPage(): React.ReactElement {
                   onChange={setTempFilters}
                   availableAirlines={availableAirlines}
                   totalResults={sortedResults.length}
-                  currency={context?.location?.currency || 'EUR'}
+                  currency={localeCurrency || 'EUR'}
                 />
 
                 <button
@@ -486,11 +521,15 @@ export default function FlightsPage(): React.ReactElement {
                 setAppliedSort('none');
               }}
               searchBlocked={rateLimitBlocked}
-              initialValues={context?.location ? {
-                gl: context.location.country_code || 'ES',
-                hl: context.location.language || 'es',
-                currency: context.location.currency || 'EUR',
-              } : undefined}
+              initialValues={{
+                gl: urlGl || environment?.location?.country_code || 'ES',
+                hl: urlHl || environment?.location?.language || 'es',
+                currency: urlCurrency || localeCurrency || 'EUR',
+                ...(urlOrigin ? { departure: urlOrigin.toUpperCase() } : {}),
+                ...(urlDest ? { arrival: urlDest.toUpperCase() } : {}),
+                ...(urlFechaIda ? { outboundDate: urlFechaIda } : {}),
+                ...(urlFechaVuelta ? { returnDate: urlFechaVuelta } : {}),
+              }}
             />
 
             {/* Rate limit warning (non-blocking) */}

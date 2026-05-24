@@ -1,33 +1,38 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
-import { useAuthContext } from '@/contexts/AuthContext';
+import Image from 'next/image';
+import { useEnvironment } from '@/hooks/useEnvironment';
 import type { WeatherData } from '@/app/lib/api/context';
 
 /**
  * Weather display in the navbar — shows current weather (icon, temp, description)
- * when environment context has weather data. Hidden when weather is null or context
- * hasn't loaded yet.
+ * when the environment hook returns weather data. Hidden when weather is null or
+ * the hook hasn't resolved yet.
  *
- * Follows the same self-contained pattern as CurrencySelector: reads directly
- * from AuthContext, no props needed from parent.
+ * Uses `useEnvironment()` TanStack Query hook directly — works for ALL users
+ * (auth + unauth). No auth guard. TanStack Query handles dedup and staleTime.
  */
-export default function WeatherDisplay() {
-  const { context } = useAuthContext();
-  const weather: WeatherData | null = context?.weather ?? null;
+export default function WeatherDisplay({ isLanding = true }: { isLanding?: boolean }) {
+  const { environment } = useEnvironment();
+  const weather: WeatherData | null = environment?.weather ?? null;
 
   if (!weather) return null;
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white"
+      className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${
+        isLanding ? "text-white" : "text-neutral-600"
+      }`}
       aria-label={`Weather: ${weather.temp}°C, ${weather.description}`}
     >
       {weather.icon_url ? (
-        <img
+        <Image
           src={weather.icon_url}
           alt={weather.description}
+          width={100}
+          height={100}
           className="w-6 h-6 object-contain"
+          unoptimized
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}
