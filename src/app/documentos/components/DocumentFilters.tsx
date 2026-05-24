@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Filter, Loader } from 'lucide-react';
-import { listDocumentTypes } from '@/app/lib/api/documents';
+import { useState } from 'react';
+import { Filter } from 'lucide-react';
 import type { DocumentType } from '@/app/lib/types/document';
 
 // ==========================================
@@ -15,6 +14,8 @@ export interface DocumentFiltersValues {
 }
 
 interface DocumentFiltersProps {
+  /** Document types loaded by the parent page (already cached via useQuery) */
+  types: DocumentType[];
   onFilterChange: (filters: DocumentFiltersValues) => void;
 }
 
@@ -27,38 +28,9 @@ const STATUS_TABS = [
   { value: 'failed', label: 'Fallidos' },
 ] as const;
 
-export default function DocumentFilters({ onFilterChange }: DocumentFiltersProps) {
+export default function DocumentFilters({ types, onFilterChange }: DocumentFiltersProps) {
   const [activeStatus, setActiveStatus] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<string | null>(null);
-  const [types, setTypes] = useState<DocumentType[]>([]);
-  const [typesLoading, setTypesLoading] = useState(true);
-  const [typesError, setTypesError] = useState(false);
-
-  // Load document types on mount
-  useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag set before async fetch
-    setTypesLoading(true);
-    setTypesError(false);
-
-    listDocumentTypes()
-      .then((result) => {
-        if (!cancelled) {
-          setTypes(result);
-          setTypesLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTypesError(true);
-          setTypesLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleStatusChange = (status: string | null) => {
     setActiveStatus(status);
@@ -92,28 +64,22 @@ export default function DocumentFilters({ onFilterChange }: DocumentFiltersProps
         ))}
       </div>
 
-      {/* Type Dropdown */}
+      {/* Type Dropdown — types loaded by parent via useQuery */}
       <div className="relative flex items-center gap-2">
         <Filter className="w-4 h-4 text-gray-400" />
-        {typesLoading ? (
-          <Loader className="w-4 h-4 animate-spin text-gray-400" />
-        ) : typesError ? (
-          <span className="text-xs text-red-500">Error al cargar tipos</span>
-        ) : (
-          <select
-            value={activeType || ''}
-            onChange={(e) => handleTypeChange(e.target.value || null)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent"
-            aria-label="Filtrar por tipo de documento"
-          >
-            <option value="">Todos los tipos</option>
-            {types.map((t) => (
-              <option key={t.code} value={t.code}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <select
+          value={activeType || ''}
+          onChange={(e) => handleTypeChange(e.target.value || null)}
+          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent"
+          aria-label="Filtrar por tipo de documento"
+        >
+          <option value="">Todos los tipos</option>
+          {types.map((t) => (
+            <option key={t.code} value={t.code}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );

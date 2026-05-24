@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { queryKeys, userKeys } from '@/app/lib/queries/queryKeys';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -12,9 +12,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
  * is authenticated. Automatically closes on logout and reconnects on login.
  *
  * Event → cache invalidation mapping:
- *   user.avatar.updated / user.profile.updated → invalidate profile
- *   document.* → invalidate documents
- *   medical.* → invalidate profile (medical conflicts affect medical profile)
+ *   user.avatar.updated / user.profile.updated → invalidate profile caches
+ *   document.processing.completed / document.verification.updated → invalidate userKeys.documents()
+ *   medical.conflict.* → invalidate profile caches
+ *
+ * NOTE: Per-document SSE (useDocumentSSE) is deprecated — all document events
+ * now flow through this centralized hook. The old per-document EventSource
+ * endpoints are going away.
  */
 export function useRealtimeSSE() {
   const { isAuthenticated } = useAuth();
@@ -42,7 +46,7 @@ export function useRealtimeSSE() {
           break;
         case 'document.processing.completed':
         case 'document.verification.updated':
-          queryClient.invalidateQueries({ queryKey: ['documents'] });
+          queryClient.invalidateQueries({ queryKey: userKeys.documents() });
           break;
         case 'medical.conflict.created':
         case 'medical.conflict.resolved':

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X, FileText, Download, Loader, Calendar, Shield, Hash, Globe } from 'lucide-react';
 import { getDocument } from '@/app/lib/api/documents';
-import { useDocumentSSE } from '@/hooks/useDocumentSSE';
 import type { DocumentDetail, DocumentType, DocumentEvent } from '@/app/lib/types/document';
 
 function formatBytes(bytes: number): string {
@@ -67,20 +66,10 @@ export default function DocumentDetailModal({
     return () => { cancelled = true; };
   }, [documentId]);
 
-  useDocumentSSE({
-    documentId,
-    onEvent: (event) => {
-      if (detail) {
-        setDetail({
-          ...detail,
-          ocr_status: event.status,
-          ocr_confidence: event.ocr_confidence ?? detail.ocr_confidence,
-          failure_reason: event.failure_reason ?? detail.failure_reason,
-        });
-      }
-      if (onStatusUpdate) onStatusUpdate(event, documentId);
-    },
-  });
+  // NOTE: Per-document SSE (useDocumentSSE) removed — the centralized
+  // useRealtimeSSE hook in the app layout invalidates userKeys.documents()
+  // on document.processing.completed. The detail view is read-only between
+  // re-opens; the list view stays fresh via TanStack Query refetch.
 
   const typeName = detail ? types.find((t) => t.code === detail.document_type)?.name || detail.document_type : '';
   const isDownloadDisabled = detail?.ocr_status === 'queued' || detail?.ocr_status === 'processing';

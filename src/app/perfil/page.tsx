@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
-import { USER_AVATAR_CACHE_KEY } from '@/app/lib/constants/avatars';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import Loader from '@/components/ui/Loader';
 import {
@@ -51,14 +50,8 @@ export default function ProfilePage() {
   // Invalidate and refetch profile after form saves
   const reloadProfile = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
-    // Cache avatar URL if present
-    const fresh = queryClient.getQueryData(queryKeys.profile.all);
-    if (fresh && typeof fresh === 'object' && 'profile' in fresh) {
-      const profileData = fresh as { profile: { avatar_url?: string } };
-      if (profileData.profile.avatar_url) {
-        localStorage.setItem(USER_AVATAR_CACHE_KEY, profileData.profile.avatar_url);
-      }
-    }
+    // Avatar is now sourced from AuthContext.profileAvatar — TanStack Query is
+    // the single source of truth, no localStorage cache needed.
   }, [queryClient]);
 
   if (isLoading) {

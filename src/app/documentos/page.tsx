@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { FileText, AlertCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,7 +10,6 @@ import {
   listDocumentTypes,
 } from '@/app/lib/api/documents';
 import { UserApiError } from '@/app/lib/api/user';
-import { useDocumentSSE } from '@/hooks/useDocumentSSE';
 import DocumentCard from './components/DocumentCard';
 import DocumentUpload from './components/DocumentUpload';
 import DocumentFilters, { type DocumentFiltersValues } from './components/DocumentFilters';
@@ -76,15 +75,6 @@ export default function DocumentosPage() {
         : error
           ? 'Error al cargar los documentos.'
           : null;
-
-  // --- Processing docs (for SSE auto-subscription) ---
-  const processingIds = useMemo(() => {
-    const processing = new Set<string>();
-    for (const doc of documentListData?.documents ?? []) {
-      if (doc.ocr_status === 'processing') processing.add(doc.id);
-    }
-    return processing;
-  }, [documentListData]);
 
   // ==========================================
   // DELETE MUTATION
@@ -180,46 +170,6 @@ export default function DocumentosPage() {
     },
     [queryClient, filters, refetch],
   );
-
-  // ==========================================
-  // SSE TRACKING for processing documents (3.8)
-  // ==========================================
-  //
-  // For each document in 'processing' state, subscribe to SSE events.
-  // The useDocumentSSE hook handles reconnection and cleanup.
-  function ProcessingTracker({ docId }: { docId: string }) {
-    useDocumentSSE({
-      documentId: docId,
-      onEvent: (event: DocumentEvent) => {
-        // Update document in cache optimistically
-        queryClient.setQueryData(
-          ['user-documents', filters.status, filters.document_type],
-          (old: typeof documentListData) => {
-            if (!old) return old;
-            return {
-              ...old,
-              documents: old.documents.map((d) =>
-                d.id === docId
-                  ? {
-                      ...d,
-                      ocr_status: event.status,
-                      ocr_confidence:
-                        event.ocr_confidence !== undefined
-                          ? event.ocr_confidence
-                          : d.ocr_confidence,
-                    }
-                  : d,
-              ),
-            };
-          },
-        );
-
-        // Refresh the full list on terminal status (processingIds re-derived via useMemo)
-      },
-    });
-
-    return null; // This component renders nothing — it only wires SSE
-  }
 
   // ==========================================
   // LOADING STATE
@@ -353,7 +303,7 @@ export default function DocumentosPage() {
 
       {/* Filters */}
       <div className="mb-6">
-        <DocumentFilters onFilterChange={handleFilterChange} />
+        <DocumentFilters onFilterChange={handleFilterChange} types={types} />
       </div>
 
       {/* Document Grid */}
@@ -373,11 +323,6 @@ export default function DocumentosPage() {
           />
         ))}
       </div>
-
-      {/* SSE Trackers — invisible components that wire up EventSource for processing docs */}
-      {Array.from(processingIds).map((docId) => (
-        <ProcessingTracker key={docId} docId={docId} />
-      ))}
 
       {/* Delete Confirmation Dialog */}
       {docToDelete && (
