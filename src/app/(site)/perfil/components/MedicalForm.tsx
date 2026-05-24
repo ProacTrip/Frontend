@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
 import { useUpdateMedicalProfile } from '@/hooks/useUpdateMedicalProfile';
 import type {
@@ -83,6 +83,38 @@ export function MedicalForm({ onSave }: Props) {
 
   const [saveError, setSaveError] = useState('');
 
+  // ── Dirty state tracking: compare current form vs last-saved snapshot ──
+  const initialSnapshotRef = useRef<string>('');
+  const needsInitCapture = useRef(true);
+
+  // Capture initial snapshot after state is populated from medicalProfile
+  useEffect(() => {
+    if (needsInitCapture.current && !isLoading && !loadError) {
+      initialSnapshotRef.current = JSON.stringify({
+        bloodType,
+        allergiesInput,
+        conditionsInput,
+        medications,
+        vaccinations,
+        emergencyContact,
+        insuranceInfo,
+      });
+      needsInitCapture.current = false;
+    }
+  });
+
+  const isDirty =
+    !needsInitCapture.current &&
+    JSON.stringify({
+      bloodType,
+      allergiesInput,
+      conditionsInput,
+      medications,
+      vaccinations,
+      emergencyContact,
+      insuranceInfo,
+    }) !== initialSnapshotRef.current;
+
   // ── Conflict states ──
   const [conflicts, setConflicts] = useState<MedicalConflict[]>([]);
   const [loadingConflicts, setLoadingConflicts] = useState(false);
@@ -160,6 +192,9 @@ export function MedicalForm({ onSave }: Props) {
       } else {
         setInsuranceInfo({ ...EMPTY_INSURANCE });
       }
+
+      // Signal that the next render should recapture the initial snapshot
+      needsInitCapture.current = true;
     }
   }, [medicalProfile]);
 
@@ -257,6 +292,19 @@ export function MedicalForm({ onSave }: Props) {
       }
 
       await updateMutation.mutateAsync(payload);
+
+      // Update snapshot so isDirty becomes false until next edit
+      initialSnapshotRef.current = JSON.stringify({
+        bloodType,
+        allergiesInput,
+        conditionsInput,
+        medications,
+        vaccinations,
+        emergencyContact,
+        insuranceInfo,
+      });
+      needsInitCapture.current = false;
+
       onSave();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar perfil médico');
@@ -695,7 +743,7 @@ export function MedicalForm({ onSave }: Props) {
 
       {/* ── Submit ── */}
       <div className="border-t border-gray-100 pt-6 mt-8 flex justify-end">
-        <Button type="submit" variant="brand" isLoading={updateMutation.isPending} className="w-full sm:w-auto">
+        <Button type="submit" variant="brand" disabled={!isDirty || updateMutation.isPending} isLoading={updateMutation.isPending} className="w-full sm:w-auto">
           <Save className="w-5 h-5" /> Guardar cambios
         </Button>
       </div>

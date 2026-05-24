@@ -52,13 +52,18 @@ export function TravelForm({ prefs, onSave }: Props) {
   });
 
   const [form, setForm] = useState(() => buildInitialForm(prefs));
+  const [initialValues, setInitialValues] = useState(() => buildInitialForm(prefs));
   const [error, setError] = useState('');
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
   // Sync form state with fresh travel preferences from background refetches.
   // Only sync if the user hasn't made any edits — don't overwrite unsaved changes.
   useEffect(() => {
     if (!hasModified.current) {
-      setForm(buildInitialForm(prefs));
+      const newForm = buildInitialForm(prefs);
+      setForm(newForm);
+      setInitialValues(newForm);
     }
   }, [prefs]);
 
@@ -115,6 +120,7 @@ export function TravelForm({ prefs, onSave }: Props) {
 
       await updatePrefsMutation.mutateAsync(payload);
       hasModified.current = false;
+      setInitialValues({ ...form });
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
@@ -275,6 +281,7 @@ export function TravelForm({ prefs, onSave }: Props) {
         <Button
           type="submit"
           variant="brand"
+          disabled={!isDirty || updatePrefsMutation.isPending}
           isLoading={updatePrefsMutation.isPending}
           className="w-full sm:w-auto"
         >

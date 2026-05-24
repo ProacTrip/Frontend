@@ -27,14 +27,19 @@ export function PersonalDataForm({ profile, onSave }: Props) {
   });
 
   const [form, setForm] = useState<UpdateProfileBody>(() => buildInitialForm(profile));
+  const [initialValues, setInitialValues] = useState<UpdateProfileBody>(() => buildInitialForm(profile));
   const [error, setError] = useState('');
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
   // Sync form state with profile data from background refetches (e.g., TanStack
   // Query staleTime expires and refetch returns fresh data). Only sync if the
   // user hasn't made any edits — we don't want to overwrite unsaved changes.
   useEffect(() => {
     if (!hasModified.current) {
-      setForm(buildInitialForm(profile));
+      const newForm = buildInitialForm(profile);
+      setForm(newForm);
+      setInitialValues(newForm);
     }
   }, [profile]);
 
@@ -91,6 +96,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
 
       await updateProfileMutation.mutateAsync(payload);
       hasModified.current = false;
+      setInitialValues({ ...form });
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
@@ -213,6 +219,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
         <Button
           type="submit"
           variant="brand"
+          disabled={!isDirty || updateProfileMutation.isPending}
           isLoading={updateProfileMutation.isPending}
           className="w-full sm:w-auto"
         >

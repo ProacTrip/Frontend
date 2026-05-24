@@ -36,12 +36,12 @@ const CURRENCIES = [
   { code: 'USD', name: 'Dólar estadounidense ($)' },
   { code: 'GBP', name: 'Libra esterlina (£)' },
   { code: 'JPY', name: 'Yen japonés (¥)' },
-  { code: 'CHF', name: 'Franco suizo (Fr)' },
-  { code: 'CAD', name: 'Dólar canadiense (C$)' },
   { code: 'AUD', name: 'Dólar australiano (A$)' },
+  { code: 'CAD', name: 'Dólar canadiense (C$)' },
+  { code: 'CHF', name: 'Franco suizo (Fr)' },
+  { code: 'CNY', name: 'Yuan chino (¥)' },
   { code: 'MXN', name: 'Peso mexicano ($)' },
   { code: 'BRL', name: 'Real brasileño (R$)' },
-  { code: 'ARS', name: 'Peso argentino ($)' },
 ];
 
 export function LocaleForm({ profile, onSave }: Props) {
@@ -54,16 +54,24 @@ export function LocaleForm({ profile, onSave }: Props) {
     language_code: profile.language_code ?? '',
     currency_code: profile.currency_code ?? '',
   });
+  const [initialValues, setInitialValues] = useState({
+    language_code: profile.language_code ?? '',
+    currency_code: profile.currency_code ?? '',
+  });
   const [error, setError] = useState('');
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialValues);
 
   // Sync form state with fresh profile data from background refetches.
   // Only sync if the user hasn't made any edits.
   useEffect(() => {
     if (!hasModified.current) {
-      setForm({
+      const newForm = {
         language_code: profile.language_code ?? '',
         currency_code: profile.currency_code ?? '',
-      });
+      };
+      setForm(newForm);
+      setInitialValues(newForm);
     }
   }, [profile]);
 
@@ -87,6 +95,7 @@ export function LocaleForm({ profile, onSave }: Props) {
         setActiveCurrency(payload.currency);
       }
       hasModified.current = false;
+      setInitialValues({ language_code: form.language_code, currency_code: form.currency_code });
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
@@ -169,6 +178,7 @@ export function LocaleForm({ profile, onSave }: Props) {
         <Button
           type="submit"
           variant="brand"
+          disabled={!isDirty || updateProfileMutation.isPending}
           isLoading={updateProfileMutation.isPending}
           className="w-full sm:w-auto"
         >
