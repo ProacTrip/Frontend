@@ -111,6 +111,7 @@ export interface Profile {
   phone: string | null;                 // E.164 (ej: "+5491123456789")
   bio: string | null;
   avatar_url: string | null;
+  role_name?: string;
   language_code: string | null;         // adapter-derived from location.language
   currency_code: string | null;         // adapter-derived from location.currency
   timezone_name: string | null;         // adapter-derived from location.timezone (optional)
@@ -152,15 +153,6 @@ export interface UpdateTravelPreferencesBody {
   preferred_hotels?: string[] | null;
   avoid_layovers?: boolean;
   max_layover_duration?: number | null;
-}
-
-// ─────────────────────────────────────────────────────────────
-// RESPUESTA PRINCIPAL (GET /v1/user/profile)
-// ─────────────────────────────────────────────────────────────
-
-export interface ProfileResponse {
-  profile: Profile;
-  travel_preferences: TravelPreferences | null;
 }
 
 // NOTE: updateNotificationPreference() removed — endpoint doesn't exist yet.
@@ -224,7 +216,6 @@ export type PendingConflicts = MedicalConflict[];
 
 export interface ProfileResponse {
   profile: Profile;
-  travel_preferences: TravelPreferences | null;
 }
 
 // ─────────────────────────────────────────────────────────────

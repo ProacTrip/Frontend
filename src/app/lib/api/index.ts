@@ -61,6 +61,7 @@ export type { EnvironmentResponse, LocationData, WeatherData } from './context';
 export {
   getProfile,
   updateProfile,
+  getTravelPreferences,
   updateTravelPreferences,
   getMedicalProfile,
   adaptMedicalProfile,

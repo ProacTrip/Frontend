@@ -25,12 +25,7 @@ import type {
   DocumentListResponse,
 } from '@/app/lib/types/document';
 import { rateLimitStore } from './rate-limit';
-import { UserApiError, parseUserError } from './user';
-
-// ==========================================
-// SINGLE env var
-// ==========================================
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { UserApiError, parseUserError, API_URL } from './user';
 
 // ==========================================
 // HELPERS (mirrored from user.ts — private helpers)

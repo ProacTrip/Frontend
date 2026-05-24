@@ -4,8 +4,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, userKeys } from '@/app/lib/queries/queryKeys';
+import { API_URL } from '@/app/lib/api/user';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const MAX_BACKOFF = 30000; // 30s cap for exponential backoff
 
 /**

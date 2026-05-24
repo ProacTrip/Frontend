@@ -172,7 +172,7 @@ export function MedicalForm() {
       // Emergency contact (EmergencyContact | null → structured object)
       const ec = medicalProfile.emergency_contact;
       if (ec && typeof ec === 'object' && !Array.isArray(ec)) {
-        const e = ec as Record<string, unknown>;
+        const e = ec as unknown as Record<string, unknown>;
         setEmergencyContact({
           name: (e.name as string) ?? '',
           phone: (e.phone as string) ?? '',
@@ -185,7 +185,7 @@ export function MedicalForm() {
       // Insurance info (InsuranceInfo | null → structured object)
       const ii = medicalProfile.insurance_info;
       if (ii && typeof ii === 'object' && !Array.isArray(ii)) {
-        const i = ii as Record<string, unknown>;
+        const i = ii as unknown as Record<string, unknown>;
         setInsuranceInfo({
           company: (i.company as string) ?? '',
           policy_number: (i.policy_number as string) ?? '',

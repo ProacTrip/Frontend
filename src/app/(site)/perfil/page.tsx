@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useTravelPreferences } from '@/hooks/useTravelPreferences';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import Loader from '@/components/ui/Loader';
 import {
@@ -42,6 +43,8 @@ export default function ProfilePage() {
     error,
   } = useProfile();
 
+  const { data: travelPrefs } = useTravelPreferences();
+
   const queryClient = useQueryClient();
 
   if (isPending) {
@@ -71,7 +74,7 @@ export default function ProfilePage() {
 
   if (!data) return null;
 
-  const { profile, travel_preferences } = data;
+  const { profile } = data;
   const userEmail = user?.email ?? null;
 
   return (
@@ -142,7 +145,7 @@ export default function ProfilePage() {
         )}
         {activeTab === 'travel' && (
           <TravelForm
-            prefs={travel_preferences ?? {
+            prefs={travelPrefs ?? {
               preferred_class: null,
               seat_preference: null,
               meal_preference: null,

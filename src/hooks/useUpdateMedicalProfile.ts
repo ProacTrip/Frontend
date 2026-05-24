@@ -9,9 +9,28 @@ import {
 import type {
   UpdateMedicalProfileBody,
   GetMedicalProfileResponse,
+  Medication,
+  Vaccination,
+  EmergencyContact,
+  InsuranceInfo,
 } from '@/app/lib/types/user';
 import { userKeys } from '@/app/lib/queries/queryKeys';
 import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
+
+/** Result of adaptMedicalProfile — MedicalField<T> wrappers unwrapped to plain values. */
+interface AdaptedMedicalProfile {
+  blood_type: string | null;
+  allergies: string[];
+  medications: Medication[];
+  conditions: string[];
+  vaccinations: Vaccination[];
+  emergency_contact: EmergencyContact | null;
+  insurance_info: InsuranceInfo | null;
+  is_shared: boolean;
+  has_pending_conflicts: boolean;
+  pending_conflict_count: number;
+  [key: string]: unknown;
+}
 
 /**
  * Query + Mutation hook for the medical profile.
@@ -38,14 +57,14 @@ export function useUpdateMedicalProfile() {
     error,
   } = useQuery({
     queryKey: userKeys.medical(),
-    queryFn: async (): Promise<Record<string, unknown> | null> => {
+    queryFn: async (): Promise<AdaptedMedicalProfile | null> => {
       const response: GetMedicalProfileResponse | null = await getMedicalProfile();
       if (!response?.data) return null;
       // Adapt MedicalField<T> wrappers → plain values for form display
       const adapted = adaptMedicalProfile(
         response as unknown as Record<string, unknown>,
       );
-      return adapted as Record<string, unknown>;
+      return adapted as AdaptedMedicalProfile;
     },
     staleTime: PROFILE_STALE_TIME,
   });
@@ -59,8 +78,8 @@ export function useUpdateMedicalProfile() {
   });
 
   // Extract meta fields from the adapted profile (passthrough from top-level API response)
-  const hasPendingConflicts = (rawData?.has_pending_conflicts as boolean) ?? false;
-  const pendingConflictCount = (rawData?.pending_conflict_count as number) ?? 0;
+  const hasPendingConflicts = rawData?.has_pending_conflicts ?? false;
+  const pendingConflictCount = rawData?.pending_conflict_count ?? 0;
 
   return {
     medicalProfile: rawData ?? null,

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthUser } from '@/app/lib/types/auth';
+import type { Profile } from '@/app/lib/types/user';
 import { logoutUser } from '@/app/lib/api/auth';
 import { getProfile, UserApiError } from '@/app/lib/api/user';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
@@ -46,8 +47,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  *
  * Falls back to role_name='client' when the backend omits it.
  */
-// deno-lint-ignore no-explicit-any
-function extractAuthUser(profile: Record<string, unknown>): AuthUser | null {
+function extractAuthUser(profile: Profile): AuthUser | null {
   const id = profile.id;
   const email = profile.email;
   if (typeof id !== 'string' || typeof email !== 'string') return null;
@@ -88,7 +88,7 @@ export function AuthProvider({
   // Extract identity from the profile query data (raw fields not in Profile type)
   const profileUser = useMemo(() => {
     if (!profileQuery.data) return null;
-    return extractAuthUser(profileQuery.data.profile as unknown as Record<string, unknown>);
+    return extractAuthUser(profileQuery.data.profile);
   }, [profileQuery.data]);
 
   // Effective user: profile query wins; manualUser is a bridge for pre-PR3 pages

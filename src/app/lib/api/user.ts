@@ -35,13 +35,14 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080
 // TYPED ERROR CODES — RFC 9457 mapping
 // ==========================================
 export type UserErrorCode =
-  // Profile (6)
+  // Profile (7)
   | 'PROFILE_NOT_FOUND'
   | 'INVALID_ENUM'
   | 'INVALID_COUNTRY_CODE'
   | 'INVALID_TIMEZONE'
   | 'INVALID_LANGUAGE_CODE'
   | 'INVALID_CURRENCY_CODE'
+  | 'INVALID_PHONE'
   // Medical (4)
   | 'MEDICAL_PROFILE_NOT_FOUND'
   | 'DECRYPTION_ERROR'
@@ -51,14 +52,18 @@ export type UserErrorCode =
   | 'PENDING_UPDATE_NOT_FOUND'
   | 'PENDING_UPDATE_EXPIRED'
   | 'INVALID_PENDING_ACTION'
-  // Avatars (3)
+  // Avatars (4)
   | 'INVALID_MIME_TYPE'
   | 'FILE_TOO_LARGE'
   | 'FILE_NOT_FOUND'
+  | 'AVATAR_NOT_FOUND'
   // Favorites (3)
   | 'DUPLICATE_FAVORITE'
   | 'INVALID_ENTITY_TYPE'
   | 'FAVORITE_NOT_FOUND'
+  // Travel Preferences (2)
+  | 'TRAVEL_PREFS_NOT_FOUND'
+  | 'INVALID_MAX_LAYOVER'
   // Documents (3)
   | 'INVALID_FILE_TYPE'
   | 'DOCUMENT_NOT_FOUND'
@@ -149,6 +154,8 @@ export async function parseUserError(response: Response, endpoint: string): Prom
     code = 'INVALID_LANGUAGE_CODE';
   } else if (type.includes('invalid-currency-code')) {
     code = 'INVALID_CURRENCY_CODE';
+  } else if (type.includes('invalid-phone')) {
+    code = 'INVALID_PHONE';
   } else if (type.includes('invalid-blood-type')) {
     code = 'INVALID_BLOOD_TYPE';
   } else if (type.includes('invalid-mime-type')) {
@@ -167,6 +174,8 @@ export async function parseUserError(response: Response, endpoint: string): Prom
     code = 'FAVORITE_NOT_FOUND';
   } else if (type.includes('file-not-found')) {
     code = 'FILE_NOT_FOUND';
+  } else if (type.includes('avatar-not-found')) {
+    code = 'AVATAR_NOT_FOUND';
   } else if (type.includes('invalid-file-type')) {
     code = 'INVALID_FILE_TYPE';
   } else if (type.includes('document-not-found')) {
@@ -175,6 +184,10 @@ export async function parseUserError(response: Response, endpoint: string): Prom
     code = 'DOCUMENT_NOT_READY';
   } else if (type.includes('search-not-found')) {
     code = 'SEARCH_NOT_FOUND';
+  } else if (type.includes('travel-prefs-not-found') || type.includes('travel-preferences-not-found')) {
+    code = 'TRAVEL_PREFS_NOT_FOUND';
+  } else if (type.includes('invalid-max-layover')) {
+    code = 'INVALID_MAX_LAYOVER';
   } else if (type.includes('profile-not-found')) {
     code = 'PROFILE_NOT_FOUND';
   } else if (type.includes('decryption')) {
@@ -297,7 +310,6 @@ function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
       currency_code: (loc.currency as string) ?? null,
       timezone_name: (loc.timezone as string) ?? null,
     },
-    travel_preferences: raw.travel_preferences as TravelPreferences | null,
   };
 }
 
@@ -347,6 +359,54 @@ export async function updateProfile(data: UpdateProfileBody, signal?: AbortSigna
 // ==========================================
 // PREFERENCIAS DE VIAJE
 // ==========================================
+
+/**
+ * Get travel preferences from the dedicated endpoint.
+ *
+ * Returns null when the user has no saved preferences (404 TRAVEL_PREFS_NOT_FOUND).
+ * Direct fetch with credentials:"include".
+ * 10s timeout via AbortController.
+ */
+export async function getTravelPreferences(
+  signal?: AbortSignal
+): Promise<TravelPreferences | null> {
+  const endpoint = '/v1/user/profile/travel-preferences';
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: effectiveSignal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (response.status === 404) return null;
+    if (!response.ok) await parseUserError(response, endpoint);
+
+    return await response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof UserApiError && error.code === 'TRAVEL_PREFS_NOT_FOUND') {
+      return null;
+    }
+
+    if (error instanceof UserApiError) throw error;
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+
+    throw error;
+  }
+}
 
 /**
  * Update travel preferences (class, seat, meals, airlines, etc.).
