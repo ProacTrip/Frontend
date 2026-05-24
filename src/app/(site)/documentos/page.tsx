@@ -107,8 +107,10 @@ export default function DocumentosPage() {
   // ==========================================
 
   const handleUploadSuccess = useCallback(
-    () => {
-      // Invalidate the documents query to refresh the list
+    (_response: { document_id: string; status: string }) => {
+      // Invalidate the documents query to refresh the list.
+      // The _response (document_id + OCR status) is shown directly
+      // by the DocumentUpload component via its own state.
       queryClient.invalidateQueries({
         queryKey: ['user-documents', filters.status, filters.document_type],
       });
@@ -177,11 +179,16 @@ export default function DocumentosPage() {
   if (isLoading && documents.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-          <FileText className="w-8 h-8 text-[--color-brand-500]" />
-          Mis Documentos
-        </h1>
-        <p className="text-gray-500 mb-8">Cargando tus documentos...</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3">
+              <FileText className="w-8 h-8 text-[--color-brand-500]" />
+              Mis Documentos
+            </h1>
+            <p className="text-gray-500">Cargando tus documentos...</p>
+          </div>
+          <DocumentUpload onSuccess={handleUploadSuccess} />
+        </div>
 
         {/* Skeleton cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
