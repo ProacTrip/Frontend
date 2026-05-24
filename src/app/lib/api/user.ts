@@ -4,15 +4,17 @@
 // Cookie-based auth: credentials:"include", no Authorization header needed.
 // Follows canonical flights.ts/hotels.ts pattern: typed errors, rate limit extraction,
 // AbortController timeouts, direct fetch() instead of apiFetch() wrapper.
+//
+// FIXED May 2026: PATCH methods, /profile/ prefix in document URLs, medical conflict paths.
+// REMOVED: updateLocale() (merged into updateProfile), updateNotificationPreference() (endpoint doesn't exist).
 
 import type {
   ProfileResponse,
   UpdateProfileBody,
-  LocaleUpdate,
   UpdateTravelPreferencesBody,
   MedicalProfile,
+  GetMedicalProfileResponse,
   UpdateMedicalProfileBody,
-  UpdateNotificationPreferenceBody,
   AvatarUploadUrl,
   EntityType,
   CreateFavoriteBody,
@@ -278,13 +280,6 @@ export async function getProfile(signal?: AbortSignal): Promise<ProfileResponse>
 // deno-lint-ignore no-explicit-any
 function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
   const loc = (raw.location as Record<string, unknown>) || {};
-  // Mapear location.timezone → timezone_name, etc.
-  const adapted = {
-    ...raw,
-    timezone_name: (loc.timezone as string) || (raw.timezone_name as string | null) || null,
-    language_code: (loc.language as string) || (raw.language_code as string | null) || null,
-    currency_code: (loc.currency as string) || (raw.currency_code as string | null) || null,
-  };
 
   // Convertir notification_preferences de objeto {type: {channel: bool}} a array NotificationPreference[]
   const notification_preferences: NotificationPreference[] = Object.entries(
@@ -297,8 +292,24 @@ function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
     }))
   );
 
+  // Build Profile: use backend id/user_id/email directly, derive locale fields from location
   return {
-    profile: adapted as ProfileResponse['profile'],
+    profile: {
+      id: (raw.id as string) || '',
+      user_id: (raw.user_id as string) || '',
+      email: (raw.email as string) || '',
+      first_name: (raw.first_name as string | null) ?? null,
+      last_name: (raw.last_name as string | null) ?? null,
+      date_of_birth: (raw.date_of_birth as string | null) ?? null,
+      gender: (raw.gender as import('@/app/lib/types/user').Gender | null) ?? null,
+      nationality: (raw.nationality as string | null) ?? null,
+      phone: (raw.phone as string | null) ?? null,
+      bio: (raw.bio as string | null) ?? null,
+      avatar_url: (raw.avatar_url as string | null) ?? null,
+      language_code: (loc.language as string) ?? null,
+      currency_code: (loc.currency as string) ?? null,
+      timezone_name: (loc.timezone as string) ?? null,
+    },
     travel_preferences: raw.travel_preferences as TravelPreferences | null,
     notification_preferences,
   };
@@ -306,6 +317,7 @@ function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
 
 /**
  * Update user profile fields (name, gender, nationality, etc.).
+ * Locale fields (language, currency) are updated through this endpoint too.
  *
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
@@ -320,54 +332,11 @@ export async function updateProfile(data: UpdateProfileBody, signal?: AbortSigna
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PUT',
+      method: 'PATCH',                                           // ← PUT → PATCH
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       credentials: 'include',
       signal: effectiveSignal,
-    });
-
-    clearTimeout(timeoutId);
-    extractRateLimitHeaders(response, endpoint);
-
-    if (!response.ok) {
-      await parseUserError(response, endpoint);
-    }
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-
-    if (error instanceof UserApiError) throw error;
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('La petición ha excedido el tiempo de espera.');
-    }
-
-    throw error;
-  }
-}
-
-// ==========================================
-// LOCALIZACIÓN
-// ==========================================
-
-/**
- * Update user locale settings (timezone, language, currency).
- *
- * Direct fetch with credentials:"include".
- * 10s timeout via AbortController.
- */
-export async function updateLocale(data: LocaleUpdate): Promise<void> {
-  const endpoint = '/v1/user/profile/locale';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      credentials: 'include',
-      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
@@ -408,7 +377,7 @@ export async function updateTravelPreferences(
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PUT',
+      method: 'PATCH',                                           // ← PUT → PATCH
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       credentials: 'include',
@@ -439,29 +408,29 @@ export async function updateTravelPreferences(
 // ==========================================
 
 /**
- * Unwrap MedicalField<T> fields from the raw backend response.
- * Backend returns {value, source, updated_at} for each traceable field.
- * This adapter extracts just the .value for presentation to MedicalForm.
+ * Unwrap MedicalField<T> fields from the API response.
+ * Backend returns { data: { blood_type: { value, source, updated_at }, ... } }.
+ * This adapter extracts just the .value for MedicalForm presentation.
  */
 export function adaptMedicalProfile(raw: Record<string, unknown>): Record<string, unknown> {
-  const unwrap = (field: unknown): string | null => {
+  // Handle the { data: { ... } } wrapper
+  const data = (raw.data as Record<string, unknown>) || raw;
+
+  const unwrap = (field: unknown): unknown => {
     if (field && typeof field === 'object' && 'value' in field) {
-      return (field as { value: unknown }).value as string | null;
+      return (field as { value: unknown }).value;
     }
-    return field as string | null;
+    return field;
   };
 
   return {
-    blood_type: unwrap(raw.blood_type),
-    allergies: unwrap(raw.allergies),
-    medications: unwrap(raw.medications),
-    conditions: unwrap(raw.conditions),
-    vaccinations: unwrap(raw.vaccinations),
-    emergency_contact: unwrap(raw.emergency_contact),
-    insurance_info: unwrap(raw.insurance_info),
-    is_shared: raw.is_shared,
-    created_at: raw.created_at,
-    updated_at: raw.updated_at,
+    blood_type: unwrap(data.blood_type),
+    allergies: unwrap(data.allergies),
+    medications: unwrap(data.medications),
+    conditions: unwrap(data.conditions),
+    vaccinations: unwrap(data.vaccinations),
+    emergency_contact: unwrap(data.emergency_contact),
+    insurance_info: unwrap(data.insurance_info),
   };
 }
 
@@ -471,8 +440,11 @@ export function adaptMedicalProfile(raw: Record<string, unknown>): Record<string
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
  * Preserves caller contract: null for missing profile, throws for other errors.
+ *
+ * Returns the full API response { data: MedicalProfile } so callers can access
+ * source tracing and updated_at information.
  */
-export async function getMedicalProfile(): Promise<MedicalProfile | null> {
+export async function getMedicalProfile(): Promise<GetMedicalProfileResponse | null> {
   const endpoint = '/v1/user/profile/medical';
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -524,52 +496,7 @@ export async function updateMedicalProfile(
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      credentials: 'include',
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-    extractRateLimitHeaders(response, endpoint);
-
-    if (!response.ok) {
-      await parseUserError(response, endpoint);
-    }
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-
-    if (error instanceof UserApiError) throw error;
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('La petición ha excedido el tiempo de espera.');
-    }
-
-    throw error;
-  }
-}
-
-// ==========================================
-// NOTIFICACIONES
-// ==========================================
-
-/**
- * Update a notification preference (channel + type + enabled).
- *
- * Direct fetch with credentials:"include".
- * 10s timeout via AbortController.
- */
-export async function updateNotificationPreference(
-  data: UpdateNotificationPreferenceBody
-): Promise<void> {
-  const endpoint = '/v1/user/profile/notifications';
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PUT',
+      method: 'PATCH',                                           // ← PUT → PATCH
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       credentials: 'include',
@@ -704,15 +631,20 @@ export async function confirmAvatarUpload(storage_key: string): Promise<string> 
 // ==========================================
 
 /**
- * List pending medical field conflicts from OCR/NLP document processing.
+ * List medical field conflicts from OCR document processing.
  *
- * GET /v1/user/profile/medical/pending
+ * GET /v1/user/profile/medical-conflicts?status=pending
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
- * Returns empty array on 404 (no pending conflicts is not an error).
+ * Returns empty array on 404 (no conflicts is not an error).
  */
-export async function listMedicalConflicts(): Promise<PendingConflictsResponse> {
-  const endpoint = '/v1/user/profile/medical/pending';
+export async function listMedicalConflicts(status?: string): Promise<PendingConflictsResponse> {
+  let url = '/v1/user/profile/medical-conflicts';               // ← was: /medical/pending
+  if (status) {
+    url += `?status=${encodeURIComponent(status)}`;
+  }
+
+  const endpoint = url;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -735,7 +667,7 @@ export async function listMedicalConflicts(): Promise<PendingConflictsResponse> 
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
-    // No pending conflicts = empty array, not an error
+    // No conflicts = empty array, not an error
     if (error instanceof UserApiError && error.code === 'PENDING_UPDATE_NOT_FOUND') {
       return { conflicts: [] };
     }
@@ -751,19 +683,20 @@ export async function listMedicalConflicts(): Promise<PendingConflictsResponse> 
 }
 
 /**
- * Resolve a pending medical conflict by accepting, rejecting, or providing a custom value.
+ * Resolve a medical conflict by accepting, rejecting, or providing a custom value.
  *
- * POST /v1/user/profile/medical/pending/resolve
+ * POST /v1/user/profile/medical-conflicts/:conflict_id/resolve
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
- * Body: { pending_update_id, action, custom_value? }
+ * Body: { action, value? }
  * Returns { message: string } on success.
  * Throws UserApiError on PENDING_UPDATE_NOT_FOUND, PENDING_UPDATE_EXPIRED, INVALID_PENDING_ACTION.
  */
 export async function resolveMedicalConflict(
-  body: ResolveConflictBody
+  conflictId: string,                                            // ← conflict_id in URL path
+  body: ResolveConflictBody,
 ): Promise<{ message: string }> {
-  const endpoint = '/v1/user/profile/medical/pending/resolve';
+  const endpoint = `/v1/user/profile/medical-conflicts/${encodeURIComponent(conflictId)}/resolve`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 

@@ -5,19 +5,22 @@
 // Follows canonical user.ts pattern: typed errors, rate limit extraction,
 // AbortController timeouts, direct fetch().
 //
+// FIXED May 2026: /profile/ segment in all URLs, /download → /download-url (JSON response).
+//
 // 7 endpoints:
-//   GET    /v1/user/documents/types         — public, cached 1h
-//   POST   /v1/user/documents               — multipart upload
-//   GET    /v1/user/documents               — list with filters
-//   GET    /v1/user/documents/:id           — detail
-//   GET    /v1/user/documents/:id/download   — download blob
-//   DELETE /v1/user/documents/:id           — delete
-//   GET    /v1/user/documents/:id/events    — SSE events
+//   GET    /v1/user/profile/documents/types         — public, cached 1h
+//   POST   /v1/user/profile/documents               — multipart upload
+//   GET    /v1/user/profile/documents               — list with filters
+//   GET    /v1/user/profile/documents/:id           — detail
+//   GET    /v1/user/profile/documents/:id/download-url — JSON {download_url,expires_at,file_name}
+//   DELETE /v1/user/profile/documents/:id           — delete
+//   GET    /v1/user/profile/documents/:id/events    — SSE events (legacy path)
 
 import type {
   DocumentType,
   DocumentUploadResponse,
   DocumentDetail,
+  DocumentDownloadUrlResponse,
   DocumentEvent,
   DocumentListResponse,
 } from '@/app/lib/types/document';
@@ -96,7 +99,7 @@ async function fetchWithTimeout(
 }
 
 // ==========================================
-// 2.2 listDocumentTypes() — public endpoint
+// listDocumentTypes() — public endpoint
 // ==========================================
 
 /**
@@ -107,7 +110,7 @@ async function fetchWithTimeout(
  */
 export async function listDocumentTypes(): Promise<DocumentType[]> {
   const response = await fetchWithTimeout(
-    '/v1/user/documents/types',
+    '/v1/user/profile/documents/types',                          // ← /profile/ segment
     {
       method: 'GET',
       credentials: 'include',
@@ -120,7 +123,7 @@ export async function listDocumentTypes(): Promise<DocumentType[]> {
 }
 
 // ==========================================
-// 2.3 uploadDocument() — multipart/form-data
+// uploadDocument() — multipart/form-data
 // ==========================================
 
 /**
@@ -157,7 +160,7 @@ export async function uploadDocument(
   // the browser sets it with the correct multipart boundary
 
   const response = await fetchWithTimeout(
-    '/v1/user/documents',
+    '/v1/user/profile/documents',                                // ← /profile/ segment
     {
       method: 'POST',
       body: formData,
@@ -170,7 +173,7 @@ export async function uploadDocument(
 }
 
 // ==========================================
-// 2.4 listDocuments() — filtered list
+// listDocuments() — filtered list
 // ==========================================
 
 /**
@@ -183,7 +186,7 @@ export async function listDocuments(params?: {
   status?: string;
   document_type?: string;
 }): Promise<DocumentListResponse> {
-  let url = '/v1/user/documents';
+  let url = '/v1/user/profile/documents';                       // ← /profile/ segment
 
   const queryParts: string[] = [];
   if (params?.status) {
@@ -209,7 +212,7 @@ export async function listDocuments(params?: {
 }
 
 // ==========================================
-// 2.5 getDocument() — detail
+// getDocument() — detail
 // ==========================================
 
 /**
@@ -220,7 +223,7 @@ export async function listDocuments(params?: {
  */
 export async function getDocument(id: string): Promise<DocumentDetail> {
   const response = await fetchWithTimeout(
-    `/v1/user/documents/${encodeURIComponent(id)}`,
+    `/v1/user/profile/documents/${encodeURIComponent(id)}`,     // ← /profile/ segment
     {
       method: 'GET',
       credentials: 'include',
@@ -232,23 +235,26 @@ export async function getDocument(id: string): Promise<DocumentDetail> {
 }
 
 // ==========================================
-// 2.6 downloadDocument() — blob download
+// getDocumentDownloadUrl() — JSON response
 // ==========================================
 
 /**
- * Download a document file.
+ * Get a presigned download URL for a document file.
  *
- * Fetches the file as a blob, creates an ObjectURL, and triggers
- * a download via an anchor click. Extracts filename from the
- * Content-Disposition header when available.
+ * FIXED: Endpoint renamed from /download to /download-url.
+ * FIXED: Parses JSON response {download_url, expires_at, file_name}
+ *        instead of expecting a binary blob.
+ *
+ * Caller can use the download_url to open the file in a new tab
+ * or create an anchor element to trigger download.
  *
  * Handles DOCUMENT_NOT_READY when the document is still processing.
- * Timeout: 30s (file download can be large).
+ * Timeout: 10s (just fetching the URL, not the file).
  */
-export async function downloadDocument(id: string): Promise<void> {
-  const endpoint = `/v1/user/documents/${encodeURIComponent(id)}/download`;
+export async function getDocumentDownloadUrl(id: string): Promise<DocumentDownloadUrlResponse> {
+  const endpoint = `/v1/user/profile/documents/${encodeURIComponent(id)}/download-url`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -264,42 +270,37 @@ export async function downloadDocument(id: string): Promise<void> {
       await parseUserError(response, endpoint);
     }
 
-    const blob = await response.blob();
-
-    // Extract filename from Content-Disposition header
-    let filename = 'documento';
-    const disposition = response.headers.get('Content-Disposition');
-    if (disposition) {
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (match && match[1]) {
-        filename = match[1].replace(/['"]/g, '');
-      }
-    }
-
-    // Trigger download via blob URL
-    const blobUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(blobUrl);
+    const data: DocumentDownloadUrlResponse = await response.json();
+    return data;
   } catch (error: unknown) {
     clearTimeout(timeoutId);
 
     if (error instanceof UserApiError) throw error;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('La descarga ha excedido el tiempo de espera.');
+      throw new Error('La petición ha excedido el tiempo de espera.');
     }
 
     throw error;
   }
 }
 
+/**
+ * @deprecated Use getDocumentDownloadUrl() instead.
+ * Backend no longer returns binary blobs — use the presigned URL approach.
+ *
+ * Downloads a document by getting the presigned URL first,
+ * then opening it in a new tab.
+ */
+export async function downloadDocument(id: string): Promise<void> {
+  const { download_url } = await getDocumentDownloadUrl(id);
+
+  // Open the presigned URL in a new tab for download
+  window.open(download_url, '_blank');
+}
+
 // ==========================================
-// 2.7 deleteDocument()
+// deleteDocument()
 // ==========================================
 
 /**
@@ -310,7 +311,7 @@ export async function downloadDocument(id: string): Promise<void> {
  */
 export async function deleteDocument(id: string): Promise<{ message: string }> {
   const response = await fetchWithTimeout(
-    `/v1/user/documents/${encodeURIComponent(id)}`,
+    `/v1/user/profile/documents/${encodeURIComponent(id)}`,     // ← /profile/ segment
     {
       method: 'DELETE',
       credentials: 'include',
@@ -322,7 +323,7 @@ export async function deleteDocument(id: string): Promise<{ message: string }> {
 }
 
 // ==========================================
-// 2.8 subscribeToDocumentEvents() — SSE
+// subscribeToDocumentEvents() — SSE
 // ==========================================
 
 /**
@@ -344,7 +345,7 @@ export function subscribeToDocumentEvents(
   onEvent: (event: DocumentEvent) => void,
   onError?: (error: Event) => void,
 ): () => void {
-  const eventsUrl = `${API_URL}/v1/user/documents/${encodeURIComponent(docId)}/events`;
+  const eventsUrl = `${API_URL}/v1/user/profile/documents/${encodeURIComponent(docId)}/events`;
   const es = new EventSource(eventsUrl, { withCredentials: true });
 
   const handler = (e: MessageEvent) => {
