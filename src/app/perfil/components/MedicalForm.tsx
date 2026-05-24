@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getMedicalProfile, updateMedicalProfile, listMedicalConflicts, resolveMedicalConflict, adaptMedicalProfile } from '@/app/lib/api';
-import type { MedicalProfile, GetMedicalProfileResponse, BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
+import { listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
+import { useUpdateMedicalProfile } from '@/hooks/useUpdateMedicalProfile';
+import type { BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
 import { UserApiError } from '@/app/lib/api/user';
 import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info, AlertTriangle } from 'lucide-react';
 
@@ -23,9 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export function MedicalForm({ onSave }: Props) {
-  const [profile, setProfile] = useState<MedicalProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const { medicalProfile, isLoading, error: loadError, updateMutation } = useUpdateMedicalProfile();
 
   const [form, setForm] = useState({
     blood_type: '',
@@ -37,7 +36,6 @@ export function MedicalForm({ onSave }: Props) {
     insurance_info: '',
     is_shared: false,
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   // Conflict states
@@ -48,40 +46,33 @@ export function MedicalForm({ onSave }: Props) {
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [customActive, setCustomActive] = useState<Record<string, boolean>>({});
 
-  const loadMedicalProfile = useCallback(async () => {
-    try {
-      const response: GetMedicalProfileResponse | null = await getMedicalProfile();
-      if (response?.data) {
-        setProfile(response.data);
-        // adaptMedicalProfile handles the { data: { ... } } wrapper internally
-        const adapted = adaptMedicalProfile(response as unknown as Record<string, unknown>);
-        setForm({
-          blood_type: (adapted.blood_type as string) ?? '',
-          allergies: Array.isArray(adapted.allergies)
-            ? (adapted.allergies as string[]).join(', ')
-            : (adapted.allergies as string) ?? '',
-          medications: Array.isArray(adapted.medications)
-            ? JSON.stringify(adapted.medications)
-            : (adapted.medications as string) ?? '',
-          conditions: Array.isArray(adapted.conditions)
-            ? (adapted.conditions as string[]).join(', ')
-            : (adapted.conditions as string) ?? '',
-          vaccinations: Array.isArray(adapted.vaccinations)
-            ? JSON.stringify(adapted.vaccinations)
-            : (adapted.vaccinations as string) ?? '',
-          emergency_contact: typeof adapted.emergency_contact === 'object' && adapted.emergency_contact !== null
-            ? JSON.stringify(adapted.emergency_contact)
-            : (adapted.emergency_contact as string) ?? '',
-          insurance_info: typeof adapted.insurance_info === 'object' && adapted.insurance_info !== null
-            ? JSON.stringify(adapted.insurance_info)
-            : (adapted.insurance_info as string) ?? '',
-          is_shared: false,  // TODO PR #4: is_shared moved; track separately
-        });
-      }
-    } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : 'Error al cargar perfil médico');
+  // Sync adapted medical profile into form state whenever the query data changes
+  useEffect(() => {
+    if (medicalProfile) {
+      setForm({
+        blood_type: (medicalProfile.blood_type as string) ?? '',
+        allergies: Array.isArray(medicalProfile.allergies)
+          ? (medicalProfile.allergies as string[]).join(', ')
+          : (medicalProfile.allergies as string) ?? '',
+        medications: Array.isArray(medicalProfile.medications)
+          ? JSON.stringify(medicalProfile.medications)
+          : (medicalProfile.medications as string) ?? '',
+        conditions: Array.isArray(medicalProfile.conditions)
+          ? (medicalProfile.conditions as string[]).join(', ')
+          : (medicalProfile.conditions as string) ?? '',
+        vaccinations: Array.isArray(medicalProfile.vaccinations)
+          ? JSON.stringify(medicalProfile.vaccinations)
+          : (medicalProfile.vaccinations as string) ?? '',
+        emergency_contact: typeof medicalProfile.emergency_contact === 'object' && medicalProfile.emergency_contact !== null
+          ? JSON.stringify(medicalProfile.emergency_contact)
+          : (medicalProfile.emergency_contact as string) ?? '',
+        insurance_info: typeof medicalProfile.insurance_info === 'object' && medicalProfile.insurance_info !== null
+          ? JSON.stringify(medicalProfile.insurance_info)
+          : (medicalProfile.insurance_info as string) ?? '',
+        is_shared: false,
+      });
     }
-  }, []);
+  }, [medicalProfile]);
 
   const loadConflicts = useCallback(async () => {
     setLoadingConflicts(true);
@@ -97,13 +88,8 @@ export function MedicalForm({ onSave }: Props) {
   }, []);
 
   useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      await Promise.all([loadMedicalProfile(), loadConflicts()]);
-      setIsLoading(false);
-    }
-    load();
-  }, [loadMedicalProfile, loadConflicts]);
+    loadConflicts();
+  }, [loadConflicts]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -117,27 +103,19 @@ export function MedicalForm({ onSave }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setSaveError('');
 
     try {
-      // TODO PR #4: Refactor form to use typed arrays/objects instead of string inputs.
-      // The backend now expects proper types: string[] for allergies/conditions,
-      // Medication[] for medications, Vaccination[] for vaccinations,
-      // EmergencyContact for emergency_contact, InsuranceInfo for insurance_info.
-      // For now, we send string values as a backward-compatible fallback.
       const payload = {
         blood_type: form.blood_type ? (form.blood_type as BloodType) : null,
         allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()).filter(Boolean) : null,
         conditions: form.conditions ? form.conditions.split(',').map(s => s.trim()).filter(Boolean) : null,
       } as UpdateMedicalProfileBody;
 
-      await updateMedicalProfile(payload);
+      await updateMutation.mutateAsync(payload);
       onSave();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar perfil médico');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -154,10 +132,7 @@ export function MedicalForm({ onSave }: Props) {
       // Remove resolved conflict from list
       setConflicts(prev => prev.filter(c => c.id !== conflict.id));
 
-      // Refresh medical profile (values may have changed)
-      await loadMedicalProfile();
-
-      // Sync with parent
+      // Refresh query cache (useUpdateMedicalProfile will refetch)
       onSave();
     } catch (err) {
       const message = err instanceof UserApiError
@@ -305,7 +280,7 @@ export function MedicalForm({ onSave }: Props) {
         </div>
       )}
 
-      {!profile && (
+      {!medicalProfile && (
         <div className="bg-blue-50 text-blue-700 p-4 rounded-xl flex items-start gap-3">
           <Info className="w-5 h-5 mt-0.5" />
           <div>
@@ -468,10 +443,10 @@ export function MedicalForm({ onSave }: Props) {
 
       <button
         type="submit"
-        disabled={isSaving}
+        disabled={updateMutation.isPending}
         className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
-        {isSaving ? (
+        {updateMutation.isPending ? (
           'Guardando...'
         ) : (
           <>

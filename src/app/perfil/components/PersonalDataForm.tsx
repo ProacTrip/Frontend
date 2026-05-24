@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateProfile } from '@/app/lib/api';
+import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { Profile, UpdateProfileBody } from '@/app/lib/types/user';
 import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText } from 'lucide-react';
 
@@ -11,6 +11,8 @@ interface Props {
 }
 
 export function PersonalDataForm({ profile, onSave }: Props) {
+  const updateProfileMutation = useUpdateProfile();
+
   const [form, setForm] = useState<UpdateProfileBody>({
     first_name: profile.first_name ?? '',
     last_name: profile.last_name ?? '',
@@ -20,7 +22,6 @@ export function PersonalDataForm({ profile, onSave }: Props) {
     phone: profile.phone ?? '',
     bio: profile.bio ?? '',
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (
@@ -35,13 +36,11 @@ export function PersonalDataForm({ profile, onSave }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setError('');
 
     // Validación E.164
     if (form.phone && !form.phone.match(/^\+\d{6,15}$/)) {
       setError('El teléfono debe usar formato internacional: +34600123456');
-      setIsSaving(false);
       return;
     }
 
@@ -51,34 +50,31 @@ export function PersonalDataForm({ profile, onSave }: Props) {
       const today = new Date();
       if (birthDate > today) {
         setError('La fecha de nacimiento no puede ser futura');
-        setIsSaving(false);
         return;
       }
     }
 
     try {
-        const payload: UpdateProfileBody = {};
-        Object.entries(form).forEach(([key, value]) => {
+      const payload: UpdateProfileBody = {};
+      Object.entries(form).forEach(([key, value]) => {
         let finalValue = value;
 
         // 🔥 FIX ESPECÍFICO PARA ENUMS
         // Si el select HTML está vacío (""), el backend necesita null, no ""
         if (key === 'gender' && finalValue === '') {
-            finalValue = null;
+          finalValue = null;
         }
 
         // El resto de campos (strings) pueden ir como "" para borrarse
         if (finalValue !== null && finalValue !== undefined) {
-            (payload as Record<string, unknown>)[key] = finalValue;
+          (payload as Record<string, unknown>)[key] = finalValue;
         }
-    });
+      });
 
-        await updateProfile(payload);
-        onSave();
+      await updateProfileMutation.mutateAsync(payload);
+      onSave();
     } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
-    } finally {
-        setIsSaving(false);
+      setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
     }
   };
 
@@ -196,10 +192,10 @@ export function PersonalDataForm({ profile, onSave }: Props) {
 
       <button
         type="submit"
-        disabled={isSaving}
+        disabled={updateProfileMutation.isPending}
         className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
-        {isSaving ? (
+        {updateProfileMutation.isPending ? (
           'Guardando...'
         ) : (
           <>

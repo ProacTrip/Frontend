@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateProfile } from '@/app/lib/api';
+import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import type { Profile, UpdateProfileBody } from '@/app/lib/types/user';
 import { Save, AlertCircle, Globe, Clock, Languages, Coins } from 'lucide-react';
 
@@ -53,12 +53,13 @@ const CURRENCIES = [
 ];
 
 export function LocaleForm({ profile, onSave }: Props) {
+  const updateProfileMutation = useUpdateProfile();
+
   const [form, setForm] = useState({
     timezone_name: profile.timezone_name ?? '',
     language_code: profile.language_code ?? '',
     currency_code: profile.currency_code ?? '',
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
@@ -68,7 +69,6 @@ export function LocaleForm({ profile, onSave }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setError('');
 
     try {
@@ -77,12 +77,10 @@ export function LocaleForm({ profile, onSave }: Props) {
       if (form.language_code) payload.language = form.language_code;
       if (form.currency_code) payload.currency = form.currency_code;
 
-      await updateProfile(payload);
+      await updateProfileMutation.mutateAsync(payload);
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar localización');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -162,10 +160,10 @@ export function LocaleForm({ profile, onSave }: Props) {
 
       <button
         type="submit"
-        disabled={isSaving}
+        disabled={updateProfileMutation.isPending}
         className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
-        {isSaving ? (
+        {updateProfileMutation.isPending ? (
           'Guardando...'
         ) : (
           <>
