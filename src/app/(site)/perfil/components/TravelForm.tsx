@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useUpdateTravelPreferences } from '@/hooks/useUpdateTravelPreferences';
 import { TravelPreferences } from '@/app/lib/types/user';
 import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2 } from 'lucide-react';
+import Button from "@/components/ui/Button";
 
 interface Props {
   prefs: TravelPreferences;
@@ -216,20 +217,15 @@ export function TravelForm({ prefs, onSave }: Props) {
         <label className="text-sm text-gray-700">Evitar escalas</label>
       </div>
 
-      <div className="border-t border-gray-100 pt-6 mt-8">
-      <button
-        type="submit"
-        disabled={updatePrefsMutation.isPending}
-        className="px-8 py-3.5 bg-[--color-brand-500] text-white rounded-xl font-bold text-base shadow-sm hover:bg-[--color-brand-600] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
-      >
-        {updatePrefsMutation.isPending ? (
-          'Guardando...'
-        ) : (
-          <>
-            <Save className="w-5 h-5" /> Guardar cambios
-          </>
-        )}
-      </button>
+      <div className="border-t border-gray-100 pt-6 mt-8 flex justify-end">
+        <Button
+          type="submit"
+          variant="brand"
+          isLoading={updatePrefsMutation.isPending}
+          className="w-full sm:w-auto"
+        >
+          <Save className="w-5 h-5" /> Guardar cambios
+        </Button>
       </div>
     </form>
   );
