@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateTravelPreferences } from '@/app/lib/api';
+import { useUpdateTravelPreferences } from '@/hooks/useUpdateTravelPreferences';
 import { TravelPreferences } from '@/app/lib/types/user';
 import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2 } from 'lucide-react';
 
@@ -10,18 +10,26 @@ interface Props {
   onSave: () => void;
 }
 
+/**
+ * Separator used for joining/splitting array fields in text inputs.
+ * Using semicolon instead of comma to avoid splitting hotel/airline names
+ * that contain commas (e.g., "JW Marriott, Dubai").
+ */
+const ARRAY_SEPARATOR = '; ';
+
 export function TravelForm({ prefs, onSave }: Props) {
+  const updatePrefsMutation = useUpdateTravelPreferences();
+
   const [form, setForm] = useState({
     preferred_class: prefs.preferred_class ?? '',
     seat_preference: prefs.seat_preference ?? '',
     meal_preference: prefs.meal_preference ?? '',
-    special_assistance: (prefs.special_assistance ?? []).join(', '),
-    preferred_airlines: (prefs.preferred_airlines ?? []).join(', '),  // ← NUEVO
-    preferred_hotels: (prefs.preferred_hotels ?? []).join(', '),
+    special_assistance: (prefs.special_assistance ?? []).join(ARRAY_SEPARATOR),
+    preferred_airlines: (prefs.preferred_airlines ?? []).join(ARRAY_SEPARATOR),
+    preferred_hotels: (prefs.preferred_hotels ?? []).join(ARRAY_SEPARATOR),
     avoid_layovers: prefs.avoid_layovers ?? false,
     max_layover_duration: prefs.max_layover_duration ?? '',
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleChange = (
@@ -36,7 +44,6 @@ export function TravelForm({ prefs, onSave }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setError('');
 
     try {
@@ -45,27 +52,37 @@ export function TravelForm({ prefs, onSave }: Props) {
       if (form.preferred_class) payload.preferred_class = form.preferred_class;
       if (form.seat_preference) payload.seat_preference = form.seat_preference;
       if (form.meal_preference) payload.meal_preference = form.meal_preference;
+
+      // Array fields: split by semicolon (not comma) to avoid splitting
+      // hotel names like "JW Marriott, Dubai" into separate entries.
       if (form.special_assistance.trim()) {
-        payload.special_assistance = form.special_assistance.split(',').map((s) => s.trim()).filter(Boolean);
+        payload.special_assistance = form.special_assistance
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
-      // ← NUEVO: Aerolíneas preferidas
       if (form.preferred_airlines.trim()) {
-        payload.preferred_airlines = form.preferred_airlines.split(',').map((s) => s.trim()).filter(Boolean);
+        payload.preferred_airlines = form.preferred_airlines
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
       if (form.preferred_hotels.trim()) {
-        payload.preferred_hotels = form.preferred_hotels.split(',').map((s) => s.trim()).filter(Boolean);
+        payload.preferred_hotels = form.preferred_hotels
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
+
       payload.avoid_layovers = form.avoid_layovers;
       if (form.max_layover_duration !== '' && form.max_layover_duration !== null) {
         payload.max_layover_duration = Number(form.max_layover_duration);
       }
 
-      await updateTravelPreferences(payload);
+      await updatePrefsMutation.mutateAsync(payload);
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -130,7 +147,7 @@ export function TravelForm({ prefs, onSave }: Props) {
           />
         </div>
 
-        {/* Aerolíneas preferidas ← NUEVO */}
+        {/* Aerolíneas preferidas */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
             <Building2 className="w-4 h-4" /> Aerolíneas preferidas
@@ -139,7 +156,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             name="preferred_airlines"
             value={form.preferred_airlines}
             onChange={handleChange}
-            placeholder="ryanair, iberia, lufthansa..."
+            placeholder="ryanair; iberia; lufthansa..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
@@ -153,7 +170,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             name="preferred_hotels"
             value={form.preferred_hotels}
             onChange={handleChange}
-            placeholder="hilton, marriott, hyatt..."
+            placeholder="hilton; marriott; hyatt..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
@@ -181,7 +198,7 @@ export function TravelForm({ prefs, onSave }: Props) {
             name="special_assistance"
             value={form.special_assistance}
             onChange={handleChange}
-            placeholder="wheelchair, visual, hearing..."
+            placeholder="wheelchair; visual; hearing..."
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
@@ -201,10 +218,10 @@ export function TravelForm({ prefs, onSave }: Props) {
 
       <button
         type="submit"
-        disabled={isSaving}
+        disabled={updatePrefsMutation.isPending}
         className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
-        {isSaving ? (
+        {updatePrefsMutation.isPending ? (
           'Guardando...'
         ) : (
           <>
