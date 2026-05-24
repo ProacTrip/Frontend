@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import {
   getUploadAvatarUrl,
   uploadAvatarToR2,
@@ -72,7 +72,7 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <ImageIcon className="w-5 h-5 text-[#FF6B6B]" />
+        <ImageIcon className="w-5 h-5 text-[--color-brand-500]" />
         <h2 className="text-xl font-bold text-gray-800">Avatar</h2>
       </div>
 
@@ -86,13 +86,15 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
       <div className="flex items-center gap-6">
         <div className="relative">
           {currentUrl ? (
-            <img
+            <Image
               src={currentUrl}
               alt="Avatar actual"
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              width={96}
+              height={96}
+              className="rounded-full object-cover border-4 border-white shadow-lg"
             />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#ff8a80] flex items-center justify-center border-4 border-white shadow-lg">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[--color-brand-500] to-[--color-brand-400] flex items-center justify-center border-4 border-white shadow-lg">
               <ImageIcon className="w-10 h-10 text-white" />
             </div>
           )}
@@ -120,17 +122,19 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
 
         {preview ? (
           <div className="flex items-center gap-4">
-            <img
+            <Image
               src={preview}
               alt="Preview"
-              className="w-20 h-20 rounded-full object-cover border-2 border-[#FF6B6B]"
+              width={80}
+              height={80}
+              className="rounded-full object-cover border-2 border-[--color-brand-500]"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleUpload}
                 disabled={isUploading}
-                className="px-4 py-2 bg-[#FF6B6B] text-white rounded-lg font-medium hover:bg-[#ff5252] disabled:opacity-50 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-[--color-brand-500] text-white rounded-lg font-medium hover:bg-[--color-brand-600] disabled:opacity-50 flex items-center gap-2 transition-colors"
               >
                 {isUploading ? (
                   <>
@@ -156,7 +160,7 @@ export function AvatarForm({ currentUrl, onSave }: Props) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[#FF6B6B] hover:bg-white transition-colors flex flex-col items-center gap-2 text-gray-500 hover:text-[#FF6B6B]"
+            className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[--color-brand-500] hover:bg-white transition-colors flex flex-col items-center gap-2 text-gray-500 hover:text-[--color-brand-500]"
           >
             <Upload className="w-6 h-6" />
             <span className="text-sm font-medium">Haz click para seleccionar una imagen</span>

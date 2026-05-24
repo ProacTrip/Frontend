@@ -68,7 +68,7 @@ export default function CheckoutPage() {
   if (!checkoutData) {
     return (
       <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#FF6B6B] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[--color-brand-500] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

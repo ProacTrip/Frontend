@@ -23,7 +23,10 @@ export function useVerifyEmailMutation() {
     mutationFn: ({ token }) => verifyEmail(token),
 
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.profile.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.env.all }),
+      ]);
       router.push('/');
     },
   });

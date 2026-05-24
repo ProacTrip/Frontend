@@ -18,7 +18,7 @@ import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-er
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") || "/home";
+  const returnUrl = searchParams.get("returnUrl") || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

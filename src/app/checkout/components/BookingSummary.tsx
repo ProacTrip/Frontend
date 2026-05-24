@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 // app/checkout/components/BookingSummary.tsx
 'use client';
 
+import Image from 'next/image';
 import { CheckCircle, MapPin, Calendar, Users, Moon, Tag, Plane } from 'lucide-react';
 
 // ==================== TIPO DE DATO UNIFICADO ====================
@@ -91,11 +91,12 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
       {/* Imagen + nombre */}
       <div className="mb-5">
         {data.image && (
-          <div className="w-full h-36 rounded-lg overflow-hidden mb-3">
-            <img
+          <div className="relative w-full h-36 rounded-lg overflow-hidden mb-3">
+            <Image
               src={data.image}
               alt={data.item_name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           </div>
         )}
@@ -188,7 +189,7 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
               <Tag className="w-4 h-4 text-gray-400" />
               Habitaciones
             </span>
-            <span className="font-medium text-[#FF6B6B]">{data.rooms} habitaciones</span>
+            <span className="font-medium text-[--color-brand-500]">{data.rooms} habitaciones</span>
           </div>
         )}
       </div>
@@ -209,7 +210,7 @@ export default function BookingSummary({ data }: BookingSummaryProps) {
         </div>
         <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
           <span>Total</span>
-          <span className="text-[#FF6B6B]">{data.currency} {grandTotal}</span>
+          <span className="text-[--color-brand-500]">{data.currency} {grandTotal}</span>
         </div>
       </div>
 

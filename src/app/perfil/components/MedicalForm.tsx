@@ -233,13 +233,13 @@ export function MedicalForm({ onSave }: Props) {
               value={customValue}
               onChange={(e) => setCustomValues(prev => ({ ...prev, [conflict.id]: e.target.value }))}
               placeholder="Ingresá un valor personalizado..."
-              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#FF6B6B]"
+              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[--color-brand-500]"
             />
             <button
               type="button"
               onClick={() => handleResolve(conflict, 'custom', customValue)}
               disabled={isResolving || !customValue.trim()}
-              className="px-3 py-1 text-xs font-medium text-white bg-[#FF6B6B] rounded hover:bg-[#ff5252] disabled:opacity-50"
+              className="px-3 py-1 text-xs font-medium text-white bg-[--color-brand-500] rounded hover:bg-[--color-brand-600] disabled:opacity-50"
             >
               Guardar
             </button>
@@ -265,7 +265,7 @@ export function MedicalForm({ onSave }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader className="w-6 h-6 animate-spin text-[#FF6B6B]" />
+        <Loader className="w-6 h-6 animate-spin text-[--color-brand-500]" />
         <span className="ml-2 text-gray-500">Cargando perfil médico...</span>
       </div>
     );
@@ -284,7 +284,7 @@ export function MedicalForm({ onSave }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center gap-2 mb-2">
-        <HeartPulse className="w-5 h-5 text-[#FF6B6B]" />
+        <HeartPulse className="w-5 h-5 text-[--color-brand-500]" />
         <h2 className="text-xl font-bold text-gray-800">Perfil médico</h2>
       </div>
       <p className="text-sm text-gray-500 -mt-4 mb-4">
@@ -343,7 +343,7 @@ export function MedicalForm({ onSave }: Props) {
             name="blood_type"
             value={form.blood_type}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all bg-white"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
           >
             <option value="">Desconocido</option>
             {BLOOD_TYPES.map((bt) => (
@@ -364,7 +364,7 @@ export function MedicalForm({ onSave }: Props) {
             value={form.emergency_contact}
             onChange={handleChange}
             placeholder="Nombre y teléfono"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -379,7 +379,7 @@ export function MedicalForm({ onSave }: Props) {
             onChange={handleChange}
             rows={2}
             placeholder="Penicilina, cacahuetes, marisco..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all resize-none"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
 
@@ -394,7 +394,7 @@ export function MedicalForm({ onSave }: Props) {
             onChange={handleChange}
             rows={2}
             placeholder="Lisinopril 10mg diario, Insulina..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all resize-none"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
 
@@ -409,7 +409,7 @@ export function MedicalForm({ onSave }: Props) {
             onChange={handleChange}
             rows={2}
             placeholder="Hipertensión, diabetes, asma..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all resize-none"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
 
@@ -424,7 +424,7 @@ export function MedicalForm({ onSave }: Props) {
             onChange={handleChange}
             rows={2}
             placeholder="Fiebre amarilla, Hepatitis A, COVID-19..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all resize-none"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
 
@@ -438,7 +438,7 @@ export function MedicalForm({ onSave }: Props) {
             value={form.insurance_info}
             onChange={handleChange}
             placeholder="Póliza #12345 - OSDE"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
       </div>
@@ -450,7 +450,7 @@ export function MedicalForm({ onSave }: Props) {
           name="is_shared"
           checked={form.is_shared}
           onChange={handleChange}
-          className="w-5 h-5 text-[#FF6B6B] rounded focus:ring-[#FF6B6B]"
+          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500]"
         />
         <label className="text-sm text-gray-700 flex items-center gap-2">
           <Share2 className="w-4 h-4" />
@@ -461,7 +461,7 @@ export function MedicalForm({ onSave }: Props) {
       <button
         type="submit"
         disabled={isSaving}
-        className="px-6 py-3 bg-[#FF6B6B] text-white rounded-xl font-bold hover:bg-[#ff5252] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
         {isSaving ? (
           'Guardando...'

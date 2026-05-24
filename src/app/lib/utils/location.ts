@@ -36,22 +36,23 @@ export function getStoredEnvironment(): EnvironmentResponse | null {
 // ==========================================
 
 /**
- * Obtiene el environment con cache frontend de 10 minutos.
- * 1. Si hay cache válido en localStorage → devuelve el cache sin red.
- * 2. Si el cache expiró o no existe → llama GET /v1/environment y guarda en cache.
+ * Obtiene el environment con cache frontend de 10 minutos (language-aware).
  *
+ * Delega el caching a `getEnvironment()` internamente — su cache en localStorage
+ * ahora incluye el idioma en la key (`user_environment_es`, `user_environment_en`).
+ *
+ * El `storeEnvironment()` extra mantiene compatibilidad con `getUserPreferences()`
+ * (contextos no-react que necesitan acceso síncrono al environment).
  * El backend también cachea 10 min en Redis, por lo que el tráfico real
  * a IP-API y OpenWeather se reduce drásticamente.
  */
-export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | null> {
+export async function fetchAndStoreEnvironment(lang?: string): Promise<EnvironmentResponse | null> {
   try {
-    // 1. Cache hit — devolver sin llamada de red
-    const cached = getStoredEnvironment();
-    if (cached) return cached;
-
-    // 2. Cache miss — llamar al backend
-    const env = await getEnvironment();
+    // getEnvironment() handles language-aware caching internally
+    const env = await getEnvironment(lang);
     if (!env) return null; // degraded (invalid IP, network, etc)
+
+    // Legacy cache for non-reactive consumers (getUserPreferences)
     storeEnvironment(env);
     return env;
   } catch (error) {
@@ -71,11 +72,11 @@ export async function fetchAndStoreEnvironment(): Promise<EnvironmentResponse | 
  * Si no hay environment en cache, retorna strings vacíos — los callers usan
  * los valores del request del usuario o los defaults del backend (nunca hardcodeamos).
  */
-export function getUserPreferences(): { currency: string; gl: string; hl: string } {
+export function getUserPreferences(): { currency: string; gl: string; hl: string; city: string } {
   const env = typeof window !== 'undefined' ? getStoredEnvironment() : null;
 
   if (!env) {
-    return { currency: '', gl: '', hl: '' };
+    return { currency: '', gl: '', hl: '', city: '' };
   }
 
   let currency = env.location.currency;
@@ -88,5 +89,6 @@ export function getUserPreferences(): { currency: string; gl: string; hl: string
     currency,
     gl: env.location.country_code,
     hl: env.location.language,
+    city: env.location.city,
   };
 }

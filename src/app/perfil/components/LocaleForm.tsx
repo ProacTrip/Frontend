@@ -92,7 +92,7 @@ export function LocaleForm({ profile, onSave }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-        <Globe className="w-5 h-5 text-[#FF6B6B]" /> Localización
+        <Globe className="w-5 h-5 text-[--color-brand-500]" /> Localización
       </h2>
 
       {error && (
@@ -111,7 +111,7 @@ export function LocaleForm({ profile, onSave }: Props) {
             name="timezone_name"
             value={form.timezone_name}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all bg-white"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
           >
             <option value="">Seleccionar...</option>
             {TIMEZONES.map((tz) => (
@@ -131,7 +131,7 @@ export function LocaleForm({ profile, onSave }: Props) {
             name="language_code"
             value={form.language_code}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all bg-white"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
           >
             <option value="">Seleccionar...</option>
             {LANGUAGES.map((lang) => (
@@ -151,7 +151,7 @@ export function LocaleForm({ profile, onSave }: Props) {
             name="currency_code"
             value={form.currency_code}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all bg-white"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
           >
             <option value="">Seleccionar...</option>
             {CURRENCIES.map((curr) => (
@@ -173,14 +173,14 @@ export function LocaleForm({ profile, onSave }: Props) {
           value={form.current_location}
           onChange={handleChange}
           placeholder="Madrid, España"
-          className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+          className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
         />
       </div>
 
       <button
         type="submit"
         disabled={isSaving}
-        className="px-6 py-3 bg-[#FF6B6B] text-white rounded-xl font-bold hover:bg-[#ff5252] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
         {isSaving ? (
           'Guardando...'

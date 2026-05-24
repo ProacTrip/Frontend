@@ -90,10 +90,11 @@ export function parseCacheMaxAge(header: string | null): number {
 /**
  * Returns the dynamic TTL stored in localStorage, or the hardcoded fallback.
  */
-function getDynamicTTL(): number {
+function getDynamicTTL(lang?: string): number {
   if (typeof window === 'undefined') return ENV_CACHE_TTL_MS;
   try {
-    const stored = localStorage.getItem(ENV_TTL_KEY);
+    const key = lang ? `${ENV_TTL_KEY}_${lang}` : ENV_TTL_KEY;
+    const stored = localStorage.getItem(key);
     if (stored) {
       const parsed = parseInt(stored, 10);
       if (!Number.isNaN(parsed) && parsed > 0) return parsed;
@@ -102,39 +103,16 @@ function getDynamicTTL(): number {
   return ENV_CACHE_TTL_MS;
 }
 
-export function isEnvCacheValid(): boolean {
+export function isEnvCacheValid(lang?: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const storedAt = localStorage.getItem(ENV_STORED_AT_KEY);
+    const key = lang ? `${ENV_STORED_AT_KEY}_${lang}` : ENV_STORED_AT_KEY;
+    const storedAt = localStorage.getItem(key);
     if (!storedAt) return false;
     const age = Date.now() - new Date(storedAt).getTime();
-    return age < getDynamicTTL();
+    return age < getDynamicTTL(lang);
   } catch {
     return false;
-  }
-}
-
-function getCachedEnvironment(): EnvironmentResponse | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    if (!isEnvCacheValid()) return null;
-    const stored = localStorage.getItem(ENV_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as EnvironmentResponse) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedEnvironment(data: EnvironmentResponse, ttlMs?: number): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(ENV_STORAGE_KEY, JSON.stringify(data));
-    localStorage.setItem(ENV_STORED_AT_KEY, new Date().toISOString());
-    if (ttlMs !== undefined) {
-      localStorage.setItem(ENV_TTL_KEY, String(ttlMs));
-    }
-  } catch {
-    // localStorage may be blocked in private mode
   }
 }
 
@@ -178,24 +156,22 @@ function extractRateLimitHeaders(response: Response): void {
  * - Returns null for 400 InvalidIP (private IP in production mode) —
  *   caller falls back to defaults without crashing.
  */
-export async function getEnvironment(): Promise<EnvironmentResponse | null> {
-  // Check localStorage cache first
-  const cached = getCachedEnvironment();
-  if (cached) return cached;
+export async function getEnvironment(lang?: string): Promise<EnvironmentResponse | null> {
+    // Language for Accept-Language header.
+    // profile.language_code (authenticated) or "es" (anonymous hard default).
+    const resolvedLang = lang || 'es';
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // TanStack Query (staleTime: 10min) is the sole cache.
+    // No localStorage reads — pure fetch every time Query decides to refetch.
 
-  try {
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // Send browser language so the backend can localise error messages (ENVIRONMENT_API.md)
-    // Normalize to ISO 639-1: navigator.language may be "en-US", backend expects "en"
-    if (typeof navigator !== 'undefined' && navigator.language) {
-      headers['Accept-Language'] = navigator.language.split('-')[0] || 'es';
-    }
+    try {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      headers['Accept-Language'] = resolvedLang;
 
-    // X-Real-IP override for development/testing — only sent when env var is set
+      // X-Real-IP override for development/testing — only sent when env var is set
     if (process.env.NEXT_PUBLIC_SIMULATE_IP) {
       headers['X-Real-IP'] = process.env.NEXT_PUBLIC_SIMULATE_IP;
     }
@@ -211,10 +187,6 @@ export async function getEnvironment(): Promise<EnvironmentResponse | null> {
 
     // Extract rate limit headers from ALL responses
     extractRateLimitHeaders(response);
-
-    // Parse Cache-Control max-age for dynamic TTL
-    const cacheControl = response.headers.get('Cache-Control');
-    const ttlMs = parseCacheMaxAge(cacheControl);
 
     if (response.status === 429) {
       const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
@@ -274,9 +246,6 @@ export async function getEnvironment(): Promise<EnvironmentResponse | null> {
     }
 
     const data: EnvironmentResponse = rawData as EnvironmentResponse;
-
-    // Cache the fresh response with dynamic TTL
-    setCachedEnvironment(data, ttlMs);
 
     return data;
   } finally {

@@ -103,7 +103,7 @@ export default function DocumentFilters({ onFilterChange }: DocumentFiltersProps
           <select
             value={activeType || ''}
             onChange={(e) => handleTypeChange(e.target.value || null)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent"
+            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent"
             aria-label="Filtrar por tipo de documento"
           >
             <option value="">Todos los tipos</option>

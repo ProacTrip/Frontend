@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, X } from "lucide-react";
-import LocationDropdown from "../dropdowns/LocationDropdown";
-import DateRangePicker from "../dropdowns/DateRangePicker";
-import GuestsPicker from "../dropdowns/GuestsPicker";
+import LocationCombobox from "@/components/shared/LocationCombobox";
+import DateRangePicker from "@/components/shared/DateRangePicker";
+import GuestCounter, { type GuestType } from "@/components/shared/GuestCounter";
 
 const MONTHS_ES_SHORT = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -20,7 +20,7 @@ interface HotelsSearchProps {
   destination: string;
   onDestinationChange: (v: string) => void;
   dateRange: { start: Date | null; end: Date | null };
-  onDateRangeChange: (start: Date, end: Date) => void;
+  onDateRangeChange: (start: Date | null, end: Date | null) => void;
   adults: number;
   childCount: number;
   infants: number;
@@ -39,12 +39,44 @@ export default function HotelsSearch({
   onGuestsChange,
   onSearch,
 }: HotelsSearchProps) {
-  const [locationOpen, setLocationOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [guestsOpen, setGuestsOpen] = useState(false);
 
   const guestTotal = adults + childCount + infants;
   const hasRange = dateRange.start && dateRange.end;
+  const nights = hasRange
+    ? Math.max(1, Math.ceil((dateRange.end!.getTime() - dateRange.start!.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const guests: GuestType[] = [
+    {
+      key: "adults",
+      label: "Adultos",
+      sublabel: "18 años o más",
+      value: adults,
+      min: 1,
+      max: 9,
+      onChange: (key, value) => onGuestsChange(key as "adults" | "children" | "infants", value),
+    },
+    {
+      key: "children",
+      label: "Niños",
+      sublabel: "2–17 años",
+      value: childCount,
+      min: 0,
+      max: 6,
+      onChange: (key, value) => onGuestsChange(key as "adults" | "children" | "infants", value),
+    },
+    {
+      key: "infants",
+      label: "Bebés",
+      sublabel: "0–1 años",
+      value: infants,
+      min: 0,
+      max: 4,
+      onChange: (key, value) => onGuestsChange(key as "adults" | "children" | "infants", value),
+    },
+  ];
 
   return (
     <motion.div
@@ -52,24 +84,13 @@ export default function HotelsSearch({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.2 }}
-      className="flex items-stretch gap-0"
+      className="flex items-stretch gap-0 border border-[#E5E7EB] rounded-xl"
     >
-      {/* UBICACIÓN */}
-      <div className="flex-[2] relative">
-        <button
-          onClick={() => { setLocationOpen(!locationOpen); setDateOpen(false); setGuestsOpen(false); }}
-          className="w-full h-full px-4 py-3 text-left hover:bg-[#FAFAFA] rounded-l-2xl transition-colors group"
-        >
-          <span className="block text-[13px] font-medium text-[#0A0A0A]">Ubicación</span>
-          <span className={`block text-[13px] ${destination ? "text-[#0A0A0A]" : "text-[#6A7282]"}`}>
-            {destination || "¿Adónde vas?"}
-          </span>
-        </button>
-        <LocationDropdown
-          isOpen={locationOpen}
+      {/* UBICACIÓN — Headless UI Combobox */}
+      <div className="flex-[2]">
+        <LocationCombobox
           value={destination}
-          onChange={(v) => { onDestinationChange(v); setLocationOpen(false); }}
-          onClose={() => setLocationOpen(false)}
+          onChange={onDestinationChange}
         />
       </div>
 
@@ -78,17 +99,17 @@ export default function HotelsSearch({
       {/* FECHAS */}
       <div className="flex-[2] relative">
         <button
-          onClick={() => { setDateOpen(!dateOpen); setLocationOpen(false); setGuestsOpen(false); }}
+          onClick={() => { setDateOpen(!dateOpen); setGuestsOpen(false); }}
           className="w-full h-full px-4 py-3 text-left hover:bg-[#FAFAFA] transition-colors group"
         >
           <span className="block text-[13px] font-medium text-[#0A0A0A] flex items-center gap-1">
             {hasRange ? (
               <>
                 {formatDate(dateRange.start!)} - {formatDate(dateRange.end!)}
-                <span
-                  onClick={(e) => { e.stopPropagation(); onDateRangeChange(new Date(), new Date()); }}
-                  className="ml-1 text-[#6A7282] hover:text-[#0A0A0A]"
-                >
+                    <span
+                      onClick={(e) => { e.stopPropagation(); onDateRangeChange(null, null); }}
+                      className="ml-1 text-[#6A7282] hover:text-[#0A0A0A]"
+                    >
                   <X className="w-3 h-3 inline" />
                 </span>
               </>
@@ -97,12 +118,13 @@ export default function HotelsSearch({
             )}
           </span>
           <span className={`block text-[13px] ${hasRange ? "text-[#6A7282]" : "text-[#6A7282]"}`}>
-            {hasRange ? `${guestTotal} huésped${guestTotal !== 1 ? "es" : ""}` : "Fechas de viaje"}
+            {hasRange ? `${nights} ${nights === 1 ? "noche" : "noches"}` : "Fechas de viaje"}
           </span>
         </button>
         <DateRangePicker
           isOpen={dateOpen}
-          range={dateRange}
+          startDate={dateRange.start}
+          endDate={dateRange.end}
           onChange={onDateRangeChange}
           onClose={() => setDateOpen(false)}
         />
@@ -113,7 +135,7 @@ export default function HotelsSearch({
       {/* HUÉSPEDES */}
       <div className="flex-[1.5] relative">
         <button
-          onClick={() => { setGuestsOpen(!guestsOpen); setLocationOpen(false); setDateOpen(false); }}
+          onClick={() => { setGuestsOpen(!guestsOpen); setDateOpen(false); }}
           className="w-full h-full px-4 py-3 text-left hover:bg-[#FAFAFA] transition-colors"
         >
           <span className="block text-[13px] font-medium text-[#0A0A0A]">
@@ -121,12 +143,9 @@ export default function HotelsSearch({
           </span>
           <span className="block text-[13px] text-[#6A7282]">Huéspedes</span>
         </button>
-        <GuestsPicker
+        <GuestCounter
           isOpen={guestsOpen}
-          adults={adults}
-          childCount={childCount}
-          infants={infants}
-          onChange={onGuestsChange}
+          guests={guests}
           onClose={() => setGuestsOpen(false)}
         />
       </div>

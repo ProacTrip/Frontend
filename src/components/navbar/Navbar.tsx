@@ -202,8 +202,8 @@ export default function Navbar() {
         <TabGroup selectedIndex={tabIndex} onChange={handleTabChange}>
           {/* NAVBAR STRIP */}
           <div
-            className={`navbar-glass relative z-20 h-[72px] flex items-center justify-between px-6 lg:px-8 ${
-              expanded ? "is-expanded" : ""
+            className={`relative z-20 h-[72px] flex items-center justify-between px-6 lg:px-8 transition-colors duration-300 ${
+              isHero ? "bg-transparent" : "bg-white shadow-sm"
             }`}
           >
             {/* LEFT — LOGO */}

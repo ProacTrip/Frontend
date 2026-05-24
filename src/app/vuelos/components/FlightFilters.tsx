@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // app/vuelos/components/FlightFilters.tsx
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   Filter, 
   X, 
@@ -440,9 +440,11 @@ export default function FlightFilters({
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
                   />
                   {airline.logoUrl && (
-                    <img 
+                    <Image 
                       src={airline.logoUrl} 
                       alt="" 
+                      width={24}
+                      height={24}
                       className="w-6 h-6 object-contain"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
                     />
@@ -546,9 +548,11 @@ export default function FlightFilters({
                     className="w-4 h-4 text-red-600 rounded focus:ring-red-500 border-gray-300"
                   />
                   {airline.logoUrl && (
-                    <img 
+                    <Image 
                       src={airline.logoUrl} 
                       alt="" 
+                      width={24}
+                      height={24}
                       className="w-6 h-6 object-contain"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
                     />

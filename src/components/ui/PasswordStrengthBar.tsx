@@ -35,7 +35,7 @@ export default function PasswordStrengthBar({
     <div className="space-y-2 mt-2">
       {/* Strength bar */}
       <div
-        className="h-2 w-full rounded-full bg-gray-200"
+        className="h-2 w-full rounded-full bg-neutral-200"
         role="progressbar"
         aria-valuenow={strengthPercent}
         aria-valuemin={0}
@@ -53,7 +53,7 @@ export default function PasswordStrengthBar({
           <li
             key={check.label}
             className={`flex items-center gap-1.5 ${
-              check.met ? "text-green-600" : "text-gray-400"
+              check.met ? "text-green-600" : "text-neutral-400"
             }`}
           >
             {check.met ? (

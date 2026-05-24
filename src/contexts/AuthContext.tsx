@@ -15,7 +15,6 @@ import { logoutUser } from '@/app/lib/api/auth';
 import { getProfile, UserApiError } from '@/app/lib/api/user';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
-import type { EnvironmentResponse } from '@/app/lib/api/context';
 
 export interface AuthContextType {
   user: AuthUser | null;
@@ -23,16 +22,14 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isAccountDisabled: boolean;
   error: string | null;
-  /** @deprecated Use useEnvironment() hook instead. */
-  context: EnvironmentResponse | null;
   /** @deprecated Will be removed in PR 3 — use profile query invalidation instead. */
   setUser: (user: AuthUser | null) => void;
-  /** @deprecated Replaced by useEnvironment() hook — no-op retained for backward compat. */
-  setContext: (context: EnvironmentResponse | null) => void;
   /** Profile language_code (ISO 639-1), null when profile not loaded or user unauthenticated. */
   profileLanguage: string | null;
   /** Profile currency_code (ISO 4217), null when profile not loaded or user unauthenticated. */
   profileCurrency: string | null;
+  /** Profile avatar URL (Google picture or custom upload), null when profile not loaded or user unauthenticated. */
+  profileAvatar: string | null;
   logout: () => Promise<void>;
 }
 
@@ -69,12 +66,9 @@ export function AuthProvider({
 }) {
   const queryClient = useQueryClient();
 
-  // ── Manual overrides — backward compat for pages that call setUser/setContext ──
+  // ── Manual overrides — backward compat for pages that call setUser ──
   //     These will be removed in PR 3 when pages switch to useMutation hooks.
   const [manualUser, setManualUser] = useState<AuthUser | null>(null);
-
-  // context removed — useEnvironment() is the single source of truth for env data.
-  // setContext retained as no-op for backward compat with any remaining consumers.
 
    // ── Profile query — declarative session bootstrap ────────────────────────────
   //     Replaced all imperative getCurrentUser() → /v1/auth/me calls.
@@ -107,6 +101,11 @@ export function AuthProvider({
   const profileCurrency = useMemo(() => {
     if (!profileQuery.data?.profile) return null;
     return profileQuery.data.profile.currency_code ?? null;
+  }, [profileQuery.data]);
+
+  const profileAvatar = useMemo(() => {
+    if (!profileQuery.data?.profile) return null;
+    return profileQuery.data.profile.avatar_url ?? null;
   }, [profileQuery.data]);
 
   // Loading: true while profile query is pending AND we expected auth cookies
@@ -155,11 +154,6 @@ export function AuthProvider({
     setManualUser(u);
   }, []);
 
-  const setContext = useCallback((_ctx: EnvironmentResponse | null) => {
-    // No-op — useEnvironment() hook is the single source of truth for env data.
-    void _ctx;
-  }, []);
-
   const logout = useCallback(async () => {
     try {
       await logoutUser();
@@ -180,14 +174,13 @@ export function AuthProvider({
       isAuthenticated: !!user,
       isAccountDisabled,
       error,
-      context: null,
       setUser,
-      setContext,
       profileLanguage,
       profileCurrency,
+      profileAvatar,
       logout,
     }),
-    [user, isLoading, isAccountDisabled, error, setUser, setContext, profileLanguage, profileCurrency, logout],
+    [user, isLoading, isAccountDisabled, error, setUser, profileLanguage, profileCurrency, profileAvatar, logout],
   );
 
   return (

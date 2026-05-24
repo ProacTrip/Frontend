@@ -355,9 +355,14 @@ export async function loginUser(
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
+    const headers: Record<string, string> = getAuthLangHeaders(true);
+    if (process.env.NEXT_PUBLIC_SIMULATE_IP) {
+      headers['X-Real-IP'] = process.env.NEXT_PUBLIC_SIMULATE_IP;
+    }
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: getAuthLangHeaders(true),
+      headers,
       body: JSON.stringify({ email, password }),
       credentials: 'include',
       signal: controller.signal,
@@ -404,12 +409,17 @@ export async function registerUser(
   const body: Record<string, string> = { email, password, first_name };
 
   try {
+    const headers: Record<string, string> = {
+      ...getAuthLangHeaders(true),
+      'Idempotency-Key': generateUUIDv7(),
+    };
+    if (process.env.NEXT_PUBLIC_SIMULATE_IP) {
+      headers['X-Real-IP'] = process.env.NEXT_PUBLIC_SIMULATE_IP;
+    }
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
-      headers: {
-        ...getAuthLangHeaders(true),
-        'Idempotency-Key': generateUUIDv7(),
-      },
+      headers,
       body: JSON.stringify(body),
       credentials: 'include',
       signal: controller.signal,

@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Users, Maximize, BedDouble, CheckCircle, XCircle } from 'lucide-react';
 
 interface RoomCardProps {
@@ -37,10 +37,11 @@ export default function RoomCard({ room, onSelect }: RoomCardProps) {
         {/* IMAGEN */}
         <div className="col-span-3 relative">
           <div className="relative h-full min-h-[200px]">
-            <img
+            <Image
               src={room.images[currentImage]}
               alt={room.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
             {room.images.length > 1 && (
               <>
@@ -125,7 +126,7 @@ export default function RoomCard({ room, onSelect }: RoomCardProps) {
 
           <button
             onClick={() => onSelect(room.id)}
-            className="w-full bg-[#FF6B6B] text-white py-3 px-4 rounded-lg hover:bg-[#ff5252] transition-colors font-semibold text-sm mt-4"
+            className="w-full bg-[--color-brand-500] text-white py-3 px-4 rounded-lg hover:bg-[--color-brand-600] transition-colors font-semibold text-sm mt-4"
           >
             Seleccionar
           </button>

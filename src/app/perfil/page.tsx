@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable @next/next/no-img-element */
 
 import { useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -78,7 +78,7 @@ export default function ProfilePage() {
         <p className="text-gray-600 mb-6">{error}</p>
         <button
           onClick={reloadProfile}
-          className="px-6 py-2 bg-[#FF6B6B] text-white rounded-xl font-medium hover:bg-[#ff5252] transition-colors"
+          className="px-6 py-2 bg-[--color-brand-500] text-white rounded-xl font-medium hover:bg-[--color-brand-600] transition-colors"
         >
           Reintentar
         </button>
@@ -97,16 +97,18 @@ export default function ProfilePage() {
       <div className="flex items-center gap-6 mb-8">
         <div className="relative">
           {profile.avatar_url ? (
-            <img
+            <Image
               src={profile.avatar_url}
               alt="Avatar"
+              width={96}
+              height={96}
               className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
           ) : null}
-          <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#ff8a80] flex items-center justify-center border-4 border-white shadow-lg ${profile.avatar_url ? 'absolute top-0 left-0 -z-10' : ''}`}>
+          <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-[--color-brand-500] to-[--color-brand-400] flex items-center justify-center border-4 border-white shadow-lg ${profile.avatar_url ? 'absolute top-0 left-0 -z-10' : ''}`}>
             <User className="w-10 h-10 text-white" />
           </div>
           {profile.phone_verified && (
@@ -160,7 +162,7 @@ export default function ProfilePage() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'bg-[#FF6B6B] text-white shadow-sm'
+                  ? 'bg-[--color-brand-500] text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
               }`}
             >

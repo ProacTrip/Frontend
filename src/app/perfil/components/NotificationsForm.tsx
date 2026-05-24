@@ -87,7 +87,7 @@ export function NotificationsForm({ prefs, onSave }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Bell className="w-5 h-5 text-[#FF6B6B]" />
+        <Bell className="w-5 h-5 text-[--color-brand-500]" />
         <h2 className="text-xl font-bold text-gray-800">Preferencias de notificaciones</h2>
       </div>
 
@@ -124,17 +124,17 @@ export function NotificationsForm({ prefs, onSave }: Props) {
                       disabled={isLoading}
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
                         enabled
-                          ? 'border-[#FF6B6B] bg-white shadow-sm'
+                          ? 'border-[--color-brand-500] bg-white shadow-sm'
                           : 'border-transparent bg-white/60 hover:bg-white'
                       } ${isLoading ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                     >
                       <div
                         className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          enabled ? 'bg-[#FF6B6B]/10' : 'bg-gray-100'
+                          enabled ? 'bg-[--color-brand-500]/10' : 'bg-gray-100'
                         }`}
                       >
                         <Icon
-                          className={`w-5 h-5 ${enabled ? 'text-[#FF6B6B]' : 'text-gray-400'}`}
+                          className={`w-5 h-5 ${enabled ? 'text-[--color-brand-500]' : 'text-gray-400'}`}
                         />
                       </div>
 
@@ -154,7 +154,7 @@ export function NotificationsForm({ prefs, onSave }: Props) {
                       {/* Toggle visual */}
                       <div
                         className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
-                          enabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'
+                          enabled ? 'bg-[--color-brand-500]' : 'bg-gray-300'
                         }`}
                       >
                         <div
@@ -166,7 +166,7 @@ export function NotificationsForm({ prefs, onSave }: Props) {
 
                       {isLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-xl">
-                          <div className="w-4 h-4 border-2 border-[#FF6B6B] border-t-transparent rounded-full animate-spin" />
+                          <div className="w-4 h-4 border-2 border-[--color-brand-500] border-t-transparent rounded-full animate-spin" />
                         </div>
                       )}
                     </button>

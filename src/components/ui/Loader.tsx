@@ -13,9 +13,15 @@ export default function Loader({
       : 'w-5 h-5 border-2';
 
   return (
-    <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+    <div
+      className="flex items-center justify-center gap-2 text-sm text-neutral-500"
+      role="status"
+      aria-live="polite"
+      aria-label={text}
+    >
       <div
-        className={`${sizeClasses} border-gray-300 border-t-blue-500 rounded-full animate-spin`}
+        className={`${sizeClasses} border-neutral-300 border-t-blue-500 rounded-full animate-spin`}
+        aria-hidden="true"
       />
       {text && <span>{text}</span>}
     </div>

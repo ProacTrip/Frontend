@@ -142,7 +142,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
       {/* ==================== SECCIÓN 1: DATOS DEL HUÉSPED ==================== */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-          <div className="w-8 h-8 bg-[#FF6B6B] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+          <div className="w-8 h-8 bg-[--color-brand-500] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
             1
           </div>
           <div>
@@ -165,7 +165,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={guest.first_name}
                 onChange={e => updateGuest('first_name', e.target.value)}
                 placeholder="Juan"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.first_name ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -189,7 +189,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={guest.last_name}
                 onChange={e => updateGuest('last_name', e.target.value)}
                 placeholder="Pérez"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.last_name ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -213,7 +213,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={guest.email}
                 onChange={e => updateGuest('email', e.target.value)}
                 placeholder="juan@ejemplo.com"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -237,7 +237,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={guest.phone}
                 onChange={e => updateGuest('phone', e.target.value)}
                 placeholder="+34 600 000 000"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.phone ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -261,7 +261,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={guest.nationality}
                 onChange={e => updateGuest('nationality', e.target.value)}
                 placeholder="Española"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.nationality ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -283,7 +283,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
               onChange={e => updateGuest('special_requests', e.target.value)}
               placeholder="Habitación en planta alta, cama de matrimonio, llegada tardía..."
               rows={3}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none resize-none"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none resize-none"
             />
           </div>
 
@@ -293,7 +293,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
       {/* ==================== SECCIÓN 2: PAGO ==================== */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-          <div className="w-8 h-8 bg-[#FF6B6B] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+          <div className="w-8 h-8 bg-[--color-brand-500] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
             2
           </div>
           <div>
@@ -324,7 +324,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 onChange={e => updateCard('card_number', formatCardNumber(e.target.value))}
                 placeholder="1234 5678 9012 3456"
                 maxLength={19}
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none tracking-widest ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none tracking-widest ${
                   errors.card_number ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -348,7 +348,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 value={card.card_holder}
                 onChange={e => updateCard('card_holder', e.target.value.toUpperCase())}
                 placeholder="JUAN PÉREZ"
-                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono uppercase tracking-wider focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono uppercase tracking-wider focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.card_holder ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -373,7 +373,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                 onChange={e => updateCard('card_expiry', formatExpiry(e.target.value))}
                 placeholder="MM/AA"
                 maxLength={5}
-                className={`w-full px-3 py-2.5 border rounded-lg text-sm font-mono text-center tracking-widest focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm font-mono text-center tracking-widest focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                   errors.card_expiry ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
               />
@@ -397,7 +397,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
                   onChange={e => updateCard('card_cvv', e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="•••"
                   maxLength={4}
-                  className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono tracking-widest focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none ${
+                  className={`w-full pl-9 pr-3 py-2.5 border rounded-lg text-sm font-mono tracking-widest focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none ${
                     errors.card_cvv ? 'border-red-400 bg-red-50' : 'border-gray-300'
                   }`}
                 />
@@ -431,15 +431,15 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
               setAcceptedTerms(e.target.checked);
               setTermsError(false);
             }}
-            className="mt-0.5 w-4 h-4 text-[#FF6B6B] border-gray-300 rounded focus:ring-[#FF6B6B] cursor-pointer"
+            className="mt-0.5 w-4 h-4 text-[--color-brand-500] border-gray-300 rounded focus:ring-[--color-brand-500] cursor-pointer"
           />
           <span className="text-sm text-gray-700">
             He leído y acepto los{' '}
-            <span className="text-[#FF6B6B] font-medium cursor-pointer hover:underline">
+            <span className="text-[--color-brand-500] font-medium cursor-pointer hover:underline">
               Términos y Condiciones
             </span>{' '}
             y la{' '}
-            <span className="text-[#FF6B6B] font-medium cursor-pointer hover:underline">
+            <span className="text-[--color-brand-500] font-medium cursor-pointer hover:underline">
               Política de Privacidad
             </span>{' '}
             de ProacTrip. Entiendo que al confirmar esta reserva acepto la política de cancelación indicada.
@@ -457,7 +457,7 @@ export default function PaymentForm({ totalAmount, currency, isLoading, onSubmit
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-[#FF6B6B] text-white py-4 px-6 rounded-xl hover:bg-[#ff5252] transition-colors font-bold text-base flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+        className="w-full bg-[--color-brand-500] text-white py-4 px-6 rounded-xl hover:bg-[--color-brand-600] transition-colors font-bold text-base flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
       >
         {isLoading ? (
           <>

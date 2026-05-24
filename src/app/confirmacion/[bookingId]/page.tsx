@@ -35,7 +35,7 @@ export default function ConfirmacionPage() {
   if (isLoading || !bookingData) {
     return (
       <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#FF6B6B] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[--color-brand-500] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -69,7 +69,7 @@ export default function ConfirmacionPage() {
           <div className="print-container bg-white rounded-2xl shadow-xl overflow-hidden">
 
             {/* Header del voucher */}
-            <div className="bg-[#FF6B6B] px-8 py-6 text-white">
+            <div className="bg-[--color-brand-500] px-8 py-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium opacity-80 uppercase tracking-widest mb-1">
@@ -107,7 +107,7 @@ export default function ConfirmacionPage() {
               <div className="grid grid-cols-2 gap-4">
 
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                  <Calendar className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-[--color-brand-500] flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Check-in</p>
                     <p className="text-sm font-bold text-gray-900">—</p>
@@ -116,7 +116,7 @@ export default function ConfirmacionPage() {
                 </div>
 
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                  <Calendar className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-[--color-brand-500] flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Check-out</p>
                     <p className="text-sm font-bold text-gray-900">—</p>
@@ -125,7 +125,7 @@ export default function ConfirmacionPage() {
                 </div>
 
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                  <Users className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+                  <Users className="w-5 h-5 text-[--color-brand-500] flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Huéspedes</p>
                     <p className="text-sm font-bold text-gray-900">—</p>
@@ -133,7 +133,7 @@ export default function ConfirmacionPage() {
                 </div>
 
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                  <Moon className="w-5 h-5 text-[#FF6B6B] flex-shrink-0 mt-0.5" />
+                  <Moon className="w-5 h-5 text-[--color-brand-500] flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-0.5">Duración</p>
                     <p className="text-sm font-bold text-gray-900">—</p>
@@ -148,7 +148,7 @@ export default function ConfirmacionPage() {
                   <p className="text-xs text-gray-500 font-medium mb-0.5">Total pagado</p>
                   <p className="text-xs text-gray-400">IVA e impuestos incluidos</p>
                 </div>
-                <p className="text-2xl font-bold text-[#FF6B6B]">—</p>
+                <p className="text-2xl font-bold text-[--color-brand-500]">—</p>
               </div>
             </div>
 
@@ -159,18 +159,18 @@ export default function ConfirmacionPage() {
               </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <Mail className="w-4 h-4 text-[#FF6B6B]" />
+                  <Mail className="w-4 h-4 text-[--color-brand-500]" />
                   <span>soporte@proactrip.com</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <Phone className="w-4 h-4 text-[#FF6B6B]" />
+                  <Phone className="w-4 h-4 text-[--color-brand-500]" />
                   <span>+34 900 000 000</span>
                 </div>
               </div>
             </div>
 
             {/* Footer del voucher */}
-            <div className="px-8 py-4 bg-[#FF6B6B] text-white text-center">
+            <div className="px-8 py-4 bg-[--color-brand-500] text-white text-center">
               <p className="text-xs opacity-80">
                 ProacTrip · Sistema de Gestión de Viajes · TFG 2025
               </p>
@@ -189,7 +189,7 @@ export default function ConfirmacionPage() {
             </button>
             <button
               onClick={() => router.push('/')}
-              className="flex-1 flex items-center justify-center gap-2 bg-[#FF6B6B] text-white py-3 px-6 rounded-xl hover:bg-[#ff5252] transition-colors font-semibold shadow-md"
+              className="flex-1 flex items-center justify-center gap-2 bg-[--color-brand-500] text-white py-3 px-6 rounded-xl hover:bg-[--color-brand-600] transition-colors font-semibold shadow-md"
             >
               <Home className="w-5 h-5" />
               Volver al inicio

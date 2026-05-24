@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Loader from "@/components/ui/Loader";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import AuthStatusIcon from "@/components/ui/AuthStatusIcon";
 import { useVerifyEmailMutation } from "@/hooks/useVerifyEmailMutation";
 import { AuthApiError } from "@/app/lib/api";
 
@@ -31,22 +32,7 @@ function VerifyEmailContent() {
         variant="card"
       >
         <div className="text-center space-y-5" role="alert" aria-live="assertive">
-          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="error" />
           <p className="text-neutral-600 text-sm">
             Token de verificación no encontrado.
           </p>
@@ -71,22 +57,7 @@ function VerifyEmailContent() {
         variant="card"
       >
         <div className="text-center space-y-5" aria-busy="true">
-          <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-neutral-400 animate-pulse"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="loading" />
           <Loader text="Verificando..." />
         </div>
       </AuthPageLayout>
@@ -105,22 +76,7 @@ function VerifyEmailContent() {
         variant="card"
       >
         <div className="text-center space-y-5" role="status" aria-live="polite">
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="success" />
           <p className="text-neutral-500 text-sm">Redirigiendo...</p>
         </div>
       </AuthPageLayout>
@@ -142,22 +98,7 @@ function VerifyEmailContent() {
         variant="card"
       >
         <div className="text-center space-y-5" role="alert" aria-live="assertive">
-          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="error" />
           <p className="text-neutral-600 text-sm">
             {err instanceof AuthApiError
               ? err.message

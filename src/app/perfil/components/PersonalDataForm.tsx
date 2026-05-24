@@ -86,7 +86,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-        <User className="w-5 h-5 text-[#FF6B6B]" /> Datos personales
+        <User className="w-5 h-5 text-[--color-brand-500]" /> Datos personales
       </h2>
 
       {error && (
@@ -104,7 +104,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             value={form.first_name ?? ''}
             onChange={handleChange}
             placeholder="Tu nombre"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -116,7 +116,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             value={form.last_name ?? ''}
             onChange={handleChange}
             placeholder="Tu apellido"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             name="date_of_birth"
             value={form.date_of_birth ?? ''}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -141,7 +141,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             name="gender"
             value={form.gender ?? ''}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all bg-white"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
           >
             <option value="">Seleccionar...</option>
             <option value="male">Masculino</option>
@@ -161,7 +161,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             value={form.nationality ?? ''}
             onChange={handleChange}
             placeholder="ES, FR, US..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -175,7 +175,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             value={form.phone ?? ''}
             onChange={handleChange}
             placeholder="+34600123456"
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
           />
         </div>
 
@@ -190,7 +190,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             onChange={handleChange}
             rows={3}
             placeholder="Cuéntanos algo sobre ti..."
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none transition-all resize-none"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
       </div>
@@ -202,7 +202,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
           name="is_public"
           checked={form.is_public ?? false}
           onChange={handleChange}
-          className="w-5 h-5 text-[#FF6B6B] rounded focus:ring-[#FF6B6B]"
+          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500]"
         />
         <label className="text-sm text-gray-700 flex items-center gap-2">
           <Eye className="w-4 h-4" />
@@ -213,7 +213,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
       <button
         type="submit"
         disabled={isSaving}
-        className="px-6 py-3 bg-[#FF6B6B] text-white rounded-xl font-bold hover:bg-[#ff5252] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
       >
         {isSaving ? (
           'Guardando...'

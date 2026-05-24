@@ -1,236 +1,196 @@
-/* eslint-disable @next/next/no-img-element */
-// app/hoteles/components/HotelCard.tsx (CORREGIDO)
-
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Heart, MapPin, Building2 } from 'lucide-react';
+import { useState } from 'react';
+import Image from 'next/image';
+import { Heart, Star, Wifi, Car, Waves, Coffee, Building2, Palmtree } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useFavorites } from '@/hooks/useFavorites';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
 
 interface HotelCardProps {
   hotel: FrontendHotel;
-  isFavorite?: boolean;
-  onToggleFavorite?: (hotelId: string) => void;
+  nights?: number;
+  currency?: string;
 }
 
-interface HotelCardProps {
-  hotel: FrontendHotel;
-  isFavorite?: boolean;
-  onToggleFavorite?: (hotelId: string) => void; 
-  isToggling?: boolean;
+const TAG_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  wifi: Wifi, 'free wi-fi': Wifi, 'wi-fi gratis': Wifi,
+  parking: Car, 'free parking': Car, 'parking gratis': Car,
+  pool: Waves, 'outdoor pool': Waves, piscina: Waves,
+  kitchen: Coffee, cocina: Coffee,
+  breakfast: Coffee, 'free breakfast': Coffee, 'desayuno gratis': Coffee,
+  beach: Palmtree, playa: Palmtree,
+};
+
+function getTagIcon(name: string): React.ComponentType<{ className?: string }> | null {
+  const key = name.toLowerCase();
+  for (const [tag, Icon] of Object.entries(TAG_ICONS)) {
+    if (key.includes(tag)) return Icon;
+  }
+  return null;
 }
 
-export default function HotelCard({ hotel, isFavorite = false, onToggleFavorite }: HotelCardProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isHoveringImage, setIsHoveringImage] = useState(false);
-  const [imageError, setImageError] = useState(false);
+const BADGE_COLORS: Record<string, string> = {
+  'Guest favourite': 'bg-white/90 text-[#0A0A0A]',
+  'Favorito de los huéspedes': 'bg-white/90 text-[#0A0A0A]',
+  'Popular': 'bg-white/90 text-[#0A0A0A]',
+};
+
+export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProps) {
+  const [currentImg] = useState(0);
+  const [imgError, setImgError] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const { toggleFavorite } = useFavorites('hotel');
   const router = useRouter();
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting error state when image index changes
-    setImageError(false);
-  }, [currentImageIndex]);
+  const images = hotel.images?.length ? hotel.images : [];
+  const badge = hotel.specialOffer ? 'Oferta especial' : hotel.rating?.score && hotel.rating.score >= 4.5 ? 'Favorito de los huéspedes' : hotel.rating?.score && hotel.rating.score >= 4 ? 'Popular' : null;
+  const badgeStyle = badge ? BADGE_COLORS[badge] || 'bg-white/90 text-[#0A0A0A]' : '';
 
-  const nextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % hotel.images.length);
-  };
+  const amenities = hotel.amenities?.slice(0, 3) || [];
+  const priceAmount = hotel.price?.amount || 0;
+  const priceCurrency = currency || hotel.price?.currency || 'EUR';
 
-  const prevImage = (e: React.MouseEvent) => {
+  const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev - 1 + hotel.images.length) % hotel.images.length);
-  };
-
-  const handleToggleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onToggleFavorite) {
-      onToggleFavorite(hotel.id);
+    e.preventDefault();
+    if (toggling) return;
+    setToggling(true);
+    try {
+      await toggleFavorite({
+        entity_id: hotel.id,
+        entity_type: 'hotel',
+        title: hotel.name,
+      });
+      setLiked(!liked);
+    } catch {
+      // silently fail
+    } finally {
+      setToggling(false);
     }
   };
 
-  // ✅ CORRECCIÓN 7: URL segura con encodeURIComponent
-  const handleViewDetails = () => {
+  const handleClick = () => {
     router.push(`/hoteles?hotel=${encodeURIComponent(hotel.id)}`, { scroll: false });
   };
 
+  const currencySymbol = priceCurrency === 'EUR' ? '€' : priceCurrency === 'USD' ? '$' : '£';
+
   return (
-    // ✅ CORRECCIÓN 2: Eliminado cursor-pointer del div principal (solo el botón navega)
-    <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-      <div className="grid grid-cols-12 gap-4 p-4">
-        
-        {/* COLUMNA IZQUIERDA: Imagen */}
-        <div 
-          className="col-span-4 relative"
-          onMouseEnter={() => setIsHoveringImage(true)}
-          onMouseLeave={() => setIsHoveringImage(false)}
-        >
-          <div className="relative w-full h-48 rounded-lg overflow-hidden">
-            {hotel.images.length > 0 && !imageError ? (
-              <img 
-                src={hotel.images[currentImageIndex]} 
-                alt={hotel.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-full h-full flex items-center justify-center">
-                <Building2 className="w-12 h-12 text-white/50" />
-              </div>
-            )}
-
-            {/* Botón favorito - ✅ CORRECCIÓN 6: z-30 explícito */}
-            <button
-              onClick={handleToggleFavorite}
-              className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-30"
-            >
-              <Heart 
-                className={`w-5 h-5 ${isFavorite ? 'fill-[#FF6B6B] text-[#FF6B6B]' : 'text-gray-600'}`}
-              />
-            </button>
-
-            {/* Flechas navegación - ✅ CORRECCIÓN 5: aria-label y z-40 */}
-            {hotel.images.length > 1 && isHoveringImage && (
-              <>
-                <button
-                  onClick={prevImage}
-                  aria-label="Imagen anterior"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors z-40"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-700" />
-                </button>
-                <button
-                  onClick={nextImage}
-                  aria-label="Siguiente imagen"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors z-40"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-700" />
-                </button>
-              </>
-            )}
-
-            {/* Indicador de imágenes - ✅ CORRECCIÓN 6: z-30 */}
-            {hotel.images.length > 1 && (
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-30">
-                {hotel.images.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                      index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+    <article
+      onClick={handleClick}
+      className="rounded-[18px] bg-white overflow-hidden cursor-pointer transition-all duration-[0.38s] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[3px] hover:shadow-[0_2px_16px_rgba(0,0,0,0.09)] group"
+      aria-label={`${hotel.name}, ${currencySymbol}${priceAmount} por ${nights} noche${nights !== 1 ? 's' : ''}, puntuación ${hotel.rating?.score ?? 'N/A'}`}
+    >
+      {/* Image */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#F5F5F5]">
+        {images.length > 0 && !imgError ? (
+          <Image
+            src={images[currentImg]}
+            alt={hotel.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            sizes="(max-width: 768px) 100vw, 33vw"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200">
+            <Building2 className="w-12 h-12 text-neutral-300" />
           </div>
-        </div>
+        )}
 
-        {/* COLUMNA CENTRAL: Información */}
-        <div className="col-span-5">
-          {/* ✅ CORRECCIÓN 1: Eliminado onClick del título (no navega a ruta inexistente) */}
-          <h3 className="text-lg font-bold text-[#FF6B6B] mb-1">
+        {/* Badge */}
+        {badge && (
+          <span
+            className={`absolute top-3 left-3 backdrop-blur-[6px] rounded-full px-2.5 py-1 text-[11px] font-semibold pointer-events-none ${badgeStyle}`}
+          >
+            {badge}
+          </span>
+        )}
+
+        {/* Heart */}
+        <button
+          onClick={handleToggleLike}
+          disabled={toggling}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-115"
+          aria-label={liked ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+          aria-pressed={liked}
+        >
+          <Heart
+            className={`w-[22px] h-[22px] transition-colors duration-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)] ${
+              liked ? 'fill-[#E8415A] stroke-[#E8415A]' : 'stroke-white fill-transparent'
+            }`}
+            strokeWidth={2}
+          />
+        </button>
+
+        {/* Image dots */}
+        {images.length > 1 && (
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.slice(0, 5).map((_, i) => (
+              <span
+                key={i}
+                className={`block rounded-full transition-all ${
+                  i === currentImg
+                    ? 'w-[18px] h-[5px] bg-white'
+                    : 'w-[5px] h-[5px] bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="p-3 pb-2">
+        {/* Title + Rating */}
+        <div className="flex items-start justify-between gap-2 mb-0.5">
+          <h3 className="text-[15px] font-semibold text-[#0A0A0A] leading-tight line-clamp-1">
             {hotel.name}
           </h3>
-
-          {/* ✅ CORRECCIÓN 3: Math.round para estrellas decimales */}
-          <div className="flex items-center gap-1 mb-2">
-            {Array.from({ length: Math.round(hotel.stars || 0) }).map((_, i) => (
-              <span key={i} className="text-yellow-500">⭐</span>
-            ))}
-            {hotel.stars === 0 && <span className="text-gray-400 text-sm">Sin categoría</span>}
-          </div>
-
-          {/* Ubicación */}
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
-            <MapPin className="w-4 h-4" />
-            <span className="font-medium">
-              {hotel.location.city}
-              {hotel.location.district && `, ${hotel.location.district}`}
-            </span>
-            {hotel.location.distanceFromCenter !== undefined && (
-              <>
-                <span className="text-gray-400">•</span>
-                <span>a {hotel.location.distanceFromCenter} km del centro</span>
-              </>
-            )}
-          </div>
-
-          {/* Tipo */}
-          <div className="mb-2">
-            <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">
-              {hotel.type}
-            </span>
-          </div>
-
-          {/* Especificaciones */}
-          {hotel.specifications && hotel.specifications.length > 0 && (
-            <div className="text-sm text-gray-700 mb-2">
-              {hotel.specifications.join(' · ')}
+          {hotel.rating?.score && hotel.rating.score > 0 && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Star className="w-[13px] h-[13px] fill-[#0A0A0A] stroke-none" />
+              <span className="text-[13.5px] font-semibold text-[#0A0A0A]">{hotel.rating.score.toFixed(1)}</span>
+              <span className="text-[12px] text-[#888]">({hotel.rating.reviews || 0})</span>
             </div>
           )}
+        </div>
 
-          {/* Camas */}
-          {hotel.beds && (
-            <div className="text-sm text-gray-600">
-              {hotel.beds}
-            </div>
-          )}
+        {/* Subtitle */}
+        <p className="text-[12px] text-[#888] mb-2.5 truncate">
+          {hotel.type}{hotel.location?.city ? ` — ${hotel.location.city}` : ''}
+        </p>
 
-          {/* Amenities destacados */}
-          {hotel.amenities && hotel.amenities.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {hotel.amenities.slice(0, 3).map((amenity, idx) => (
-                <span key={idx} className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                  {amenity}
+        {/* Amenity tags */}
+        {amenities.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {amenities.map((a) => {
+              const Icon = getTagIcon(a);
+              return (
+                <span
+                  key={a}
+                  className="flex items-center gap-1 text-[11px] text-[#0A0A0A] bg-[#F2F2F2] rounded-lg px-2 py-1"
+                >
+                  {Icon && <Icon className="w-3 h-3 stroke-current" />}
+                  {a}
                 </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* COLUMNA DERECHA: Precio y Acción */}
-        <div className="col-span-3 flex flex-col items-end justify-between">
-          
-          {/* Rating */}
-          {hotel.rating && hotel.rating.score > 0 && (
-            <div className="flex items-center gap-2 mb-2">
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{hotel.rating.label}</p>
-                <p className="text-xs text-gray-500">{hotel.rating.reviews} comentarios</p>
-              </div>
-              <div className="bg-[#FF6B6B] text-white px-2 py-1 rounded font-bold text-lg">
-                {hotel.rating.score.toFixed(1)}
-              </div>
-            </div>
-          )}
-
-          <div className="flex-1" />
-
-          {/* Precio */}
-          <div className="text-right mb-4">
-            <p className="text-xs text-gray-600 mb-1">
-              {hotel.price.nights} noche{hotel.price.nights > 1 ? 's' : ''}, {hotel.price.adults} adulto{hotel.price.adults > 1 ? 's' : ''}
-            </p>
-            <p className="text-3xl font-bold text-gray-900">
-              {hotel.price.currency}{hotel.price.amount}
-            </p>
-            {hotel.price.includesTaxes && (
-              <p className="text-xs text-gray-500">Incluye impuestos y cargos</p>
-            )}
+              );
+            })}
           </div>
+        )}
 
-          {/* ✅ CORRECCIÓN 7: Botón con URL segura */}
-          <button
-            onClick={handleViewDetails}
-            className="w-full bg-[#FF6B6B] text-white py-3 px-4 rounded hover:bg-[#ff5252] transition-colors font-semibold text-sm flex items-center justify-center gap-2"
-          >
-            Ver disponibilidad
-            <ChevronRight className="w-4 h-4" />
-          </button>
+        {/* Price */}
+        <div className="flex items-baseline gap-1">
+          <span className="text-[15px] font-bold text-[#0A0A0A] underline underline-offset-2 cursor-pointer">
+            {currencySymbol}{priceAmount}
+          </span>
+          <span className="text-[12px] text-[#0A0A0A]">
+            por {nights} noche{nights !== 1 ? 's' : ''}
+          </span>
         </div>
-
       </div>
-    </div>
+    </article>
   );
 }

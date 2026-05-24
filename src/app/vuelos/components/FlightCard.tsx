@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 // app/vuelos/components/FlightCard.tsx
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { 
   Plane, 
   Clock, 
@@ -120,9 +120,11 @@ export default function FlightCard({
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             {offer.airline.logoUrl && (
-              <img 
+              <Image 
                 src={offer.airline.logoUrl} 
                 alt={offer.airline.name} 
+                width={32}
+                height={32}
                 className="w-8 h-8 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
@@ -263,10 +265,12 @@ export default function FlightCard({
         <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {offer.airline.logoUrl ? (
-              <img 
+              <Image 
                 src={offer.airline.logoUrl} 
                 alt={offer.airline.name}
-                className="w-10 h-10 object-contain bg-white"
+                width={40}
+                height={40}
+                className="w-10 h-10 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             ) : (

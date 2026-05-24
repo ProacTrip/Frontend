@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { loginUser } from '@/app/lib/api/auth';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 
@@ -17,7 +16,6 @@ import { queryKeys } from '@/app/lib/queries/queryKeys';
  */
 export function useLoginMutation() {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   return useMutation({
     mutationFn: (credentials: { email: string; password: string }) =>
@@ -32,9 +30,8 @@ export function useLoginMutation() {
         queryClient.invalidateQueries({ queryKey: queryKeys.env.all }),
       ]);
 
-      // Default redirect — caller can override by passing a custom
-      // onSuccess to mutate() / mutateAsync()
-      router.push('/home');
+      // Navigation is the caller's responsibility — do NOT redirect here.
+      // The page sets its own onSuccess override to router.push(returnUrl).
     },
   });
 }

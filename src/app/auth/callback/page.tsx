@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import Loader from "@/components/ui/Loader";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
+import AuthStatusIcon from "@/components/ui/AuthStatusIcon";
 import { queryKeys } from "@/app/lib/queries/queryKeys";
 
 const OAUTH_ERROR_MAP: Record<string, string> = {
@@ -75,7 +76,7 @@ function OAuthCallbackContent() {
           queryKey: queryKeys.env.all,
         });
         setStatus("success");
-        router.push("/home");
+        router.push("/");
       } catch {
         setErrorMessage("Error al verificar la sesión. Intentá de nuevo.");
         setStatus("error");
@@ -110,22 +111,7 @@ function OAuthCallbackContent() {
         {/* ── Loading ── */}
         {status === "processing" && (
           <>
-            <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto">
-              <svg
-                className="w-8 h-8 text-neutral-400 animate-pulse"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-            </div>
+            <AuthStatusIcon variant="loading" />
             <Loader text="Completando autenticación..." />
           </>
         )}
@@ -133,22 +119,7 @@ function OAuthCallbackContent() {
         {/* ── Success ── */}
         {status === "success" && (
           <div role="status" aria-live="polite">
-            <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
-              <svg
-                className="w-8 h-8 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
+            <AuthStatusIcon variant="success" />
             <p className="text-neutral-500 text-sm">Redirigiendo al home...</p>
           </div>
         )}
@@ -156,22 +127,7 @@ function OAuthCallbackContent() {
         {/* ── Error ── */}
         {status === "error" && (
           <div role="alert" aria-live="assertive">
-            <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
-              <svg
-                className="w-8 h-8 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </div>
+            <AuthStatusIcon variant="error" />
             <p className="text-neutral-500 text-sm">{errorMessage}</p>
             <Link
               href="/auth/login"

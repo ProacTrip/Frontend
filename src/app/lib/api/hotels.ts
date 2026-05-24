@@ -46,7 +46,7 @@ export class HotelApiError extends Error {
     public readonly traceId?: string,
     public readonly retryAfter?: number,
   ) {
-    super(`[${code}] ${detail}`);
+    super(detail);
     this.name = 'HotelApiError';
   }
 }

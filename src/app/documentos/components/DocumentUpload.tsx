@@ -89,7 +89,7 @@ export default function DocumentUpload({ onSuccess }: DocumentUploadProps) {
           ${
             isUploading
               ? 'bg-gray-300 text-gray-500 cursor-wait'
-              : 'bg-[#FF6B6B] text-white hover:bg-[#ff5252] active:scale-[0.97]'
+              : 'bg-[--color-brand-500] text-white hover:bg-[--color-brand-600] active:scale-[0.97]'
           }
         `}
       >

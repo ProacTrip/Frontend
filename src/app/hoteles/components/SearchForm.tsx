@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Search, MapPin, Calendar, Users, AlertCircle } from 'lucide-react';
-import DateRangePicker from '@/components/DateRangePicker';
+import DateRangePicker from '@/components/shared/DateRangePicker';
 import GuestsDropdown from './GuestsDropdown';
 
 interface SearchFormProps {
@@ -158,7 +158,7 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
                 }
               }}
               placeholder="Ciudad o país"
-              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF6B6B] focus:border-transparent outline-none placeholder:text-gray-400 text-sm transition-colors ${
+              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none placeholder:text-gray-400 text-sm transition-colors ${
                 errors.query ? 'border-red-400 bg-red-50' : 'border-gray-300'
               }`}
             />
@@ -203,7 +203,7 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
               setShowGuestsDropdown(false);
               clearError('dates');
             }}
-            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[#FF6B6B] transition-colors text-left bg-white ${
+            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[--color-brand-500] transition-colors text-left bg-white ${
               errors.dates ? 'border-red-400 bg-red-50' : 'border-gray-300'
             }`}
           >
@@ -220,13 +220,13 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
           )}
           {showDatePicker && (
             <DateRangePicker
-              checkIn={checkInDate}
-              checkOut={checkOutDate}
-              onDateChange={(start: Date | null, end: Date | null) => {
+              startDate={checkInDate}
+              endDate={checkOutDate}
+              onChange={(start: Date, end: Date) => {
                 setCheckInDate(start);
                 setCheckOutDate(end);
-                if (start) setCheckIn(start.toISOString().split('T')[0]);
-                if (end) setCheckOut(end.toISOString().split('T')[0]);
+                setCheckIn(start.toISOString().split('T')[0]);
+                setCheckOut(end.toISOString().split('T')[0]);
                 clearError('dates');
               }}
               onClose={() => setShowDatePicker(false)}
@@ -246,7 +246,7 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
               setShowGuestsDropdown(!showGuestsDropdown);
               setShowDatePicker(false);
             }}
-            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[#FF6B6B] transition-colors text-left bg-white ${
+            className={`w-full flex items-center gap-2 px-4 py-3 border rounded-lg hover:border-[--color-brand-500] transition-colors text-left bg-white ${
               errors.guests ? 'border-red-400 bg-red-50' : 'border-gray-300'
             }`}
           >
@@ -295,7 +295,7 @@ export default function SearchForm({ onSearch, isLoading = false }: SearchFormPr
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#ff5252] transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            className="w-full bg-[--color-brand-500] text-white px-6 py-3 rounded-lg hover:bg-[--color-brand-600] transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -4,48 +4,53 @@ import Link from "next/link";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import AuthStatusIcon from "@/components/ui/AuthStatusIcon";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, type FormEvent } from "react";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
-import { resendVerification, AuthApiError, RateLimitError } from "@/app/lib/api";
+import { AuthApiError, RateLimitError } from "@/app/lib/api";
+import { validateForgotPassword } from "@/app/lib/validations/auth";
+import { useResendVerificationMutation } from "@/hooks/useResendVerificationMutation";
 import { useRateLimit } from "@/hooks/useRateLimit";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 export default function ResendVerificationPage() {
   const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const { isBlocked } = useRateLimit();
+  const resendVerificationMutation = useResendVerificationMutation();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email) {
       setError("Introducí tu email");
       return;
     }
-    if (!email.includes("@")) {
-      setError("Introducí un email válido");
+    const validation = validateForgotPassword({ email });
+    if (!Object.keys(validation).every((k) => !validation[k])) {
+      setError(validation.email ?? "Introducí un email válido");
       return;
     }
-    setIsLoading(true);
     setError("");
-    try {
-      await resendVerification(email);
-      setSuccess(true);
-    } catch (err) {
-      if (err instanceof RateLimitError) {
-        setError(err.message);
-        setRateLimitError(err.message);
-      } else if (err instanceof AuthApiError) {
-        setError(err.message);
-      } else {
-        setError("Error al conectar con el servidor. Intentá de nuevo.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+
+    resendVerificationMutation.mutate(
+      { email },
+      {
+        onSuccess: () => setSuccess(true),
+        onError: (err) => {
+          if (err instanceof RateLimitError) {
+            setError(err.message);
+            setRateLimitError(err.message);
+          } else if (err instanceof AuthApiError) {
+            setError(err.message);
+          } else {
+            setError("Error al conectar con el servidor. Intentá de nuevo.");
+          }
+        },
+      },
+    );
   };
 
   return (
@@ -74,6 +79,8 @@ export default function ResendVerificationPage() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
+                role="alert"
+                aria-live="assertive"
                 className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm"
               >
                 {error}
@@ -98,11 +105,11 @@ export default function ResendVerificationPage() {
               type="submit"
               variant="primary"
               className="!py-3.5"
-              disabled={isLoading || isBlocked}
+              disabled={resendVerificationMutation.isPending || isBlocked}
             >
               Reenviar email de verificación
             </Button>
-            {isLoading && (
+            {resendVerificationMutation.isPending && (
               <div className="flex justify-center pt-2">
                 <Loader text="Reenviando email..." />
               </div>
@@ -123,21 +130,7 @@ export default function ResendVerificationPage() {
 
       {success && (
         <div className="text-center space-y-5">
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="success" />
           <div className="space-y-2 pt-2">
             <p className="text-sm text-neutral-500">
               Revisá tu bandeja de entrada y también la carpeta de spam.

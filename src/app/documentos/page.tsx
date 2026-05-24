@@ -228,7 +228,7 @@ export default function DocumentosPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-          <FileText className="w-8 h-8 text-[#FF6B6B]" />
+          <FileText className="w-8 h-8 text-[--color-brand-500]" />
           Mis Documentos
         </h1>
         <p className="text-gray-500 mb-8">Cargando tus documentos...</p>
@@ -265,7 +265,7 @@ export default function DocumentosPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-          <FileText className="w-8 h-8 text-[#FF6B6B]" />
+          <FileText className="w-8 h-8 text-[--color-brand-500]" />
           Mis Documentos
         </h1>
 
@@ -276,7 +276,7 @@ export default function DocumentosPage() {
             <p className="text-sm text-gray-500 mb-4">{queryError}</p>
             <button
               onClick={() => refetch()}
-              className="px-4 py-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#ff5252] transition-colors font-medium"
+              className="px-4 py-2 bg-[--color-brand-500] text-white rounded-lg hover:bg-[--color-brand-600] transition-colors font-medium"
             >
               Reintentar
             </button>
@@ -293,7 +293,7 @@ export default function DocumentosPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-          <FileText className="w-8 h-8 text-[#FF6B6B]" />
+          <FileText className="w-8 h-8 text-[--color-brand-500]" />
           Mis Documentos
         </h1>
 
@@ -324,7 +324,7 @@ export default function DocumentosPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3">
-            <FileText className="w-8 h-8 text-[#FF6B6B]" />
+            <FileText className="w-8 h-8 text-[--color-brand-500]" />
             Mis Documentos
           </h1>
           <p className="text-gray-500">

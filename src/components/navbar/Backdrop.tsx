@@ -16,7 +16,7 @@ export default function Backdrop({ isVisible, onClick }: BackdropProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 top-0 z-30 bg-black/40 backdrop-blur-[2px]"
+          className="fixed inset-0 top-0 z-30 bg-black/40 backdrop-blur-[2px] cursor-pointer"
           onClick={onClick}
         />
       )}

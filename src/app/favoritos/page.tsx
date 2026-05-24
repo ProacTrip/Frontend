@@ -28,7 +28,7 @@ export default function FavoritosPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader className="w-8 h-8 animate-spin text-[#FF6B6B]" />
+        <Loader className="w-8 h-8 animate-spin text-[--color-brand-500]" />
       </div>
     );
   }
@@ -41,7 +41,7 @@ export default function FavoritosPage() {
           <p className="text-red-600 font-medium">{error}</p>
           <button
             onClick={refresh}
-            className="mt-4 px-4 py-2 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#ff5252]"
+            className="mt-4 px-4 py-2 bg-[--color-brand-500] text-white rounded-lg hover:bg-[--color-brand-600]"
           >
             Reintentar
           </button>
@@ -59,7 +59,7 @@ export default function FavoritosPage() {
           <p className="text-gray-600 text-lg mb-8">No tienes favoritos guardados todavía</p>
           <Link
             href="/hoteles"
-            className="px-6 py-3 bg-[#FF6B6B] text-white rounded-xl font-medium hover:bg-[#ff5252] transition-colors"
+            className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-medium hover:bg-[--color-brand-600] transition-colors"
           >
             Explorar hoteles
           </Link>
@@ -71,7 +71,7 @@ export default function FavoritosPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
-        <Heart className="w-8 h-8 text-[#FF6B6B]" />
+        <Heart className="w-8 h-8 text-[--color-brand-500]" />
         Mis Favoritos
       </h1>
       <p className="text-gray-500 mb-8">
@@ -82,7 +82,7 @@ export default function FavoritosPage() {
       {hotels.length > 0 && (
         <section className="mb-10">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-[#FF6B6B]" />
+            <Building2 className="w-5 h-5 text-[--color-brand-500]" />
             Hoteles ({hotels.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,7 +100,7 @@ export default function FavoritosPage() {
                   <div className="flex items-center justify-between">
                     <Link
                       href={`/hoteles?hotel=${encodeURIComponent(fav.entity_id)}`}
-                      className="text-[#FF6B6B] font-medium text-sm hover:underline"
+                      className="text-[--color-brand-500] font-medium text-sm hover:underline"
                     >
                       Ver detalles
                     </Link>
@@ -127,7 +127,7 @@ export default function FavoritosPage() {
       {flights.length > 0 && (
         <section className="mb-10">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Plane className="w-5 h-5 text-[#FF6B6B]" />
+            <Plane className="w-5 h-5 text-[--color-brand-500]" />
             Vuelos ({flights.length})
           </h2>
           <div className="space-y-3">
@@ -161,7 +161,7 @@ export default function FavoritosPage() {
       {destinations.length > 0 && (
         <section className="mb-10">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#FF6B6B]" />
+            <MapPin className="w-5 h-5 text-[--color-brand-500]" />
             Destinos ({destinations.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

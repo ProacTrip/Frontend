@@ -24,7 +24,7 @@
   --color-neutral-900: #171717;
   --color-neutral-950: #0a0a0a;
   --font-sans: var(--font-sans), system-ui, sans-serif;
-  --font-display: var(--font-display), Georgia, serif;
+  --font-display: var(--font-display), sans-serif;
   --radius-2xl: 1rem;
   --radius-3xl: 1.25rem;
   --radius-4xl: 1.5rem;
@@ -72,20 +72,6 @@ body {
 }
 
 @layer utilities {
-  .glass {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-  }
-
-  .glass-dark {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-  }
-
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -112,4 +98,50 @@ body {
 
 .animate-slide-up {
   animation: slideUp 0.4s ease 0.35s both;
+}
+
+/* ─── NAVBAR SEARCH PANEL ─── */
+.search-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  background: #ffffff;
+  padding-top: calc(72px + 28px);
+  padding-bottom: 36px;
+  padding-inline: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  overflow: visible;
+  transform: translateY(-16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.35s ease;
+}
+
+.search-panel.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ─── FADE-IN PANEL CONTENT ─── */
+@keyframes panelFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.search-panel-content {
+  animation: panelFadeUp 0.35s 0.15s both;
+}
+
+/* ─── CARD ENTER STAGGER ─── */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-card-enter {
+  animation: cardEnter 0.45s both;
 }

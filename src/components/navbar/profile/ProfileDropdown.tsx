@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
@@ -8,7 +7,6 @@ import { User, UserCircle, LogOut, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/hooks/useEnvironment";
-import { USER_AVATAR_CACHE_KEY } from "@/app/lib/constants/avatars";
 
 interface ProfileDropdownProps {
   isLanding?: boolean;
@@ -18,17 +16,9 @@ export default function ProfileDropdown({
   isLanding = false,
 }: ProfileDropdownProps) {
   const { isAuthenticated, isLoading, logout } = useAuth();
-  const { user } = useAuthContext();
+  const { user, profileAvatar } = useAuthContext();
   const { environment } = useEnvironment();
   const router = useRouter();
-
-  const avatarUrl = useMemo(() => {
-    try {
-      return localStorage.getItem(USER_AVATAR_CACHE_KEY) || null;
-    } catch {
-      return null;
-    }
-  }, []);
 
   const userName = user?.email ? user.email.split("@")[0] : null;
 
@@ -39,14 +29,24 @@ export default function ProfileDropdown({
   return (
     <Menu>
       <MenuButton
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+        className={`w-9 h-9 rounded-full flex items-center justify-center overflow-hidden transition-colors ${
           isLanding
             ? "border border-white/25 text-white hover:bg-white/15 data-[open]:bg-white/20"
             : "border border-[#e5e5e5] text-[#0A0A0A] hover:bg-[#F5F5F5] data-[open]:bg-[#F5F5F5]"
         }`}
         aria-label="Cuenta de usuario"
       >
-        <User className="w-[18px] h-[18px]" />
+        {profileAvatar ? (
+          <Image
+            src={profileAvatar}
+            alt=""
+            width={36}
+            height={36}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <User className="w-[18px] h-[18px]" />
+        )}
       </MenuButton>
 
       <MenuItems
@@ -67,12 +67,13 @@ export default function ProfileDropdown({
             {/* USER HEADER */}
             <div className="flex items-center gap-3 px-3 py-3">
               <div className="w-10 h-10 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center shrink-0">
-                {avatarUrl ? (
+                {profileAvatar ? (
                   <Image
-                    src={avatarUrl}
+                    src={profileAvatar}
                     alt=""
-                    fill
-                    className="object-cover"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
@@ -80,7 +81,7 @@ export default function ProfileDropdown({
                 ) : null}
                 <div
                   className={`w-full h-full flex items-center justify-center ${
-                    avatarUrl ? "hidden" : ""
+                    profileAvatar ? "hidden" : ""
                   }`}
                 >
                   <User className="w-5 h-5 text-[#6A7282]" />

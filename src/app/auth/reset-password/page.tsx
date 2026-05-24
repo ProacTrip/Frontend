@@ -6,6 +6,7 @@ import Link from "next/link";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import AuthStatusIcon from "@/components/ui/AuthStatusIcon";
 import { AnimatePresence, motion } from "framer-motion";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
 import { resetPassword, AuthApiError, RateLimitError } from "@/app/lib/api";
@@ -75,21 +76,7 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="text-center space-y-5">
-        <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
-          <svg
-            className="w-8 h-8 text-red-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </div>
+        <AuthStatusIcon variant="error" />
         <h2 className="text-xl font-semibold text-neutral-800">Link inválido</h2>
         <p className="text-neutral-500 text-sm">
           Este link no es válido o ha expirado. Solicitá uno nuevo.
@@ -178,21 +165,7 @@ function ResetPasswordForm() {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center space-y-5"
         >
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
+          <AuthStatusIcon variant="success" />
           <h2 className="text-xl font-semibold text-neutral-800">
             ¡Contraseña cambiada!
           </h2>

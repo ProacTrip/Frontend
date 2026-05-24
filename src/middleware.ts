@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// WARNING: routes added here MUST also be added to the matcher config below
 const PROTECTED_ROUTES = [
   "/perfil",
   "/documentos",

@@ -13,6 +13,7 @@ interface InputFieldProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   showPasswordToggle?: boolean;
+  autoComplete?: string;
   /** Error message to display below the input. When set, the input
    *  gets a red border and the error is announced via role="alert". */
   error?: string;
@@ -27,6 +28,7 @@ export default function InputField({
   value,
   onChange,
   showPasswordToggle = false,
+  autoComplete,
   error,
 }: InputFieldProps) {
   const [showPassword, setShowPassword] = useState(false);
@@ -57,6 +59,7 @@ export default function InputField({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
+          autoComplete={autoComplete}
           invalid={!!error}
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error ? true : undefined}
@@ -74,7 +77,7 @@ export default function InputField({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label={
               showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
             }

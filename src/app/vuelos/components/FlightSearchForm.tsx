@@ -9,6 +9,7 @@ import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
 import MultiCityLegs from './MultiCityLegs';
 import { TripType, TravelClass, FlightSearchRequest, FlightSearchResponse, MultiCityLeg } from '@/app/lib/types/flight';
 import { searchFlights, FlightApiError } from '@/app/lib/api/flights';
+import { getUserPreferences } from '@/app/lib/utils/location';
 
 interface FlightSearchFormProps {
   initialValues?: Partial<FlightSearchFormState>;
@@ -41,6 +42,18 @@ const getLocalISOString = (date: Date): string => {
 
 const getTodayString = (): string => getLocalISOString(new Date());
 
+const getDefaultPrefs = () => {
+  if (typeof window === 'undefined') return { gl: 'ES', hl: 'es', currency: 'EUR' };
+  const prefs = getUserPreferences();
+  return {
+    gl: prefs.gl || 'ES',
+    hl: prefs.hl || 'es',
+    currency: prefs.currency || 'EUR',
+  };
+};
+
+const defaultPrefs = getDefaultPrefs();
+
 const DEFAULT_STATE: FlightSearchFormState = {
   tripType: 'round_trip',
   departure: '',
@@ -59,9 +72,9 @@ const DEFAULT_STATE: FlightSearchFormState = {
   emissionsFilter: false,
   maxDurationMinutes: null,
   legs: [],
-  gl: 'ES',
-  hl: 'es',
-  currency: 'EUR',
+  gl: defaultPrefs.gl,
+  hl: defaultPrefs.hl,
+  currency: defaultPrefs.currency,
 };
 
 export default function FlightSearchForm({ 

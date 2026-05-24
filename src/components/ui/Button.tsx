@@ -30,6 +30,7 @@ export default function Button({
   return (
     <HeadlessButton
       disabled={isDisabled}
+      aria-busy={isLoading}
       className={`${base} ${variant === "primary" ? primary : google} ${
         isDisabled ? "opacity-40 cursor-not-allowed" : ""
       } ${className || ""}`}

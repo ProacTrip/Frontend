@@ -34,7 +34,7 @@ export default function RateLimitBanner({ rateLimitError, onRetryReady }: RateLi
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-500 text-amber-800 text-sm rounded"
+          className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded"
         >
           ⚠️ Quedan {info?.remaining ?? 0} de {info?.limit ?? '?'} peticiones. 
           El límite se reinicia en breve.
@@ -47,7 +47,7 @@ export default function RateLimitBanner({ rateLimitError, onRetryReady }: RateLi
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-800 text-sm rounded"
+          className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 text-sm rounded"
         >
           {rateLimitError || 'Demasiadas peticiones.'}
           {secondsLeft > 0 && (

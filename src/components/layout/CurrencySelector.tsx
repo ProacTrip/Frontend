@@ -40,7 +40,7 @@ export default function CurrencySelector({ isScrolled = true }: CurrencySelector
       <MenuButton
         className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
           isLanding
-            ? "glass text-white hover:bg-white/20 data-[open]:bg-white/25"
+            ? "bg-white/15 text-white hover:bg-white/20 data-[open]:bg-white/25"
             : "text-neutral-600 hover:bg-neutral-100 data-[open]:bg-neutral-100"
         }`}
         aria-label="Seleccionar moneda"

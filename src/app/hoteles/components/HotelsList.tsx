@@ -1,101 +1,47 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import HotelCard from './HotelCard';
-import { useFavorites } from '@/hooks/useFavorites';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
 
 interface HotelsListProps {
   hotels: FrontendHotel[];
   isLoading: boolean;
   hasMore: boolean;
-  nextToken: string | null; // 🔧 Token para pedir la siguiente página al backend
   onLoadMore: () => void;
 }
 
-export default function HotelsList({ 
-  hotels, 
-  isLoading, 
-  hasMore, 
-  nextToken,
-  onLoadMore 
-}: HotelsListProps) {
-  const { isFavorite, toggleFavorite } = useFavorites('hotel');
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+export default function HotelsList({ hotels, isLoading, hasMore, onLoadMore }: HotelsListProps) {
+  return (
+    <div className="space-y-6">
+      {/* Results grid — 2 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {hotels.map((hotel, idx) => (
+          <div
+            key={hotel.id}
+            className="animate-card-enter"
+            style={{ animationDelay: `${Math.min(idx * 0.05, 0.5)}s` }}
+          >
+            <HotelCard hotel={hotel} />
+          </div>
+        ))}
+      </div>
 
-  // ==================== INFINITE SCROLL ====================
-  // Detecta cuando el usuario llega al final de la lista
-  useEffect(() => {
-    if (!loadMoreRef.current || !hasMore || isLoading) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          console.log('🔄 Usuario llegó al final, cargando más...');
-          onLoadMore(); // Llama a handleLoadMore() del parent
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(loadMoreRef.current);
-
-    return () => observer.disconnect();
-  }, [hasMore, isLoading, onLoadMore]);
-
-  // ==================== FAVORITOS ====================
-  const handleToggleFavorite = async (hotel: FrontendHotel) => {
-    if (togglingId) return; // Ya hay uno procesando
-    
-    setTogglingId(hotel.id);
-    try {
-      await toggleFavorite({
-        entity_id: hotel.id,
-        entity_type: 'hotel',
-        title: hotel.name,
-      });
-    } catch (error) {
-      console.error('Error guardando favorito:', error);
-    } finally {
-      setTogglingId(null);
-    }
-  };
-return (
-    <div className="space-y-4">
-      {hotels.map((hotel) => (
-        <HotelCard
-          key={hotel.id}
-          hotel={hotel}
-          isFavorite={isFavorite(hotel.id)}
-          onToggleFavorite={() => handleToggleFavorite(hotel)}
-          isToggling={togglingId === hotel.id} // ← Solo true para el clickeado
-        />
-      ))}
-
+      {/* Load more */}
       {hasMore && (
-        <div ref={loadMoreRef} className="py-8 text-center">
-          {isLoading ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-6 h-6 border-2 border-[#FF6B6B] border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-600">Cargando más hoteles...</span>
-            </div>
-          ) : (
-            <div>
-              <p className="text-gray-500">Scroll para cargar más</p>
-              {nextToken && (
-                <p className="text-xs text-gray-400 mt-1">
-                  Total cargados: {hotels.length}
-                </p>
-              )}
-            </div>
-          )}
+        <div className="flex justify-center py-4">
+          <button
+            onClick={onLoadMore}
+            disabled={isLoading}
+            className="px-6 py-2.5 rounded-full border-2 border-[#0A0A0A] text-[#0A0A0A] text-sm font-semibold hover:bg-[#0A0A0A] hover:text-white transition-all disabled:opacity-50"
+          >
+            {isLoading ? 'Cargando...' : 'Cargar más resultados'}
+          </button>
         </div>
       )}
 
       {!hasMore && hotels.length > 0 && (
-        <p className="text-center text-gray-500 py-8">
-          ✅ No hay más resultados
+        <p className="text-center text-[#6A7282] text-sm py-8">
+          No hay más resultados para esta búsqueda.
         </p>
       )}
     </div>

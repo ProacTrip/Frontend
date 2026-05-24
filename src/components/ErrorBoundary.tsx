@@ -52,22 +52,22 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
       const traceId = (error as any)?.traceId || (error as any)?.trace_id;
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-6">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
             <div className="text-5xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Algo salió mal</h2>
-            <p className="text-gray-600 text-sm mb-2">
+            <h2 className="text-xl font-bold text-neutral-900 mb-2">Algo salió mal</h2>
+            <p className="text-neutral-500 text-sm mb-2">
               Ocurrió un error inesperado. Por favor, intentá recargar la página.
             </p>
             {traceId && (
-              <p className="text-xs text-gray-400 font-mono mb-4 bg-gray-50 py-1.5 px-3 rounded-md inline-block">
+              <p className="text-xs text-neutral-400 font-mono mb-4 bg-neutral-50 py-1.5 px-3 rounded-md inline-block">
                 trace_id: {traceId}
               </p>
             )}
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleCopyError}
-                className="px-5 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                className="px-5 py-2 border border-neutral-300 text-neutral-700 font-medium rounded-lg hover:bg-neutral-50 transition-colors text-sm"
               >
                 Copiar error
               </button>

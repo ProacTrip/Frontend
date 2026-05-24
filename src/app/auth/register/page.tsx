@@ -182,15 +182,11 @@ export default function RegisterPage() {
             exit={{ opacity: 0, height: 0 }}
             role="status"
             aria-live="polite"
-            className="mb-5 p-3.5 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm"
+            className="mb-5 p-3.5 rounded-xl bg-green-50 border border-green-100 text-green-800 text-sm"
           >
-            ¡Cuenta creada!{" "}
-            <Link
-              href="/auth/login?registered=true"
-              className="font-semibold underline hover:no-underline"
-            >
-              Iniciá sesión
-            </Link>
+            <p className="font-medium">
+              ¡Cuenta creada! Verificá tu email para activarla.
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -281,6 +277,16 @@ export default function RegisterPage() {
           className="text-neutral-900 font-semibold hover:underline"
         >
           Iniciá sesión
+        </Link>
+      </p>
+
+      <p className="mt-3 text-center text-[13px] text-neutral-400">
+        ¿No recibiste el email de verificación?{" "}
+        <Link
+          href="/auth/resend-verification"
+          className="hover:underline"
+        >
+          Reenviar
         </Link>
       </p>
     </AuthPageLayout>

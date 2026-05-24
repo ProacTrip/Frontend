@@ -138,7 +138,7 @@ function HabitacionesContent() {
                 <span>{nights} noche{parseInt(nights) > 1 ? 's' : ''}</span>
               </div>
               {rooms > 1 && (
-                <div className="flex items-center gap-1.5 text-[#FF6B6B] font-medium">
+                <div className="flex items-center gap-1.5 text-[--color-brand-500] font-medium">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
@@ -153,14 +153,14 @@ function HabitacionesContent() {
           <h2 className="text-xl font-bold text-gray-900">Elige tu habitación</h2>
           {rooms > 1 && (
             <p className="text-sm text-gray-500 mt-1">
-              El precio mostrado es por habitación · Se reservarán <span className="font-semibold text-[#FF6B6B]">{rooms} habitaciones</span> del tipo que elijas
+              El precio mostrado es por habitación · Se reservarán <span className="font-semibold text-[--color-brand-500]">{rooms} habitaciones</span> del tipo que elijas
             </p>
           )}
         </div>
  
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-[#FF6B6B] border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-4 border-[--color-brand-500] border-t-transparent rounded-full animate-spin"></div>
             <span className="ml-3 text-gray-600">Cargando habitaciones...</span>
           </div>
         ) : (
@@ -179,7 +179,7 @@ export default function HabitacionesPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#FF6B6B] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-[--color-brand-500] border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
       <HabitacionesContent />

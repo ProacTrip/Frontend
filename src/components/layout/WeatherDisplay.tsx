@@ -23,7 +23,7 @@ export default function WeatherDisplay({ isLanding = true }: { isLanding?: boole
       className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${
         isLanding ? "text-white" : "text-neutral-600"
       }`}
-      aria-label={`Weather: ${weather.temp}°C, ${weather.description}`}
+      aria-label={`Weather: ${Math.round(weather.temp)}°C, ${weather.description}`}
     >
       {weather.icon_url ? (
         <Image
@@ -38,8 +38,10 @@ export default function WeatherDisplay({ isLanding = true }: { isLanding?: boole
           }}
         />
       ) : null}
-      <span className="tabular-nums">{weather.temp}°C</span>
-      <span className="hidden sm:inline text-white/80">{weather.description}</span>
+      <span className="tabular-nums">{Math.round(weather.temp)}°C</span>
+      <span className={`hidden sm:inline ${isLanding ? "text-white/80" : "text-neutral-500"}`}>
+        {weather.description}
+      </span>
     </div>
   );
 }

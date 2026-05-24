@@ -67,7 +67,7 @@ export default function ContactanosPage() {
               transition={{ delay: 0.2 }}
               className="bg-white rounded-lg shadow-xl p-6 md:p-8 relative overflow-hidden flex flex-col"
             >
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#FF6B6B]/10 to-transparent blur-3xl -z-10"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[--color-brand-500]/10 to-transparent blur-3xl -z-10"></div>
               
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
                 Envíanos un mensaje
@@ -113,7 +113,7 @@ export default function ContactanosPage() {
                         onChange={handleChange}
                         required
                         placeholder="Ej: María García"
-                        className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[#FF6B6B] focus:bg-white outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[--color-brand-500] focus:bg-white outline-none transition-all"
                       />
                     </div>
 
@@ -129,7 +129,7 @@ export default function ContactanosPage() {
                         onChange={handleChange}
                         required
                         placeholder="tu@email.com"
-                        className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[#FF6B6B] focus:bg-white outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[--color-brand-500] focus:bg-white outline-none transition-all"
                       />
                     </div>
 
@@ -144,7 +144,7 @@ export default function ContactanosPage() {
                         onChange={handleChange}
                         required
                         placeholder="Cuéntanos en qué podemos ayudarte..."
-                        className="w-full flex-1 px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[#FF6B6B] focus:bg-white outline-none transition-all resize-none"
+                        className="w-full flex-1 px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[--color-brand-500] focus:bg-white outline-none transition-all resize-none"
                       />
                     </div>
 
@@ -155,7 +155,7 @@ export default function ContactanosPage() {
                       whileTap={{ scale: 0.98 }}
                       className="group relative overflow-hidden w-full border-2 border-gray-300 bg-gray-100 text-gray-700 font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <div className="absolute inset-0 bg-[#FF6B6B] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-700 ease-out"></div>
+                      <div className="absolute inset-0 bg-[--color-brand-500] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-700 ease-out"></div>
                       
                       <div className="relative flex items-center justify-center gap-2 z-10 group-hover:text-white transition-colors duration-700">
                         {isSubmitting ? (
@@ -184,7 +184,7 @@ export default function ContactanosPage() {
               
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white shadow-xl">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-[--color-brand-500] rounded-full flex items-center justify-center flex-shrink-0">
                     <Phone className="w-5 h-5" />
                   </div>
                   <h3 className="text-xl font-bold">Llámanos</h3>
@@ -193,10 +193,10 @@ export default function ContactanosPage() {
                   Estamos disponibles para atenderte
                 </p>
                 <div className="space-y-1">
-                  <a href="tel:+34900123456" className="block font-semibold hover:text-[#FF6B6B] transition-colors">
+                  <a href="tel:+34900123456" className="block font-semibold hover:text-[--color-brand-500] transition-colors">
                     (+34) 900 123 456
                   </a>
-                  <a href="tel:+34900987654" className="block font-semibold hover:text-[#FF6B6B] transition-colors">
+                  <a href="tel:+34900987654" className="block font-semibold hover:text-[--color-brand-500] transition-colors">
                     (+34) 900 987 654
                   </a>
                 </div>
@@ -204,7 +204,7 @@ export default function ContactanosPage() {
 
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white shadow-xl">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-[--color-brand-500] rounded-full flex items-center justify-center flex-shrink-0">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <h3 className="text-xl font-bold">Localización</h3>
@@ -220,7 +220,7 @@ export default function ContactanosPage() {
 
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white shadow-xl">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-[#FF6B6B] rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-[--color-brand-500] rounded-full flex items-center justify-center flex-shrink-0">
                     <Clock className="w-5 h-5" />
                   </div>
                   <h3 className="text-xl font-bold">Horario de Atención</h3>
