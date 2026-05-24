@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.gstatic.com" },
       { protocol: "https", hostname: "openweathermap.org" },
       { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
     ],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
