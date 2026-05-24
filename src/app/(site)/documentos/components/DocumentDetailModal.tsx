@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X, FileText, Download, Loader, Calendar, Shield, Hash, Globe } from 'lucide-react';
-import { getDocument } from '@/app/lib/api/documents';
+import { useDocumentDetail } from '@/hooks/useDocumentDetail';
 import type { DocumentDetail, DocumentType, DocumentEvent } from '@/app/lib/types/document';
 
 function formatBytes(bytes: number): string {
@@ -49,27 +49,20 @@ export default function DocumentDetailModal({
   onDownload,
   onStatusUpdate,
 }: DocumentDetailModalProps) {
-  const [detail, setDetail] = useState<DocumentDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const detailRef = useRef<DocumentDetail | undefined>(undefined);
 
-  useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
-    setError(null);
+  const {
+    data: detail,
+    isPending: isLoading,
+    error,
+  } = useDocumentDetail(documentId, {
+    // Poll every 5s while the document is still processing (OCR).
+    // Uses a ref closure so the callback always reads the latest state.
+    refetchInterval: () => detailRef.current?.ocr_status === 'processing' ? 5000 : false,
+  });
 
-    getDocument(documentId)
-      .then((data) => { if (!cancelled) { setDetail(data); setIsLoading(false); } })
-      .catch((err) => { if (!cancelled) { setError(err instanceof Error ? err.message : 'Error al cargar el documento'); setIsLoading(false); } });
-
-    return () => { cancelled = true; };
-  }, [documentId]);
-
-  // NOTE: Per-document SSE (useDocumentSSE) removed — the centralized
-  // useRealtimeSSE hook in the app layout invalidates userKeys.documents()
-  // on document.processing.completed. The detail view is read-only between
-  // re-opens; the list view stays fresh via TanStack Query refetch.
+  // Keep ref in sync so the polling callback above always sees the current data
+  detailRef.current = detail;
 
   const typeName = detail ? types.find((t) => t.code === detail.document_type)?.name || detail.document_type : '';
   const isDownloadDisabled = detail?.ocr_status === 'queued' || detail?.ocr_status === 'processing';

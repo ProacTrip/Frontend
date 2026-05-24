@@ -71,6 +71,11 @@ export const ERROR_MAP: Record<string, string> = {
   'forbidden': 'Acceso denegado.',
 };
 
+/**
+ * @deprecated Use {@link parseProblemDetails} from `@/app/lib/utils/problem-details` instead.
+ * This function is no longer used anywhere in the codebase (zero imports).
+ * Kept for backward compatibility only. Will be removed in a future cleanup.
+ */
 export function parseApiError(response: Response): Promise<string> {
   return response.json().then((data: AuthError | RateLimitErrorBody) => {
     if (response.status === 429) {
@@ -98,6 +103,11 @@ export function parseApiError(response: Response): Promise<string> {
   });
 }
 
+/**
+ * @deprecated Use {@link parseProblemDetails} from `@/app/lib/utils/problem-details` instead.
+ * This function is no longer used anywhere in the codebase (zero imports).
+ * Kept for backward compatibility only. Will be removed in a future cleanup.
+ */
 export function getErrorMessage(
   data: AuthError | RateLimitErrorBody,
   status?: number
@@ -126,6 +136,11 @@ export function getErrorMessage(
   };
 }
 
+/**
+ * @deprecated Use {@link parseProblemDetails} from `@/app/lib/utils/problem-details` instead.
+ * This function is no longer used anywhere in the codebase (zero imports).
+ * Kept for backward compatibility only. Will be removed in a future cleanup.
+ */
 export function formatRateLimitError(retryAfterSeconds: number): string {
   if (retryAfterSeconds <= 0) return 'Demasiadas peticiones. Intenta más tarde.';
   if (retryAfterSeconds < 60) return `Demasiadas peticiones. Intenta en ${retryAfterSeconds} segundos.`;

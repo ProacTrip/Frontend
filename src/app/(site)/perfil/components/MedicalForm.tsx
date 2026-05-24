@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
+import { resolveMedicalConflict } from '@/app/lib/api';
 import { useUpdateMedicalProfile } from '@/hooks/useUpdateMedicalProfile';
+import { useMedicalConflicts } from '@/hooks/useMedicalConflicts';
 import { userKeys } from '@/app/lib/queries/queryKeys';
 import type {
   BloodType,
@@ -117,10 +118,13 @@ export function MedicalForm() {
       insuranceInfo,
     }) !== initialSnapshotRef.current;
 
-  // ── Conflict states ──
-  const [conflicts, setConflicts] = useState<MedicalConflict[]>([]);
-  const [loadingConflicts, setLoadingConflicts] = useState(false);
+  // ── Conflict states (backed by TanStack Query) ──
+  const { data: conflictsData, isPending: loading, error: confError } = useMedicalConflicts('pending');
+  const conflicts = conflictsData ?? [];
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  // Log query errors to console for debugging (non-blocking)
+  if (confError) console.error('Error loading medical conflicts:', confError);
   const [resolveError, setResolveError] = useState<Record<string, string>>({});
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [customActive, setCustomActive] = useState<Record<string, boolean>>({});
@@ -201,22 +205,7 @@ export function MedicalForm() {
     }
   }, [medicalProfile]);
 
-  // ── Load conflicts ──
-  const loadConflicts = useCallback(async () => {
-    setLoadingConflicts(true);
-    try {
-      const data = await listMedicalConflicts('pending');
-      setConflicts(data.conflicts || []);
-    } catch (err) {
-      console.error('Error loading conflicts:', err);
-    } finally {
-      setLoadingConflicts(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConflicts();
-  }, [loadConflicts]);
+  // ── Handle form population from medical profile ──
 
   // ── Sub-form helpers: medications ──
   const addMedication = () => setMedications(prev => [...prev, { ...EMPTY_MEDICATION }]);
@@ -323,7 +312,6 @@ export function MedicalForm() {
 
     try {
       await resolveMedicalConflict(conflict.id, { action, ...(action === 'custom' && { value: customValue }) });
-      setConflicts(prev => prev.filter(c => c.id !== conflict.id));
       justSavedRef.current = true;
       await queryClient.invalidateQueries({ queryKey: userKeys.medicalConflicts() });
       await queryClient.invalidateQueries({ queryKey: userKeys.medical() });
@@ -480,7 +468,7 @@ export function MedicalForm() {
       )}
 
       {/* ── Conflict List ── */}
-      {(conflicts.length > 0 || loadingConflicts) && (
+      {(conflicts.length > 0 || loading) && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
           {!hasPendingConflicts && (
             <h3 className="text-lg font-semibold text-amber-800 mb-1 flex items-center gap-2">
@@ -492,7 +480,7 @@ export function MedicalForm() {
               El OCR detectó diferencias con tus datos actuales. Revisá cada conflicto y decidí si aceptar, rechazar o ingresar un valor personalizado.
             </p>
           )}
-          {loadingConflicts ? (
+          {loading ? (
             <div className="flex items-center justify-center py-4">
               <Loader className="w-5 h-5 animate-spin text-amber-600" />
               <span className="ml-2 text-sm text-amber-600">Cargando conflictos...</span>

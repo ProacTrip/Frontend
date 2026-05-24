@@ -14,6 +14,10 @@ import { useRealtimeSSE } from '@/hooks/useRealtimeSSE';
  * Must be a child of QueryClientProvider (needs queryClient) and
  * AuthProvider/AuthContext (needs isAuthenticated).
  * Renders nothing — side-effect only.
+ *
+ * NOTE: useRealtimeSSE() returns { isConnected } (boolean).
+ * It is available for future use (e.g., Navbar connection indicator).
+ * Currently discarded because no visual indicator is wired yet.
  */
 function RealtimeProvider() {
   useRealtimeSSE();
