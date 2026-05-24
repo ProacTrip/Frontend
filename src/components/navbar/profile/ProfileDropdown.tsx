@@ -16,11 +16,11 @@ export default function ProfileDropdown({
   isLanding = false,
 }: ProfileDropdownProps) {
   const { isAuthenticated, isLoading, logout } = useAuth();
-  const { user, profileAvatar } = useAuthContext();
+  const { user, profileFirstName, profileAvatar } = useAuthContext();
   const { environment } = useEnvironment();
   const router = useRouter();
 
-  const userName = user?.email ? user.email.split("@")[0] : null;
+  const userName = profileFirstName ?? (user?.email ? user.email.split("@")[0] : null);
 
   const locationLine = environment?.location
     ? `${environment.location.city || ""}, ${environment.location.country_code || ""}`

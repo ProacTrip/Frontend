@@ -5,7 +5,7 @@ import { listMedicalConflicts, resolveMedicalConflict } from '@/app/lib/api';
 import { useUpdateMedicalProfile } from '@/hooks/useUpdateMedicalProfile';
 import type { BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
 import { UserApiError } from '@/app/lib/api/user';
-import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info, AlertTriangle } from 'lucide-react';
+import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Loader, Info, AlertTriangle } from 'lucide-react';
 
 interface Props {
   onSave: () => void;
@@ -24,7 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export function MedicalForm({ onSave }: Props) {
-  const { medicalProfile, isLoading, error: loadError, updateMutation } = useUpdateMedicalProfile();
+  const { medicalProfile, hasPendingConflicts, pendingConflictCount, isLoading, error: loadError, updateMutation } = useUpdateMedicalProfile();
 
   const [form, setForm] = useState({
     blood_type: '',
@@ -34,7 +34,6 @@ export function MedicalForm({ onSave }: Props) {
     vaccinations: '',
     emergency_contact: '',
     insurance_info: '',
-    is_shared: false,
   });
   const [saveError, setSaveError] = useState('');
 
@@ -69,7 +68,6 @@ export function MedicalForm({ onSave }: Props) {
         insurance_info: typeof medicalProfile.insurance_info === 'object' && medicalProfile.insurance_info !== null
           ? JSON.stringify(medicalProfile.insurance_info)
           : (medicalProfile.insurance_info as string) ?? '',
-        is_shared: false,
       });
     }
   }, [medicalProfile]);
@@ -77,7 +75,7 @@ export function MedicalForm({ onSave }: Props) {
   const loadConflicts = useCallback(async () => {
     setLoadingConflicts(true);
     try {
-      const data = await listMedicalConflicts();
+      const data = await listMedicalConflicts('pending');
       setConflicts(data.conflicts || []);
     } catch (err) {
       // Silently fail — conflicts are optional, medical profile still works
@@ -271,7 +269,7 @@ export function MedicalForm({ onSave }: Props) {
         <h2 className="text-xl font-bold text-gray-800">Perfil médico</h2>
       </div>
       <p className="text-sm text-gray-500 -mt-4 mb-4">
-        Esta información se almacena de forma segura y encriptada. Solo se comparte con proveedores de viaje si activas la opción de compartir.
+        Esta información se almacena de forma segura y encriptada.
       </p>
 
       {saveError && (
@@ -292,16 +290,35 @@ export function MedicalForm({ onSave }: Props) {
         </div>
       )}
 
-      {/* Conflictos Pendientes */}
-      {(conflicts.length > 0 || loadingConflicts) && (
-        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h3 className="text-lg font-semibold text-amber-800 mb-3 flex items-center gap-2">
+      {/* Conflictos Pendientes — badge from medical profile meta */}
+      {hasPendingConflicts && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <h3 className="text-lg font-semibold text-amber-800 mb-1 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
-            Conflictos Pendientes ({conflicts.length})
+            {pendingConflictCount === 1
+              ? 'Hay 1 conflicto pendiente de revisión'
+              : `Hay ${pendingConflictCount} conflictos pendientes de revisión`}
           </h3>
-          <p className="text-sm text-amber-600 mb-4">
+          <p className="text-sm text-amber-600">
             El OCR detectó diferencias con tus datos actuales. Revisá cada conflicto y decidí si aceptar, rechazar o ingresar un valor personalizado.
           </p>
+        </div>
+      )}
+
+      {/* Conflictos — list from API */}
+      {(conflicts.length > 0 || loadingConflicts) && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          {!hasPendingConflicts && (
+            <h3 className="text-lg font-semibold text-amber-800 mb-1 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Conflictos Pendientes ({conflicts.length})
+            </h3>
+          )}
+          {!hasPendingConflicts && (
+            <p className="text-sm text-amber-600 mb-4">
+              El OCR detectó diferencias con tus datos actuales. Revisá cada conflicto y decidí si aceptar, rechazar o ingresar un valor personalizado.
+            </p>
+          )}
 
           {loadingConflicts ? (
             <div className="flex items-center justify-center py-4">
@@ -309,7 +326,7 @@ export function MedicalForm({ onSave }: Props) {
               <span className="ml-2 text-sm text-amber-600">Cargando conflictos...</span>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className={hasPendingConflicts ? 'mt-3 space-y-3' : 'space-y-3'}>
               {conflicts.map((conflict) => renderConflictCard(conflict))}
             </div>
           )}
@@ -426,25 +443,11 @@ export function MedicalForm({ onSave }: Props) {
         </div>
       </div>
 
-      {/* Compartir con proveedores */}
-      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-        <input
-          type="checkbox"
-          name="is_shared"
-          checked={form.is_shared}
-          onChange={handleChange}
-          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500]"
-        />
-        <label className="text-sm text-gray-700 flex items-center gap-2">
-          <Share2 className="w-4 h-4" />
-          Compartir información médica con proveedores de viaje
-        </label>
-      </div>
-
+      <div className="border-t border-gray-100 pt-6 mt-8">
       <button
         type="submit"
         disabled={updateMutation.isPending}
-        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-8 py-3.5 bg-[--color-brand-500] text-white rounded-xl font-bold text-base shadow-sm hover:bg-[--color-brand-600] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
       >
         {updateMutation.isPending ? (
           'Guardando...'
@@ -454,6 +457,7 @@ export function MedicalForm({ onSave }: Props) {
           </>
         )}
       </button>
+      </div>
     </form>
   );
 }

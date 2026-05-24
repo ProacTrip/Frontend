@@ -77,9 +77,12 @@ export interface MedicalProfile {
   insurance_info: MedicalFieldValue<InsuranceInfo | null>;
 }
 
-/** API response wrapper: GET /v1/user/profile/medical → { data: MedicalProfile } */
+/** API response wrapper: GET /v1/user/profile/medical → { data: MedicalProfile, is_shared, has_pending_conflicts, pending_conflict_count } */
 export interface GetMedicalProfileResponse {
   data: MedicalProfile;
+  is_shared: boolean;
+  has_pending_conflicts: boolean;
+  pending_conflict_count: number;
 }
 
 export interface UpdateMedicalProfileBody {

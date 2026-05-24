@@ -58,8 +58,14 @@ export function useUpdateMedicalProfile() {
     },
   });
 
+  // Extract meta fields from the adapted profile (passthrough from top-level API response)
+  const hasPendingConflicts = (rawData?.has_pending_conflicts as boolean) ?? false;
+  const pendingConflictCount = (rawData?.pending_conflict_count as number) ?? 0;
+
   return {
     medicalProfile: rawData ?? null,
+    hasPendingConflicts,
+    pendingConflictCount,
     isLoading,
     error: error instanceof Error ? error.message : null,
     updateMutation,

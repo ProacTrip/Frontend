@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
+import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import type { Profile, UpdateProfileBody } from '@/app/lib/types/user';
 import { Save, AlertCircle, Globe, Clock, Languages, Coins } from 'lucide-react';
 
@@ -54,6 +55,7 @@ const CURRENCIES = [
 
 export function LocaleForm({ profile, onSave }: Props) {
   const updateProfileMutation = useUpdateProfile();
+  const { setActiveCurrency } = useCurrencyContext();
 
   const [form, setForm] = useState({
     timezone_name: profile.timezone_name ?? '',
@@ -78,6 +80,10 @@ export function LocaleForm({ profile, onSave }: Props) {
       if (form.currency_code) payload.currency = form.currency_code;
 
       await updateProfileMutation.mutateAsync(payload);
+      // Sync CurrencyContext so the navbar CurrencySelector reflects the update
+      if (payload.currency) {
+        setActiveCurrency(payload.currency);
+      }
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar localización');
@@ -158,10 +164,11 @@ export function LocaleForm({ profile, onSave }: Props) {
         </div>
       </div>
 
+      <div className="border-t border-gray-100 pt-6 mt-8">
       <button
         type="submit"
         disabled={updateProfileMutation.isPending}
-        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-8 py-3.5 bg-[--color-brand-500] text-white rounded-xl font-bold text-base shadow-sm hover:bg-[--color-brand-600] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
       >
         {updateProfileMutation.isPending ? (
           'Guardando...'
@@ -171,6 +178,7 @@ export function LocaleForm({ profile, onSave }: Props) {
           </>
         )}
       </button>
+      </div>
     </form>
   );
 }

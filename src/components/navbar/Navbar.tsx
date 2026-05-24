@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
@@ -22,6 +22,7 @@ const TABS = [
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { environment } = useEnvironment();
 
   // ─── STATE ──────────────────────────────────────
@@ -119,7 +120,8 @@ export default function Navbar() {
   );
 
   // ─── DERIVED ────────────────────────────────────
-  const isHero = !isScrolled && !expanded;
+  const isLandingPage = pathname === "/";
+  const isHero = isLandingPage && !isScrolled && !expanded;
 
   // ─── GUESTS HANDLER ────────────────────────────
   const handleGuestsChange = useCallback(
@@ -203,7 +205,7 @@ export default function Navbar() {
           {/* NAVBAR STRIP */}
           <div
             className={`relative z-20 h-[72px] flex items-center justify-between px-6 lg:px-8 transition-colors duration-300 ${
-              isHero ? "bg-transparent" : "bg-white shadow-sm"
+              isHero ? "bg-transparent" : "bg-white shadow-sm border-b border-neutral-100"
             }`}
           >
             {/* LEFT — LOGO */}

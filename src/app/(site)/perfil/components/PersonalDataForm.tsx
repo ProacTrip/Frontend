@@ -190,10 +190,11 @@ export function PersonalDataForm({ profile, onSave }: Props) {
         </div>
       </div>
 
+      <div className="border-t border-gray-100 pt-6 mt-8">
       <button
         type="submit"
         disabled={updateProfileMutation.isPending}
-        className="px-6 py-3 bg-[--color-brand-500] text-white rounded-xl font-bold hover:bg-[--color-brand-600] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        className="px-8 py-3.5 bg-[--color-brand-500] text-white rounded-xl font-bold text-base shadow-sm hover:bg-[--color-brand-600] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
       >
         {updateProfileMutation.isPending ? (
           'Guardando...'
@@ -203,6 +204,7 @@ export function PersonalDataForm({ profile, onSave }: Props) {
           </>
         )}
       </button>
+      </div>
     </form>
   );
 }

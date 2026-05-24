@@ -28,6 +28,8 @@ export interface AuthContextType {
   profileLanguage: string | null;
   /** Profile currency_code (ISO 4217), null when profile not loaded or user unauthenticated. */
   profileCurrency: string | null;
+  /** Profile first_name, null when profile not loaded or user unauthenticated. */
+  profileFirstName: string | null;
   /** Profile avatar URL (Google picture or custom upload), null when profile not loaded or user unauthenticated. */
   profileAvatar: string | null;
   logout: () => Promise<void>;
@@ -101,6 +103,11 @@ export function AuthProvider({
   const profileCurrency = useMemo(() => {
     if (!profileQuery.data?.profile) return null;
     return profileQuery.data.profile.currency_code ?? null;
+  }, [profileQuery.data]);
+
+  const profileFirstName = useMemo(() => {
+    if (!profileQuery.data?.profile) return null;
+    return profileQuery.data.profile.first_name ?? null;
   }, [profileQuery.data]);
 
   const profileAvatar = useMemo(() => {
@@ -177,10 +184,11 @@ export function AuthProvider({
       setUser,
       profileLanguage,
       profileCurrency,
+      profileFirstName,
       profileAvatar,
       logout,
     }),
-    [user, isLoading, isAccountDisabled, error, setUser, profileLanguage, profileCurrency, profileAvatar, logout],
+    [user, isLoading, isAccountDisabled, error, setUser, profileLanguage, profileCurrency, profileFirstName, profileAvatar, logout],
   );
 
   return (

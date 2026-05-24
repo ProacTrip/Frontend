@@ -417,6 +417,10 @@ export function adaptMedicalProfile(raw: Record<string, unknown>): Record<string
     vaccinations: unwrap(data.vaccinations),
     emergency_contact: unwrap(data.emergency_contact),
     insurance_info: unwrap(data.insurance_info),
+    // Passthrough meta fields from top-level response
+    is_shared: raw.is_shared as boolean ?? false,
+    has_pending_conflicts: raw.has_pending_conflicts as boolean ?? false,
+    pending_conflict_count: raw.pending_conflict_count as number ?? 0,
   };
 }
 
