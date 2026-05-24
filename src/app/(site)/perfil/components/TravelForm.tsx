@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useUpdateTravelPreferences } from '@/hooks/useUpdateTravelPreferences';
 import { TravelPreferences } from '@/app/lib/types/user';
-import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2 } from 'lucide-react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
+import { Save, AlertCircle, Plane, UtensilsCrossed, Hotel, Clock, Building2, ChevronDown } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
@@ -17,6 +18,22 @@ interface Props {
  * that contain commas (e.g., "JW Marriott, Dubai").
  */
 const ARRAY_SEPARATOR = '; ';
+
+const CLASS_OPTIONS = [
+  { value: '', label: 'Sin preferencia' },
+  { value: 'economy', label: 'Economy' },
+  { value: 'premium_economy', label: 'Premium Economy' },
+  { value: 'business', label: 'Business' },
+  { value: 'first', label: 'First' },
+];
+
+const SEAT_OPTIONS = [
+  { value: '', label: 'Sin preferencia' },
+  { value: 'window', label: 'Ventana' },
+  { value: 'aisle', label: 'Pasillo' },
+  { value: 'middle', label: 'Medio' },
+  { value: 'no_preference', label: 'Sin preferencia (explícito)' },
+];
 
 export function TravelForm({ prefs, onSave }: Props) {
   const updatePrefsMutation = useUpdateTravelPreferences();
@@ -42,6 +59,9 @@ export function TravelForm({ prefs, onSave }: Props) {
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     }));
   };
+
+  const setPreferredClass = (value: string) => setForm((prev) => ({ ...prev, preferred_class: value }));
+  const setSeatPreference = (value: string) => setForm((prev) => ({ ...prev, seat_preference: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,35 +123,55 @@ export function TravelForm({ prefs, onSave }: Props) {
         {/* Clase preferida */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Clase preferida</label>
-          <select
-            name="preferred_class"
-            value={form.preferred_class}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
-          >
-            <option value="">Sin preferencia</option>
-            <option value="economy">Economy</option>
-            <option value="premium_economy">Premium Economy</option>
-            <option value="business">Business</option>
-            <option value="first">First</option>
-          </select>
+          <Listbox value={form.preferred_class} onChange={setPreferredClass}>
+            <ListboxButton className="w-full p-3 border border-neutral-200 rounded-xl text-left flex items-center justify-between focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white">
+              <span className={form.preferred_class ? 'text-gray-800' : 'text-gray-400'}>
+                {CLASS_OPTIONS.find((c) => c.value === form.preferred_class)?.label ?? 'Sin preferencia'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            </ListboxButton>
+            <ListboxOptions
+              anchor="bottom"
+              className="w-[var(--button-width)] bg-white border border-neutral-200 rounded-xl shadow-lg mt-1 max-h-60 overflow-auto z-50"
+            >
+              {CLASS_OPTIONS.map((opt) => (
+                <ListboxOption
+                  key={opt.value}
+                  value={opt.value}
+                  className="px-4 py-2.5 cursor-pointer data-[focus]:bg-brand-50 data-[selected]:bg-brand-100"
+                >
+                  {opt.label}
+                </ListboxOption>
+              ))}
+            </ListboxOptions>
+          </Listbox>
         </div>
 
         {/* Asiento preferido */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Asiento preferido</label>
-          <select
-            name="seat_preference"
-            value={form.seat_preference}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
-          >
-            <option value="">Sin preferencia</option>
-            <option value="window">Ventana</option>
-            <option value="aisle">Pasillo</option>
-            <option value="middle">Medio</option>
-            <option value="no_preference">Sin preferencia (explícito)</option>
-          </select>
+          <Listbox value={form.seat_preference} onChange={setSeatPreference}>
+            <ListboxButton className="w-full p-3 border border-neutral-200 rounded-xl text-left flex items-center justify-between focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white">
+              <span className={form.seat_preference ? 'text-gray-800' : 'text-gray-400'}>
+                {SEAT_OPTIONS.find((s) => s.value === form.seat_preference)?.label ?? 'Sin preferencia'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            </ListboxButton>
+            <ListboxOptions
+              anchor="bottom"
+              className="w-[var(--button-width)] bg-white border border-neutral-200 rounded-xl shadow-lg mt-1 max-h-60 overflow-auto z-50"
+            >
+              {SEAT_OPTIONS.map((opt) => (
+                <ListboxOption
+                  key={opt.value}
+                  value={opt.value}
+                  className="px-4 py-2.5 cursor-pointer data-[focus]:bg-brand-50 data-[selected]:bg-brand-100"
+                >
+                  {opt.label}
+                </ListboxOption>
+              ))}
+            </ListboxOptions>
+          </Listbox>
         </div>
 
         {/* Comida */}

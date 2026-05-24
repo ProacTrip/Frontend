@@ -25,7 +25,7 @@ import {
 
 const TABS = [
   { id: 'personal', label: 'Datos personales', icon: User },
-  { id: 'locale', label: 'Localización', icon: Globe },
+  { id: 'locale', label: 'Idioma y moneda', icon: Globe },
   { id: 'travel', label: 'Viaje', icon: Plane },
   { id: 'medical', label: 'Médico', icon: HeartPulse },
   { id: 'avatar', label: 'Avatar', icon: ImageIcon },

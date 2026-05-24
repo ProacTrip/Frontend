@@ -1,33 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
 import type { Profile, UpdateProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, Globe, Clock, Languages, Coins } from 'lucide-react';
+import { Save, AlertCircle, Globe, Languages, Coins, ChevronDown } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
 interface Props {
   profile: Profile;
   onSave: () => void;
 }
-
-// Listas predefinidas (puedes expandirlas o cargarlas de una API)
-const TIMEZONES = [
-  'Europe/Madrid',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'America/New_York',
-  'America/Los_Angeles',
-  'America/Mexico_City',
-  'America/Buenos_Aires',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Dubai',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-];
 
 const LANGUAGES = [
   { code: 'es', name: 'Español' },
@@ -36,9 +20,15 @@ const LANGUAGES = [
   { code: 'de', name: 'Deutsch' },
   { code: 'it', name: 'Italiano' },
   { code: 'pt', name: 'Português' },
+  { code: 'nl', name: 'Nederlands' },
+  { code: 'ru', name: 'Русский' },
   { code: 'ja', name: '日本語' },
   { code: 'zh', name: '中文' },
+  { code: 'ko', name: '한국어' },
   { code: 'ar', name: 'العربية' },
+  { code: 'hi', name: 'हिन्दी' },
+  { code: 'tr', name: 'Türkçe' },
+  { code: 'th', name: 'ไทย' },
 ];
 
 const CURRENCIES = [
@@ -59,42 +49,40 @@ export function LocaleForm({ profile, onSave }: Props) {
   const { setActiveCurrency } = useCurrencyContext();
 
   const [form, setForm] = useState({
-    timezone_name: profile.timezone_name ?? '',
     language_code: profile.language_code ?? '',
     currency_code: profile.currency_code ?? '',
   });
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  const setLanguage = (code: string) => setForm((prev) => ({ ...prev, language_code: code }));
+  const setCurrency = (code: string) => setForm((prev) => ({ ...prev, currency_code: code }));
+
+  const selectedLanguage = LANGUAGES.find((l) => l.code === form.language_code) ?? null;
+  const selectedCurrency = CURRENCIES.find((c) => c.code === form.currency_code) ?? null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      // locale update merged into updateProfile (PATCH /v1/user/profile)
       const payload: UpdateProfileBody = {};
       if (form.language_code) payload.language = form.language_code;
       if (form.currency_code) payload.currency = form.currency_code;
 
       await updateProfileMutation.mutateAsync(payload);
-      // Sync CurrencyContext so the navbar CurrencySelector reflects the update
       if (payload.currency) {
         setActiveCurrency(payload.currency);
       }
       onSave();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar localización');
+      setError(err instanceof Error ? err.message : 'Error al actualizar preferencias');
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-        <Globe className="w-5 h-5 text-[--color-brand-500]" /> Localización
+        <Globe className="w-5 h-5 text-[--color-brand-500]" /> Idioma y moneda
       </h2>
 
       {error && (
@@ -103,45 +91,34 @@ export function LocaleForm({ profile, onSave }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Zona horaria */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-            <Clock className="w-4 h-4" /> Zona horaria
-          </label>
-          <select
-            name="timezone_name"
-            value={form.timezone_name}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
-          >
-            <option value="">Seleccionar...</option>
-            {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Idioma */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
             <Languages className="w-4 h-4" /> Idioma
           </label>
-          <select
-            name="language_code"
-            value={form.language_code}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
-          >
-            <option value="">Seleccionar...</option>
-            {LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name}
-              </option>
-            ))}
-          </select>
+          <Listbox value={selectedLanguage} onChange={(opt) => setLanguage(opt?.code ?? '')}>
+            <ListboxButton className="w-full p-3 border border-neutral-200 rounded-xl text-left flex items-center justify-between focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white">
+              <span className={form.language_code ? 'text-gray-800' : 'text-gray-400'}>
+                {selectedLanguage?.name ?? 'Seleccionar...'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            </ListboxButton>
+            <ListboxOptions
+              anchor="bottom"
+              className="w-[var(--button-width)] bg-white border border-neutral-200 rounded-xl shadow-lg mt-1 max-h-60 overflow-auto z-50"
+            >
+              {LANGUAGES.map((lang) => (
+                <ListboxOption
+                  key={lang.code}
+                  value={lang}
+                  className="px-4 py-2.5 cursor-pointer data-[focus]:bg-brand-50 data-[selected]:bg-brand-100"
+                >
+                  {lang.name}
+                </ListboxOption>
+              ))}
+            </ListboxOptions>
+          </Listbox>
         </div>
 
         {/* Moneda */}
@@ -149,19 +126,28 @@ export function LocaleForm({ profile, onSave }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
             <Coins className="w-4 h-4" /> Moneda
           </label>
-          <select
-            name="currency_code"
-            value={form.currency_code}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white"
-          >
-            <option value="">Seleccionar...</option>
-            {CURRENCIES.map((curr) => (
-              <option key={curr.code} value={curr.code}>
-                {curr.name}
-              </option>
-            ))}
-          </select>
+          <Listbox value={selectedCurrency} onChange={(opt) => setCurrency(opt?.code ?? '')}>
+            <ListboxButton className="w-full p-3 border border-neutral-200 rounded-xl text-left flex items-center justify-between focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all bg-white">
+              <span className={form.currency_code ? 'text-gray-800' : 'text-gray-400'}>
+                {selectedCurrency?.name ?? 'Seleccionar...'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            </ListboxButton>
+            <ListboxOptions
+              anchor="bottom"
+              className="w-[var(--button-width)] bg-white border border-neutral-200 rounded-xl shadow-lg mt-1 max-h-60 overflow-auto z-50"
+            >
+              {CURRENCIES.map((curr) => (
+                <ListboxOption
+                  key={curr.code}
+                  value={curr}
+                  className="px-4 py-2.5 cursor-pointer data-[focus]:bg-brand-50 data-[selected]:bg-brand-100"
+                >
+                  {curr.name}
+                </ListboxOption>
+              ))}
+            </ListboxOptions>
+          </Listbox>
         </div>
       </div>
 
