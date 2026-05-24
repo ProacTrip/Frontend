@@ -22,8 +22,6 @@ import type {
   AddFavoriteResponse,
   PendingConflictsResponse,
   ResolveConflictBody,
-  Channel,
-  NotificationPreference,
   TravelPreferences,
 } from '@/app/lib/types/user';
 import { rateLimitStore } from './rate-limit';
@@ -231,7 +229,7 @@ export async function parseUserError(response: Response, endpoint: string): Prom
 // ==========================================
 
 /**
- * Get user profile, travel preferences, and notification preferences.
+ * Get user profile and travel preferences.
  *
  * Direct fetch with credentials:"include".
  * 10s timeout via AbortController.
@@ -281,17 +279,6 @@ export async function getProfile(signal?: AbortSignal): Promise<ProfileResponse>
 function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
   const loc = (raw.location as Record<string, unknown>) || {};
 
-  // Convertir notification_preferences de objeto {type: {channel: bool}} a array NotificationPreference[]
-  const notification_preferences: NotificationPreference[] = Object.entries(
-    (raw.notification_preferences as Record<string, Record<string, boolean>>) || {}
-  ).flatMap(([type, channels]) =>
-    Object.entries(channels).map(([channel, enabled]) => ({
-      notification_type: type,
-      channel: channel as Channel,
-      enabled,
-    }))
-  );
-
   // Build Profile: use backend id/user_id/email directly, derive locale fields from location
   return {
     profile: {
@@ -311,7 +298,6 @@ function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
       timezone_name: (loc.timezone as string) ?? null,
     },
     travel_preferences: raw.travel_preferences as TravelPreferences | null,
-    notification_preferences,
   };
 }
 

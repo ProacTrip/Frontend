@@ -12,7 +12,6 @@ import {
   Globe,
   Plane,
   HeartPulse,
-  Bell,
   Image as ImageIcon,
 } from 'lucide-react';
 
@@ -21,7 +20,6 @@ import {
   LocaleForm,
   TravelForm,
   MedicalForm,
-  NotificationsForm,
   AvatarForm,
 } from './components';
 
@@ -30,7 +28,6 @@ const TABS = [
   { id: 'locale', label: 'Localización', icon: Globe },
   { id: 'travel', label: 'Viaje', icon: Plane },
   { id: 'medical', label: 'Médico', icon: HeartPulse },
-  { id: 'notifications', label: 'Notificaciones', icon: Bell },
   { id: 'avatar', label: 'Avatar', icon: ImageIcon },
 ];
 
@@ -81,7 +78,7 @@ export default function ProfilePage() {
 
   if (!data) return null;
 
-  const { profile, travel_preferences, notification_preferences } = data;
+  const { profile, travel_preferences } = data;
   const userEmail = user?.email ?? null;
 
   return (
@@ -167,9 +164,6 @@ export default function ProfilePage() {
         )}
         {activeTab === 'medical' && (
           <MedicalForm onSave={reloadProfile} />
-        )}
-        {activeTab === 'notifications' && (
-          <NotificationsForm prefs={notification_preferences} onSave={reloadProfile} />
         )}
         {activeTab === 'avatar' && (
           <AvatarForm currentUrl={profile.avatar_url} onSave={reloadProfile} />

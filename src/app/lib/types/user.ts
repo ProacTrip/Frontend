@@ -152,13 +152,12 @@ export interface UpdateTravelPreferencesBody {
 }
 
 // ─────────────────────────────────────────────────────────────
-// NOTIFICACIONES
+// RESPUESTA PRINCIPAL (GET /v1/user/profile)
 // ─────────────────────────────────────────────────────────────
 
-export interface NotificationPreference {
-  channel: Channel;
-  notification_type: string;
-  enabled: boolean;
+export interface ProfileResponse {
+  profile: Profile;
+  travel_preferences: TravelPreferences | null;
 }
 
 // NOTE: updateNotificationPreference() removed — endpoint doesn't exist yet.
@@ -223,7 +222,6 @@ export type PendingConflicts = MedicalConflict[];
 export interface ProfileResponse {
   profile: Profile;
   travel_preferences: TravelPreferences | null;
-  notification_preferences: NotificationPreference[];
 }
 
 // ─────────────────────────────────────────────────────────────

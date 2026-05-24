@@ -95,7 +95,6 @@ export type {
   ResolveConflictBody,
   ConflictAction,
   PendingConflicts,
-  NotificationPreference,
   AvatarUploadUrl,
   Gender,
   PreferredClass,
