@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { updateNotificationPreference } from '@/app/lib/api';
-import { NotificationPreference, Channel } from '@/app/lib/types/user';
-import { Bell, Mail, MessageSquare, Wifi, AlertCircle } from 'lucide-react';
+import type { NotificationPreference, Channel } from '@/app/lib/types/user';
+import { Bell, Mail, MessageSquare, Wifi, AlertCircle, AlertTriangle } from 'lucide-react';
 
 interface Props {
   prefs: NotificationPreference[];
@@ -47,39 +46,14 @@ export function NotificationsForm({ prefs, onSave }: Props) {
 
   const handleToggle = async (notification_type: string, channel: Channel) => {
     const key = getKey(notification_type, channel);
-    const newEnabled = !isEnabled(notification_type, channel);
 
-    setLoadingMap((prev) => ({ ...prev, [key]: true }));
-    setErrorMap((prev) => ({ ...prev, [key]: '' }));
-
-    try {
-      await updateNotificationPreference({
-        channel,
-        notification_type,
-        enabled: newEnabled,
-      });
-
-      // Actualizar estado local
-      setPreferences((prev) => {
-        const existingIndex = prev.findIndex(
-          (p) => p.notification_type === notification_type && p.channel === channel
-        );
-
-        if (existingIndex >= 0) {
-          const next = [...prev];
-          next[existingIndex] = { ...next[existingIndex], enabled: newEnabled };
-          return next;
-        }
-
-        return [...prev, { channel, notification_type, enabled: newEnabled }];
-      });
-
-      onSave();
-    } catch (err: unknown) {
-      setErrorMap((prev) => ({ ...prev, [key]: err instanceof Error ? err.message : 'Error al actualizar notificación' }));
-    } finally {
-      setLoadingMap((prev) => ({ ...prev, [key]: false }));
-    }
+    // TODO PR #4: Re-enable when notification preferences endpoint is implemented.
+    // Endpoint /v1/user/profile/notifications does not exist yet.
+    // For now, toggles are read-only.
+    setErrorMap((prev) => ({
+      ...prev,
+      [key]: 'Las preferencias de notificación aún no están disponibles. Pronto podrás configurarlas.',
+    }));
   };
 
   const types = Object.keys(NOTIFICATION_TYPES);

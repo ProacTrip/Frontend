@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getMedicalProfile, updateMedicalProfile, listMedicalConflicts, resolveMedicalConflict, adaptMedicalProfile } from '@/app/lib/api';
-import { MedicalProfile, BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
+import type { MedicalProfile, GetMedicalProfileResponse, BloodType, UpdateMedicalProfileBody, MedicalConflict, ConflictAction } from '@/app/lib/types/user';
 import { UserApiError } from '@/app/lib/api/user';
 import { Save, AlertCircle, HeartPulse, Droplets, Pill, Stethoscope, Syringe, Phone, Shield, Share2, Loader, Info, AlertTriangle } from 'lucide-react';
 
@@ -50,19 +50,32 @@ export function MedicalForm({ onSave }: Props) {
 
   const loadMedicalProfile = useCallback(async () => {
     try {
-      const data = await getMedicalProfile();
-      if (data) {
-        setProfile(data);
-        const adapted = adaptMedicalProfile(data as unknown as Record<string, unknown>);
+      const response: GetMedicalProfileResponse | null = await getMedicalProfile();
+      if (response?.data) {
+        setProfile(response.data);
+        // adaptMedicalProfile handles the { data: { ... } } wrapper internally
+        const adapted = adaptMedicalProfile(response as unknown as Record<string, unknown>);
         setForm({
           blood_type: (adapted.blood_type as string) ?? '',
-          allergies: (adapted.allergies as string) ?? '',
-          medications: (adapted.medications as string) ?? '',
-          conditions: (adapted.conditions as string) ?? '',
-          vaccinations: (adapted.vaccinations as string) ?? '',
-          emergency_contact: (adapted.emergency_contact as string) ?? '',
-          insurance_info: (adapted.insurance_info as string) ?? '',
-          is_shared: (adapted.is_shared as boolean) ?? false,
+          allergies: Array.isArray(adapted.allergies)
+            ? (adapted.allergies as string[]).join(', ')
+            : (adapted.allergies as string) ?? '',
+          medications: Array.isArray(adapted.medications)
+            ? JSON.stringify(adapted.medications)
+            : (adapted.medications as string) ?? '',
+          conditions: Array.isArray(adapted.conditions)
+            ? (adapted.conditions as string[]).join(', ')
+            : (adapted.conditions as string) ?? '',
+          vaccinations: Array.isArray(adapted.vaccinations)
+            ? JSON.stringify(adapted.vaccinations)
+            : (adapted.vaccinations as string) ?? '',
+          emergency_contact: typeof adapted.emergency_contact === 'object' && adapted.emergency_contact !== null
+            ? JSON.stringify(adapted.emergency_contact)
+            : (adapted.emergency_contact as string) ?? '',
+          insurance_info: typeof adapted.insurance_info === 'object' && adapted.insurance_info !== null
+            ? JSON.stringify(adapted.insurance_info)
+            : (adapted.insurance_info as string) ?? '',
+          is_shared: false,  // TODO PR #4: is_shared moved; track separately
         });
       }
     } catch (err: unknown) {
@@ -108,22 +121,18 @@ export function MedicalForm({ onSave }: Props) {
     setSaveError('');
 
     try {
-      // ✅ FIX: Usar Partial<UpdateMedicalProfileBody> en vez de Record<string, any>
-      const payload: Partial<UpdateMedicalProfileBody> = {};
+      // TODO PR #4: Refactor form to use typed arrays/objects instead of string inputs.
+      // The backend now expects proper types: string[] for allergies/conditions,
+      // Medication[] for medications, Vaccination[] for vaccinations,
+      // EmergencyContact for emergency_contact, InsuranceInfo for insurance_info.
+      // For now, we send string values as a backward-compatible fallback.
+      const payload = {
+        blood_type: form.blood_type ? (form.blood_type as BloodType) : null,
+        allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()).filter(Boolean) : null,
+        conditions: form.conditions ? form.conditions.split(',').map(s => s.trim()).filter(Boolean) : null,
+      } as UpdateMedicalProfileBody;
 
-      // Blood type: si está vacío, enviar null
-      payload.blood_type = form.blood_type ? (form.blood_type as BloodType) : null;
-
-      // Strings: permitir "" para borrar (intencional según diseño)
-      payload.allergies = form.allergies || null;
-      payload.medications = form.medications || null;
-      payload.conditions = form.conditions || null;
-      payload.vaccinations = form.vaccinations || null;
-      payload.emergency_contact = form.emergency_contact || null;
-      payload.insurance_info = form.insurance_info || null;
-      payload.is_shared = form.is_shared;
-
-      await updateMedicalProfile(payload as UpdateMedicalProfileBody);
+      await updateMedicalProfile(payload);
       onSave();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Error al guardar perfil médico');
@@ -137,10 +146,9 @@ export function MedicalForm({ onSave }: Props) {
     setResolveError(prev => ({ ...prev, [conflict.id]: '' }));
 
     try {
-      await resolveMedicalConflict({
-        pending_update_id: conflict.id,
+      await resolveMedicalConflict(conflict.id, {
         action,
-        ...(action === 'custom' && { custom_value: customValue }),
+        ...(action === 'custom' && { value: customValue }),
       });
 
       // Remove resolved conflict from list

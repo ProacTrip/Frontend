@@ -23,8 +23,8 @@ function statusColor(status: string): string {
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'uploaded':
-      return 'Subido';
+    case 'queued':
+      return 'En cola';
     case 'processing':
       return 'Procesando';
     case 'completed':
@@ -77,7 +77,7 @@ export default function DocumentCard({
 }: DocumentCardProps) {
   const isProcessing = doc.ocr_status === 'processing';
   const isDeleting = deletingId === doc.id;
-  const isDownloadDisabled = doc.ocr_status === 'uploaded' || doc.ocr_status === 'processing';
+  const isDownloadDisabled = doc.ocr_status === 'queued' || doc.ocr_status === 'processing';
 
   // Look up the document type name from cached types
   const typeName =

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { updateProfile } from '@/app/lib/api';
 import { Profile, UpdateProfileBody } from '@/app/lib/types/user';
-import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText, Eye } from 'lucide-react';
+import { Save, AlertCircle, User, Calendar, Globe, Phone, FileText } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -19,7 +19,6 @@ export function PersonalDataForm({ profile, onSave }: Props) {
     nationality: profile.nationality ?? '',
     phone: profile.phone ?? '',
     bio: profile.bio ?? '',
-    is_public: profile.is_public ?? false,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -193,21 +192,6 @@ export function PersonalDataForm({ profile, onSave }: Props) {
             className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
           />
         </div>
-      </div>
-
-      {/* Perfil público */}
-      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-        <input
-          type="checkbox"
-          name="is_public"
-          checked={form.is_public ?? false}
-          onChange={handleChange}
-          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500]"
-        />
-        <label className="text-sm text-gray-700 flex items-center gap-2">
-          <Eye className="w-4 h-4" />
-          Hacer mi perfil público
-        </label>
       </div>
 
       <button

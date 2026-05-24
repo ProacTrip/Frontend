@@ -20,7 +20,7 @@ interface DocumentFiltersProps {
 
 const STATUS_TABS = [
   { value: null, label: 'Todos' },
-  { value: 'uploaded', label: 'Subidos' },
+  { value: 'queued', label: 'En cola' },
   { value: 'processing', label: 'Procesando' },
   { value: 'completed', label: 'Completados' },
   { value: 'rejected', label: 'Rechazados' },

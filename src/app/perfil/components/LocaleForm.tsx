@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { updateLocale } from '@/app/lib/api';
-import { Profile } from '@/app/lib/types/user';
-import { Save, AlertCircle, Globe, Clock, Languages, Coins, MapPin } from 'lucide-react';
+import { updateProfile } from '@/app/lib/api';
+import type { Profile, UpdateProfileBody } from '@/app/lib/types/user';
+import { Save, AlertCircle, Globe, Clock, Languages, Coins } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -57,7 +57,6 @@ export function LocaleForm({ profile, onSave }: Props) {
     timezone_name: profile.timezone_name ?? '',
     language_code: profile.language_code ?? '',
     currency_code: profile.currency_code ?? '',
-    current_location: profile.current_location ?? '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -73,14 +72,12 @@ export function LocaleForm({ profile, onSave }: Props) {
     setError('');
 
     try {
-      // Solo enviar campos que tengan valor
-      const payload: Record<string, string> = {};
-      if (form.timezone_name) payload.timezone_name = form.timezone_name;
-      if (form.language_code) payload.language_code = form.language_code;
-      if (form.currency_code) payload.currency_code = form.currency_code;
-      if (form.current_location) payload.current_location = form.current_location;
+      // locale update merged into updateProfile (PATCH /v1/user/profile)
+      const payload: UpdateProfileBody = {};
+      if (form.language_code) payload.language = form.language_code;
+      if (form.currency_code) payload.currency = form.currency_code;
 
-      await updateLocale(payload);
+      await updateProfile(payload);
       onSave();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al actualizar localización');
@@ -161,20 +158,6 @@ export function LocaleForm({ profile, onSave }: Props) {
             ))}
           </select>
         </div>
-      </div>
-
-      {/* Ubicación actual */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-          <MapPin className="w-4 h-4" /> Ubicación actual
-        </label>
-        <input
-          name="current_location"
-          value={form.current_location}
-          onChange={handleChange}
-          placeholder="Madrid, España"
-          className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all"
-        />
       </div>
 
       <button

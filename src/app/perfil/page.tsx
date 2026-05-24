@@ -111,13 +111,6 @@ export default function ProfilePage() {
           <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-[--color-brand-500] to-[--color-brand-400] flex items-center justify-center border-4 border-white shadow-lg ${profile.avatar_url ? 'absolute top-0 left-0 -z-10' : ''}`}>
             <User className="w-10 h-10 text-white" />
           </div>
-          {profile.phone_verified && (
-            <span className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs w-6 h-6 flex items-center justify-center rounded-full border-2 border-white">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
-          )}
         </div>
 
         <div className="flex-1">
@@ -131,23 +124,6 @@ export default function ProfilePage() {
           )}
 
           <div className="flex flex-wrap gap-2 mt-3">
-            {profile.phone_verified ? (
-              <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-                Teléfono verificado
-              </span>
-            ) : (
-              <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                Teléfono no verificado
-              </span>
-            )}
-            {profile.is_public && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                Perfil público
-              </span>
-            )}
           </div>
         </div>
       </div>

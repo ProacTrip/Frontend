@@ -15,7 +15,7 @@ function formatBytes(bytes: number): string {
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'uploaded': return 'Subido';
+    case 'queued': return 'En cola';                           // ← renamed from 'uploaded'
     case 'processing': return 'Procesando';
     case 'completed': return 'Completado';
     case 'rejected': return 'Rechazado';
@@ -27,6 +27,7 @@ function statusLabel(status: string): string {
 function statusColor(status: string): string {
   switch (status) {
     case 'completed': return 'bg-green-100 text-green-800';
+    case 'queued':
     case 'processing': return 'bg-amber-100 text-amber-800';
     case 'failed':
     case 'rejected': return 'bg-red-100 text-red-800';
@@ -82,7 +83,8 @@ export default function DocumentDetailModal({
   });
 
   const typeName = detail ? types.find((t) => t.code === detail.document_type)?.name || detail.document_type : '';
-  const isDownloadDisabled = detail?.ocr_status === 'uploaded' || detail?.ocr_status === 'processing';
+  const isDownloadDisabled = detail?.ocr_status === 'queued' || detail?.ocr_status === 'processing';
+  const ed = detail?.extracted_data;  // valid_from, valid_until, document_number, issuing_country live inside extracted_data now
 
   return (
     <Dialog open={true} onClose={onClose} className="relative z-50">
@@ -132,15 +134,15 @@ export default function DocumentDetailModal({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2 text-neutral-600"><FileText className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Tamaño: {formatBytes(detail.file_size)}</span></div>
                   <div className="flex items-center gap-2 text-neutral-600"><Calendar className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Creado: {new Date(detail.created_at).toLocaleDateString('es-AR')}</span></div>
-                  {detail.document_number && <div className="flex items-center gap-2 text-neutral-600"><Hash className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Nº {detail.document_number}</span></div>}
-                  {detail.issuing_country && <div className="flex items-center gap-2 text-neutral-600"><Globe className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>{detail.issuing_country}</span></div>}
-                  {detail.is_verified && <div className="flex items-center gap-2 text-green-600"><Shield className="w-4 h-4 flex-shrink-0" /><span>Verificado</span></div>}
+                  {ed?.document_number != null && typeof ed.document_number !== 'object' && <div className="flex items-center gap-2 text-neutral-600"><Hash className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Nº {String(ed.document_number)}</span></div>}
+                  {ed?.issuing_country != null && typeof ed.issuing_country !== 'object' && <div className="flex items-center gap-2 text-neutral-600"><Globe className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>{String(ed.issuing_country)}</span></div>}
+                  {detail.verification_status === 'verified' && <div className="flex items-center gap-2 text-green-600"><Shield className="w-4 h-4 flex-shrink-0" /><span>Verificado</span></div>}
                 </div>
 
-                {(detail.valid_from || detail.valid_until) && (
+                {(ed?.valid_from != null || ed?.valid_until != null) && (
                   <div className="bg-neutral-50 rounded-xl p-3 text-sm text-neutral-600">
-                    {detail.valid_from && <p>Válido desde: <span className="font-medium">{new Date(detail.valid_from).toLocaleDateString('es-AR')}</span></p>}
-                    {detail.valid_until && <p>Válido hasta: <span className="font-medium">{new Date(detail.valid_until).toLocaleDateString('es-AR')}</span></p>}
+                    {ed.valid_from != null && typeof ed.valid_from !== 'object' && <p>Válido desde: <span className="font-medium">{new Date(String(ed.valid_from)).toLocaleDateString('es-AR')}</span></p>}
+                    {ed.valid_until != null && typeof ed.valid_until !== 'object' && <p>Válido hasta: <span className="font-medium">{new Date(String(ed.valid_until)).toLocaleDateString('es-AR')}</span></p>}
                   </div>
                 )}
 
