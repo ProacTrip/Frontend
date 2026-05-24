@@ -1,4 +1,4 @@
-import type { CheckoutData } from '@/app/checkout/components/BookingSummary';
+import type { CheckoutData } from '@/app/(site)/checkout/components/BookingSummary';
 
 const CHECKOUT_KEY = 'checkout_data';
 

@@ -5,8 +5,8 @@ import { useState, useMemo } from 'react';
 import { Plane, Building2, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 import type { FlightSearchResponse, FlightOfferUI } from '@/app/lib/types/flight';
 import type { SearchHotelsResponse, FrontendHotel, BackendSearchHotel } from '@/app/lib/types/hotel';
-import FlightCard from '@/app/vuelos/components/FlightCard';
-import HotelCard from '@/app/hoteles/components/HotelCard';
+import FlightCard from '@/app/(site)/vuelos/components/FlightCard';
+import HotelCard from '@/app/(site)/hoteles/components/HotelCard';
 import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
 import { adaptSearchResults } from '@/app/lib/utils/transformers';
 
