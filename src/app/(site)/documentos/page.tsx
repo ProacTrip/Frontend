@@ -181,7 +181,7 @@ export default function DocumentosPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3" suppressHydrationWarning>
               <FileText className="w-8 h-8 text-[--color-brand-500]" />
               Mis Documentos
             </h1>
@@ -221,7 +221,7 @@ export default function DocumentosPage() {
   if (queryError && documents.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-3" suppressHydrationWarning>
           <FileText className="w-8 h-8 text-[--color-brand-500]" />
           Mis Documentos
         </h1>
@@ -280,7 +280,7 @@ export default function DocumentosPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-800 mb-1 flex items-center gap-3" suppressHydrationWarning>
             <FileText className="w-8 h-8 text-[--color-brand-500]" />
             Mis Documentos
           </h1>
