@@ -39,14 +39,14 @@ export default function DocumentDeleteDialog({
             <button
               onClick={onCancel}
               disabled={isDeleting}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-full hover:bg-neutral-200 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-full hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
             >
               Cancelar
             </button>
             <button
               onClick={onConfirm}
               disabled={isDeleting}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {isDeleting ? (
                 <>

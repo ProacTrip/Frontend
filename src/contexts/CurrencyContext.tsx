@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   useCallback,
   type ReactNode,
 } from 'react';
@@ -34,9 +35,12 @@ export interface CurrencyContextType {
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [activeCurrency, setActiveCurrencyState] = useState<string | null>(
-    () => getSavedPreference(),
-  );
+  const [activeCurrency, setActiveCurrencyState] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = getSavedPreference();
+    if (saved) setActiveCurrencyState(saved);
+  }, []);
 
   const setActiveCurrency = useCallback((code: string) => {
     savePreference(code);

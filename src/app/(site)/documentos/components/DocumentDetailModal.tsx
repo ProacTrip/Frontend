@@ -86,7 +86,7 @@ export default function DocumentDetailModal({
                 <p className="text-xs text-neutral-500">{typeName}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-xl transition-colors">
+            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer">
               <X className="w-5 h-5" />
             </button>
           </div>

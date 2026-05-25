@@ -285,9 +285,9 @@ export function TravelForm({ prefs }: Props) {
           name="avoid_layovers"
           checked={form.avoid_layovers}
           onChange={handleChange}
-          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500]"
+          className="w-5 h-5 text-[--color-brand-500] rounded focus:ring-[--color-brand-500] cursor-pointer"
         />
-        <label className="text-sm text-gray-700">Evitar escalas</label>
+        <label className="text-sm text-gray-700 cursor-pointer">Evitar escalas</label>
       </div>
 
       <div className="border-t border-gray-100 pt-6 mt-8 flex justify-end">

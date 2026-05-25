@@ -95,9 +95,9 @@ export function PersonalDataForm({ profile }: Props) {
           finalValue = null;
         }
 
-        // Only include non-null values in the payload.
-        // The backend treats omitted fields as "no change" and null as "clear".
-        if (finalValue !== null && finalValue !== undefined) {
+        // Only exclude undefined. null values are sent to explicitly clear fields.
+        // The backend treats null as "clear" and omitted fields as "no change".
+        if (finalValue !== undefined) {
           (payload as Record<string, unknown>)[key] = finalValue;
         }
       });

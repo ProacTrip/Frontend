@@ -51,7 +51,7 @@ export default function DocumentFilters({ types, onFilterChange }: DocumentFilte
             key={tab.label}
             onClick={() => handleStatusChange(tab.value)}
             className={`
-              px-3 py-1.5 text-sm font-medium rounded-md transition-all
+              px-3 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer
               ${
                 activeStatus === tab.value
                   ? 'bg-white text-gray-900 shadow-sm'
@@ -70,7 +70,7 @@ export default function DocumentFilters({ types, onFilterChange }: DocumentFilte
         <select
           value={activeType || ''}
           onChange={(e) => handleTypeChange(e.target.value || null)}
-          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent"
+          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent cursor-pointer"
           aria-label="Filtrar por tipo de documento"
         >
           <option value="">Todos los tipos</option>
