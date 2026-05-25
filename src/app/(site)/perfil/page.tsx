@@ -122,9 +122,9 @@ export default function ProfilePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors duration-200 flex items-center gap-2 cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-[--color-brand-500] text-white shadow-sm [&_svg]:text-white'
+                  ? 'bg-brand-500 text-white shadow-sm border-b-2 border-brand-600'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
               }`}
             >

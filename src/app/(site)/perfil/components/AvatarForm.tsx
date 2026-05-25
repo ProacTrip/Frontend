@@ -3,10 +3,10 @@
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import {
-  getUploadAvatarUrl,
   uploadAvatarToR2,
-  confirmAvatarUpload,
 } from '@/app/lib/api';
+import { useUploadAvatar } from '@/hooks/useUploadAvatar';
+import { useConfirmAvatar } from '@/hooks/useConfirmAvatar';
 import { Upload, Image as ImageIcon, AlertCircle, CheckCircle } from 'lucide-react';
 import Button from "@/components/ui/Button";
 
@@ -24,6 +24,9 @@ export function AvatarForm({ currentUrl }: Props) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const uploadAvatarMutation = useUploadAvatar();
+  const confirmMutation = useConfirmAvatar();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -51,9 +54,9 @@ export function AvatarForm({ currentUrl }: Props) {
     setError('');
 
     try {
-      const { upload_url, storage_key } = await getUploadAvatarUrl(file);
+      const { upload_url, storage_key } = await uploadAvatarMutation.mutateAsync(file);
       await uploadAvatarToR2(upload_url, file);
-      await confirmAvatarUpload(storage_key);
+      await confirmMutation.mutateAsync(storage_key);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       setFile(null);
@@ -162,7 +165,7 @@ export function AvatarForm({ currentUrl }: Props) {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[--color-brand-500] hover:bg-white transition-colors flex flex-col items-center gap-2 text-gray-500 hover:text-[--color-brand-500]"
+            className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[--color-brand-500] hover:bg-white transition-colors flex flex-col items-center gap-2 text-gray-500 hover:text-[--color-brand-500] cursor-pointer"
           >
             <Upload className="w-6 h-6" />
             <span className="text-sm font-medium">Haz click para seleccionar una imagen</span>

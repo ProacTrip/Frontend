@@ -463,10 +463,22 @@ export function adaptMedicalProfile(raw: Record<string, unknown>): Record<string
   const data = (raw.data as Record<string, unknown>) || raw;
 
   const unwrap = (field: unknown): unknown => {
+    let value: unknown = field;
     if (field && typeof field === 'object' && 'value' in field) {
-      return (field as { value: unknown }).value;
+      value = (field as { value: unknown }).value;
     }
-    return field;
+    // Handle backend double-serialization — .value may be a JSON string
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if ((trimmed.startsWith('[') || trimmed.startsWith('{')) && trimmed.length > 2) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          /* not JSON, return string */
+        }
+      }
+    }
+    return value;
   };
 
   return {

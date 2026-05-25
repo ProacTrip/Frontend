@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { Globe } from 'lucide-react';
 import { useCurrencyContext } from '@/contexts/CurrencyContext';
@@ -25,6 +25,9 @@ export default function CurrencySelector({ isScrolled = true }: CurrencySelector
   const { setActiveCurrency } = useCurrencyContext();
   const { currency: displayCurrency } = useLocalePreferences();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const handleChange = useCallback(
     (currencyCode: string) => {
       setActiveCurrency(currencyCode);
@@ -46,7 +49,7 @@ export default function CurrencySelector({ isScrolled = true }: CurrencySelector
         aria-label="Seleccionar moneda"
       >
         <Globe className="w-5 h-5" />
-        {current && !isLanding && (
+        {mounted && current && !isLanding && (
           <span className="hidden xl:inline ml-1.5 text-xs font-medium tabular-nums">
             {current.symbol}
           </span>

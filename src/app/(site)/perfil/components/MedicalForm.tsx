@@ -239,41 +239,55 @@ export function MedicalForm() {
     try {
       const payload: UpdateMedicalProfileBody = {};
 
-      // Blood type
-      if (bloodType) payload.blood_type = bloodType;
+      // Blood type — send null if cleared
+      if (bloodType) {
+        payload.blood_type = bloodType;
+      } else {
+        payload.blood_type = null;
+      }
 
-      // Allergies: comma-separated → string[]
+      // Allergies: comma-separated → string[] or [] if cleared
       const allergiesArr = allergiesInput
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
-      if (allergiesArr.length > 0) payload.allergies = allergiesArr;
+      if (allergiesArr.length > 0) {
+        payload.allergies = allergiesArr;
+      } else {
+        payload.allergies = [];
+      }
 
-      // Conditions: comma-separated → string[]
+      // Conditions: comma-separated → string[] or [] if cleared
       const conditionsArr = conditionsInput
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
-      if (conditionsArr.length > 0) payload.conditions = conditionsArr;
+      if (conditionsArr.length > 0) {
+        payload.conditions = conditionsArr;
+      } else {
+        payload.conditions = [];
+      }
 
-      // Medications: structured array
+      // Medications: structured array or [] if all removed
       const validMeds = medications.filter(m => m.name.trim() !== '');
-      if (validMeds.length > 0) payload.medications = validMeds;
+      payload.medications = validMeds.length > 0 ? validMeds : [];
 
-      // Vaccinations: structured array
+      // Vaccinations: structured array or [] if all removed
       const validVaccs = vaccinations.filter(v => v.name.trim() !== '');
-      if (validVaccs.length > 0) payload.vaccinations = validVaccs;
+      payload.vaccinations = validVaccs.length > 0 ? validVaccs : [];
 
-      // Emergency contact: send if at least name or phone is filled
+      // Emergency contact: send if at least name or phone is filled, otherwise null
       if (emergencyContact.name.trim() || emergencyContact.phone.trim()) {
         payload.emergency_contact = {
           name: emergencyContact.name,
           phone: emergencyContact.phone,
           relationship: emergencyContact.relationship || null,
         };
+      } else {
+        payload.emergency_contact = null;
       }
 
-      // Insurance info: send if at least company or policy_number is filled
+      // Insurance info: send if at least company or policy_number is filled, otherwise null
       if (insuranceInfo.company.trim() || insuranceInfo.policy_number.trim()) {
         payload.insurance_info = {
           company: insuranceInfo.company,
@@ -281,6 +295,8 @@ export function MedicalForm() {
           plan_type: insuranceInfo.plan_type || null,
           expiration_date: insuranceInfo.expiration_date || null,
         };
+      } else {
+        payload.insurance_info = null;
       }
 
       await updateMutation.mutateAsync(payload);
@@ -538,6 +554,26 @@ export function MedicalForm() {
           className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
         />
         <p className="text-xs text-gray-400 mt-1">Separá las alergias con comas</p>
+
+        {/* Allergy badge cloud */}
+        {(() => {
+          const allergies = allergiesInput.split(',').map(s => s.trim()).filter(Boolean);
+          return allergies.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allergies.map((item, i) => (
+                <span key={i} className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm border border-red-100">
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2 text-gray-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>No hay alergias registradas</span>
+              <span className="text-xs text-gray-300">— Agregá tus alergias para mejorar tu perfil médico</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Conditions (comma-separated input → string[]) ── */}
@@ -553,6 +589,26 @@ export function MedicalForm() {
           className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[--color-brand-500] focus:border-transparent outline-none transition-all resize-none"
         />
         <p className="text-xs text-gray-400 mt-1">Separá las condiciones con comas</p>
+
+        {/* Condition badge cloud */}
+        {(() => {
+          const conditions = conditionsInput.split(',').map(s => s.trim()).filter(Boolean);
+          return conditions.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {conditions.map((item, i) => (
+                <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm border border-blue-100">
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-2 text-gray-400 text-sm">
+              <Stethoscope className="w-4 h-4" />
+              <span>No hay condiciones registradas</span>
+              <span className="text-xs text-gray-300">— Añadí condiciones preexistentes para mejorar tu perfil médico</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Medications (structured sub-form) ── */}
@@ -562,17 +618,32 @@ export function MedicalForm() {
         </label>
 
         {medications.length === 0 && (
-          <p className="text-sm text-gray-400 mb-3">No hay medicamentos registrados.</p>
+          <div className="flex flex-col items-center py-4 text-gray-400">
+            <Pill className="w-8 h-8 mb-2" />
+            <p className="text-sm">No hay medicamentos registrados</p>
+            <p className="text-xs text-gray-300 mt-1">Agregá tu primer medicamento</p>
+          </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {medications.map((med, index) => (
-            <div key={index} className="bg-gray-50 rounded-lg p-3 relative">
+            <div key={index} className="bg-white border border-gray-100 rounded-xl p-4 relative hover:shadow-sm transition-shadow">
               <button type="button" onClick={() => removeMedication(index)}
-                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 transition-colors"
                 title="Eliminar medicamento">
                 <Trash2 className="w-4 h-4" />
               </button>
+
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-semibold text-gray-800">{med.name || 'Nuevo medicamento'}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  med.status === 'active' ? 'bg-green-100 text-green-700' :
+                  med.status === 'discontinued' ? 'bg-gray-100 text-gray-600' :
+                  'bg-blue-100 text-blue-700'
+                }`}>
+                  {MED_STATUS_OPTIONS.find(o => o.value === med.status)?.label || med.status}
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -580,34 +651,34 @@ export function MedicalForm() {
                   <input type="text" value={med.name}
                     onChange={(e) => updateMedication(index, 'name', e.target.value)}
                     placeholder="Lisinopril"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Dosis</label>
                   <input type="text" value={med.dosage}
                     onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
                     placeholder="10mg"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Frecuencia</label>
                   <input type="text" value={med.frequency}
                     onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
                     placeholder="Diaria"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Duración</label>
                   <input type="text" value={med.duration}
                     onChange={(e) => updateMedication(index, 'duration', e.target.value)}
                     placeholder="Continuo"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
                   <select value={med.status}
                     onChange={(e) => updateMedication(index, 'status', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white">
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50">
                     {MED_STATUS_OPTIONS.map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
@@ -631,17 +702,32 @@ export function MedicalForm() {
         </label>
 
         {vaccinations.length === 0 && (
-          <p className="text-sm text-gray-400 mb-3">No hay vacunas registradas.</p>
+          <div className="flex flex-col items-center py-4 text-gray-400">
+            <Syringe className="w-8 h-8 mb-2" />
+            <p className="text-sm">No hay vacunas registradas</p>
+            <p className="text-xs text-gray-300 mt-1">Agregá tu primera vacuna</p>
+          </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {vaccinations.map((vacc, index) => (
-            <div key={index} className="bg-gray-50 rounded-lg p-3 relative">
+            <div key={index} className="bg-white border border-gray-100 rounded-xl p-4 relative hover:shadow-sm transition-shadow">
               <button type="button" onClick={() => removeVaccination(index)}
-                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 transition-colors"
                 title="Eliminar vacuna">
                 <Trash2 className="w-4 h-4" />
               </button>
+
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-semibold text-gray-800">{vacc.name || 'Nueva vacuna'}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  vacc.status === 'completed' ? 'bg-green-100 text-green-700' :
+                  vacc.status === 'partial' ? 'bg-amber-100 text-amber-700' :
+                  'bg-blue-100 text-blue-700'
+                }`}>
+                  {VACC_STATUS_OPTIONS.find(o => o.value === vacc.status)?.label || vacc.status}
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -649,19 +735,19 @@ export function MedicalForm() {
                   <input type="text" value={vacc.name}
                     onChange={(e) => updateVaccination(index, 'name', e.target.value)}
                     placeholder="Fiebre amarilla"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Dosis recibidas</label>
                   <input type="number" min={0} value={vacc.doses_received}
                     onChange={(e) => updateVaccination(index, 'doses_received', parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white" />
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
                   <select value={vacc.status}
                     onChange={(e) => updateVaccination(index, 'status', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-white">
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-[--color-brand-500] focus:border-transparent outline-none bg-gray-50">
                     {VACC_STATUS_OPTIONS.map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
@@ -683,6 +769,26 @@ export function MedicalForm() {
         <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-1">
           <Phone className="w-4 h-4" /> Contacto de emergencia
         </label>
+
+        {!emergencyContact.name && !emergencyContact.phone ? (
+          <div className="flex flex-col items-center py-3 text-gray-400">
+            <Phone className="w-8 h-8 mb-2" />
+            <p className="text-sm">No hay contacto de emergencia registrado</p>
+            <p className="text-xs text-gray-300 mt-1">Agregá un contacto para situaciones de emergencia</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Phone className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800">{emergencyContact.name || 'Sin nombre'}</p>
+              {emergencyContact.phone && <p className="text-sm text-gray-600 mt-0.5">{emergencyContact.phone}</p>}
+              {emergencyContact.relationship && <p className="text-xs text-gray-400 mt-0.5">{emergencyContact.relationship}</p>}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
@@ -713,6 +819,27 @@ export function MedicalForm() {
         <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-1">
           <Shield className="w-4 h-4" /> Información del seguro
         </label>
+
+        {!insuranceInfo.company && !insuranceInfo.policy_number ? (
+          <div className="flex flex-col items-center py-3 text-gray-400">
+            <Shield className="w-8 h-8 mb-2" />
+            <p className="text-sm">No hay seguro médico registrado</p>
+            <p className="text-xs text-gray-300 mt-1">Agregá la información de tu seguro médico</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800">{insuranceInfo.company || 'Sin empresa'}</p>
+              {insuranceInfo.policy_number && <p className="text-sm text-gray-600 mt-0.5">Póliza: {insuranceInfo.policy_number}</p>}
+              {insuranceInfo.plan_type && <p className="text-xs text-gray-400 mt-0.5">Plan: {insuranceInfo.plan_type}</p>}
+              {insuranceInfo.expiration_date && <p className="text-xs text-gray-400 mt-0.5">Vence: {insuranceInfo.expiration_date}</p>}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Empresa</label>
