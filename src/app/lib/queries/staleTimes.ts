@@ -32,8 +32,8 @@ export const FLIGHTS_STALE_TIME = 0;
 // DOMAIN: Hotels
 // ==========================================
 
-/** Hotel search — availability changes. Value: 0 (always fresh) */
-export const HOTELS_STALE_TIME = 0;
+/** Hotel search — availability changes. Value: 30s to reduce unnecessary refetches */
+export const HOTELS_STALE_TIME = 30_000;
 
 // ==========================================
 // DOMAIN: Favorites

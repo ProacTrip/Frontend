@@ -26,6 +26,7 @@ interface HotelsSearchProps {
   infants: number;
   onGuestsChange: (type: "adults" | "children" | "infants", value: number) => void;
   onSearch: () => void;
+  isValid?: boolean;
 }
 
 export default function HotelsSearch({
@@ -38,6 +39,7 @@ export default function HotelsSearch({
   infants,
   onGuestsChange,
   onSearch,
+  isValid = true,
 }: HotelsSearchProps) {
   const [dateOpen, setDateOpen] = useState(false);
   const [guestsOpen, setGuestsOpen] = useState(false);
@@ -85,6 +87,12 @@ export default function HotelsSearch({
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.2 }}
       className="flex items-stretch gap-0 border border-[#E5E7EB] rounded-xl"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && isValid && destination.trim()) {
+          e.preventDefault();
+          onSearch();
+        }
+      }}
     >
       {/* UBICACIÓN — Headless UI Combobox */}
       <div className="flex-[2]">
@@ -154,7 +162,9 @@ export default function HotelsSearch({
       <div className="flex items-center pr-1">
         <button
           onClick={onSearch}
-          className="w-12 h-12 rounded-full bg-[#0A0A0A] hover:bg-[#262626] transition-colors flex items-center justify-center shrink-0"
+          disabled={!isValid}
+          className="w-12 h-12 rounded-full bg-[#0A0A0A] hover:bg-[#262626] transition-colors flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Buscar hoteles"
         >
           <Search className="w-5 h-5 text-white" />
         </button>

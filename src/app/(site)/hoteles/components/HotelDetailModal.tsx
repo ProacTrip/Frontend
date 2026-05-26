@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
-import { X, ChevronLeft, ChevronRight, MapPin, Star, Wifi, Coffee, Waves, Car, Dumbbell, UtensilsCrossed, ShieldCheck, Leaf, Building2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, MapPin, Star, Wifi, Coffee, Waves, Car, Dumbbell, UtensilsCrossed, ShieldCheck, Leaf, Building2, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getHotelDetails } from '@/app/lib/api';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
 import type { SearchParams } from '@/app/lib/types/hotel';
+import { HotelApiError } from '@/app/lib/api/hotels';
 import { useAuth } from '@/hooks/useAuth';
 
 // ==========================================
@@ -45,12 +46,6 @@ const amenityIcons: Record<string, React.ComponentType<{ className?: string }>> 
   'Restaurante': UtensilsCrossed, 'Restaurant': UtensilsCrossed,
 };
 
-const FALLBACK_NEARBY = [
-  { name: 'Museo del Prado', transport: [{ type: 'Taxi', duration: '10 min' }] },
-  { name: 'Parque del Retiro', transport: [{ type: 'Walking', duration: '15 min' }] },
-  { name: 'Puerta del Sol', transport: [{ type: 'Metro', duration: '5 min' }] },
-];
-
 // ==========================================
 // COMPONENT
 // ==========================================
@@ -70,24 +65,41 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
 
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [hotelDetails, setHotelDetails] = useState<FrontendHotel | null>(null);
+  const [detailsError, setDetailsError] = useState<{ code: string; message: string } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const loadDetails = async () => {
       if (!searchParams) { setIsLoadingDetails(false); return; }
       try {
         setIsLoadingDetails(true);
+        setDetailsError(null);
         const data = await getHotelDetails(hotel.id, searchParams);
+        if (cancelled) return;
         setHotelDetails(data.property);
       } catch (error) {
+        if (cancelled) return;
         console.error('Error cargando detalles:', error);
+        if (error instanceof HotelApiError) {
+          if (error.status === 502) {
+            setDetailsError({ code: 'PROVIDER_UNAVAILABLE', message: 'El proveedor rechazó la solicitud. Intentá de nuevo más tarde.' });
+          } else if (error.status === 500 || error.status === 503 || error.code === 'INTERNAL_ERROR') {
+            setDetailsError({ code: 'INTERNAL_ERROR', message: 'Error interno del servidor. Intentá de nuevo.' });
+          } else {
+            setDetailsError({ code: 'UNKNOWN', message: error.detail || 'Error al cargar los detalles del hotel.' });
+          }
+        } else {
+          setDetailsError({ code: 'NETWORK', message: 'Error de conexión. Verificá tu internet.' });
+        }
       } finally {
-        setIsLoadingDetails(false);
+        if (!cancelled) setIsLoadingDetails(false);
       }
     };
     loadDetails();
+    return () => { cancelled = true; };
   }, [hotel.id, searchParams]);
 
-  const images = hotelDetails?.images || hotel.images || [];
+  const images = (hotelDetails?.images?.length ? hotelDetails.images : null) || hotel.images || [];
   const nextImage = () => { setCurrentImageIndex((prev) => (prev + 1) % images.length); setGalleryError(false); };
   const prevImage = () => { setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length); setGalleryError(false); };
 
@@ -108,12 +120,12 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
 
   const displayData = {
     images,
-    description: hotelDetails?.description || 'Este elegante hotel ofrece habitaciones modernas con vistas panorámicas de la ciudad.',
-    amenities: hotelDetails?.amenities || ['WiFi gratis', 'Piscina', 'Gimnasio', 'Parking gratis', 'Desayuno gratis', 'Restaurante', 'Bar', 'Spa', 'Aire acondicionado', 'Recepción 24h'],
-    checkIn: hotelDetails?.checkIn || hotel.checkIn || '14:00',
-    checkOut: hotelDetails?.checkOut || hotel.checkOut || '12:00',
+    description: hotelDetails?.description || hotel.description || undefined,
+    amenities: hotelDetails?.amenities || hotel.amenities || [],
+    checkIn: hotelDetails?.checkIn || hotel.checkIn || undefined,
+    checkOut: hotelDetails?.checkOut || hotel.checkOut || undefined,
     address: hotelDetails?.address || null,
-    nearbyPlaces: hotelDetails?.nearbyPlaces || FALLBACK_NEARBY,
+    nearbyPlaces: hotelDetails?.nearbyPlaces || [],
     reviews: extractReviews(hotelDetails?.externalReviews) || null,
     healthAndSafety: hotelDetails?.healthAndSafety || null,
     sustainability: hotelDetails?.sustainability || null,
@@ -153,17 +165,44 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-neutral-100 transition-colors" aria-label="Cerrar modal">
+            <button onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-neutral-100 transition-colors" aria-label="Cerrar modal">
               <X className="w-6 h-6 text-neutral-600" />
             </button>
           </div>
 
           {isLoadingDetails ? (
-            <div className="p-12 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-neutral-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-neutral-600">Cargando detalles del hotel...</p>
+            /* Loading skeleton grid */
+            <div className="p-6">
+              <div className="grid grid-cols-12 gap-6">
+                <div className="col-span-8 space-y-6 animate-pulse">
+                  <div className="aspect-video bg-[#F5F5F5] rounded-xl" />
+                  <div className="space-y-3">
+                    <div className="h-5 bg-[#F5F5F5] rounded w-1/3" />
+                    <div className="h-4 bg-[#F5F5F5] rounded w-full" />
+                    <div className="h-4 bg-[#F5F5F5] rounded w-5/6" />
+                    <div className="h-4 bg-[#F5F5F5] rounded w-4/6" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-10 bg-[#F5F5F5] rounded-lg" />
+                    ))}
+                  </div>
+                </div>
+                <div className="col-span-4">
+                  <div className="bg-[#F5F5F5] rounded-xl h-80 animate-pulse" />
+                </div>
               </div>
+            </div>
+          ) : detailsError ? (
+            /* Error state */
+            <div className="p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#0A0A0A] mb-2">
+                {detailsError.code === 'PROVIDER_UNAVAILABLE' ? 'Proveedor no disponible' : 'Error al cargar detalles'}
+              </h3>
+              <p className="text-sm text-[#6A7282] max-w-md">{detailsError.message}</p>
             </div>
           ) : (
             <div className="p-6">
@@ -174,7 +213,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                     <div className="relative">
                       <div className="relative h-96 rounded-xl overflow-hidden">
                         {!galleryError ? (
-                          <Image src={displayData.images[currentImageIndex]} alt={`${hotel.name} - ${currentImageIndex + 1}`} fill className="object-cover" onError={() => setGalleryError(true)} />
+                          <Image src={displayData.images[currentImageIndex]} alt={`${hotel.name} - ${currentImageIndex + 1}`} fill unoptimized className="object-cover" onError={() => setGalleryError(true)} />
                         ) : (
                           <div className="bg-gradient-to-br from-neutral-400 to-neutral-600 w-full h-full flex items-center justify-center">
                             <Building2 className="w-16 h-16 text-white/50" />
@@ -182,10 +221,10 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                         )}
                         {displayData.images.length > 1 && (
                           <>
-                            <button onClick={prevImage} aria-label="Imagen anterior" className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                            <button onClick={prevImage} aria-label="Imagen anterior" className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
                               <ChevronLeft className="w-6 h-6 text-neutral-700" />
                             </button>
-                            <button onClick={nextImage} aria-label="Siguiente imagen" className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
+                            <button onClick={nextImage} aria-label="Siguiente imagen" className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors">
                               <ChevronRight className="w-6 h-6 text-neutral-700" />
                             </button>
                             <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
@@ -196,13 +235,13 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                       </div>
                       <div className="flex gap-2 mt-3 overflow-x-auto">
                         {displayData.images.slice(0, 6).map((img: string, idx: number) => (
-                          <button key={idx} onClick={() => setCurrentImageIndex(idx)} className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${idx === currentImageIndex ? 'border-neutral-900' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+                          <button key={idx} onClick={() => setCurrentImageIndex(idx)} className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all relative ${idx === currentImageIndex ? 'border-neutral-900' : 'border-transparent opacity-60 hover:opacity-100'}`}>
                             {thumbErrors.has(idx) ? (
                               <div className="w-full h-full bg-gradient-to-br from-neutral-400 to-neutral-600 flex items-center justify-center">
                                 <Building2 className="w-4 h-4 text-white/50" />
                               </div>
                             ) : (
-                              <Image src={img} alt="" fill className="object-cover" onError={() => setThumbErrors(prev => new Set(prev).add(idx))} />
+                              <Image src={img} alt="" fill unoptimized className="object-cover" onError={() => setThumbErrors(prev => new Set(prev).add(idx))} />
                             )}
                           </button>
                         ))}
@@ -213,25 +252,29 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                     </div>
                   )}
 
-                  <div>
-                    <h3 className="text-xl font-bold text-neutral-900 mb-3">Descripción</h3>
-                    <p className="text-neutral-700 leading-relaxed">{displayData.description}</p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold text-neutral-900 mb-3">Servicios</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {displayData.amenities.map((amenity: string) => {
-                        const Icon = amenityIcons[amenity] || Star;
-                        return (
-                          <div key={amenity} className="flex items-center gap-3 text-neutral-700">
-                            <Icon className="w-5 h-5 text-neutral-600 flex-shrink-0" />
-                            <span>{amenity}</span>
-                          </div>
-                        );
-                      })}
+                  {displayData.description && (
+                    <div>
+                      <h3 className="text-xl font-bold text-neutral-900 mb-3">Descripción</h3>
+                      <p className="text-neutral-700 leading-relaxed">{displayData.description}</p>
                     </div>
-                  </div>
+                  )}
+
+                  {displayData.amenities.length > 0 && (
+                    <div>
+                      <h3 className="text-xl font-bold text-neutral-900 mb-3">Servicios</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {displayData.amenities.map((amenity: string) => {
+                          const Icon = amenityIcons[amenity] || Star;
+                          return (
+                            <div key={amenity} className="flex items-center gap-3 text-neutral-700">
+                              <Icon className="w-5 h-5 text-neutral-600 flex-shrink-0" />
+                              <span>{amenity}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {displayData.healthAndSafety && displayData.healthAndSafety.length > 0 && (
                     <div>
@@ -273,7 +316,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                     </div>
                   )}
 
-                  {rating && rating.reviews > 0 && (
+                  {rating && rating.score > 0 && (
                     <div>
                       <h3 className="text-xl font-bold text-neutral-900 mb-3">Valoraciones</h3>
                       <p className="text-sm text-neutral-500 mb-4">
@@ -310,7 +353,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                 {/* COLUMNA DERECHA */}
                 <div className="col-span-4">
                   <div className="sticky top-24 bg-white border border-neutral-200 rounded-xl p-5 shadow-lg">
-                    {rating && rating.reviews > 0 && (
+                    {rating && rating.score > 0 && (
                       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-neutral-200">
                         <div className="bg-neutral-900 text-white px-3 py-2 rounded-xl font-bold text-xl">{rating.score.toFixed(1)}</div>
                         <div>
@@ -326,11 +369,13 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
                       {price.includesTaxes && <p className="text-sm text-neutral-500">Incluye impuestos y cargos</p>}
                     </div>
 
-                    <div className="space-y-2 mb-4 pb-4 border-b border-neutral-200 text-sm">
-                      <div className="flex justify-between"><span className="text-neutral-600">Check-in:</span><span className="font-medium">{displayData.checkIn}</span></div>
-                      <div className="flex justify-between"><span className="text-neutral-600">Check-out:</span><span className="font-medium">{displayData.checkOut}</span></div>
-                      <div className="flex justify-between"><span className="text-neutral-600">Tipo:</span><span className="font-medium">{hotel.type}</span></div>
-                    </div>
+                    {(displayData.checkIn || displayData.checkOut) && (
+                      <div className="space-y-2 mb-4 pb-4 border-b border-neutral-200 text-sm">
+                        {displayData.checkIn && <div className="flex justify-between"><span className="text-neutral-600">Check-in:</span><span className="font-medium">{displayData.checkIn}</span></div>}
+                        {displayData.checkOut && <div className="flex justify-between"><span className="text-neutral-600">Check-out:</span><span className="font-medium">{displayData.checkOut}</span></div>}
+                        <div className="flex justify-between"><span className="text-neutral-600">Tipo:</span><span className="font-medium">{hotel.type}</span></div>
+                      </div>
+                    )}
 
                     {(hotel.freeCancellation || hotel.specialOffer || hotel.ecoCertified) && (
                       <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-neutral-200">
@@ -342,7 +387,7 @@ export default function HotelDetailModal({ hotel, searchParams, onClose }: Hotel
 
                     <button
                       onClick={isAuthenticated ? handleReserve : () => router.push('/auth/login')}
-                      className="w-full bg-neutral-900 text-white py-4 rounded-full hover:bg-neutral-800 transition-colors font-semibold text-lg"
+                      className="w-full bg-neutral-900 text-white py-4 rounded-full hover:bg-neutral-800 transition-colors font-semibold text-lg cursor-pointer"
                     >
                       {isAuthenticated ? 'Reservar ahora' : 'Inicia sesión para reservar'}
                     </button>

@@ -100,8 +100,8 @@ export interface FilterValues {
   hotel_classes: number[];
   amenities: number[];
   // Nuevos filtros — hotel-search-alignment
-  sort_by?: string;
-  brands?: string[];
+  sort_by?: number;
+  brands?: number[];
   free_cancellation?: boolean;
   special_offers?: boolean;
   eco_certified?: boolean;
@@ -113,6 +113,22 @@ export interface FilterValues {
 // ==========================================
 // RESPONSES - BÚSQUEDA
 // ==========================================
+
+// Desglose de ratings por puntuación (histograma)
+export interface BackendRatingHistogram {
+  stars: number;
+  count: number;
+}
+
+// Desglose de reseñas por categoría con análisis de sentimiento
+export interface BackendReviewsBreakdown {
+  name: string;
+  description: string;
+  total_mentioned: number;
+  positive: number;
+  negative: number;
+  neutral: number;
+}
 
 export interface BackendSearchHotel {
   id: string;
@@ -126,16 +142,10 @@ export interface BackendSearchHotel {
   price: BackendPrice; // ✅ Siempre presente en búsqueda
   rating: BackendRating;
   total_reviews: number;
-  // Desglose detallado de ratings
-  ratings?: Array<{
-    type: string;
-    value: number;
-    max_score: number;
-  }>;
-  reviews_breakdown?: {
-    estimated_total: number;
-    filter_scores: Record<string, number>;
-  };
+  // Desglose detallado de ratings (histograma: {stars, count})
+  ratings?: BackendRatingHistogram[];
+  // Desglose de reseñas por categoría (sentiment breakdown)
+  reviews_breakdown?: BackendReviewsBreakdown[];
   amenities?: string[];
   check_in?: string;
   check_out?: string;
@@ -273,16 +283,10 @@ export interface FrontendHotel {
   rating: FrontendRating;
   bookingUrl?: string | null; // ✅ Añadido para el botón de reserva
   
-  // Desglose detallado de ratings
-  ratings?: Array<{
-    type: string;
-    value: number;
-    max_score: number;
-  }>;
-  reviewsBreakdown?: {
-    estimated_total: number;
-    filter_scores: Record<string, number>;
-  };
+  // Desglose detallado de ratings (histograma: {stars, count})
+  ratings?: BackendRatingHistogram[];
+  // Desglose de reseñas por categoría (sentiment breakdown)
+  reviewsBreakdown?: BackendReviewsBreakdown[];
   
   // Campos detalle:
   description?: string;

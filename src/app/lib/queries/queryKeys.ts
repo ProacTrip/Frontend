@@ -72,6 +72,9 @@ export interface HotelSearchParams {
   checkOut?: string;
   adults?: number;
   children?: number;
+  vacation_rentals?: boolean;
+  currency?: string;
+  _fv?: number | string; // filter version — changes trigger refetch when filters update
 }
 
 const hotelKeys = {

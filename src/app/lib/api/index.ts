@@ -22,7 +22,7 @@ export {
 // ==========================================
 // 2. HOTELES
 // ==========================================
-export { searchHotels, getHotelDetails, getHotelRooms, HotelApiError } from './hotels';
+export { searchHotels, getHotelDetails, getHotelDetailsServer, getHotelRooms, HotelApiError } from './hotels';
 export type { HotelErrorCode } from './hotels';
 
 // ==========================================

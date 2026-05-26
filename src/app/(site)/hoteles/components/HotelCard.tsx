@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Heart, Star, Wifi, Car, Waves, Coffee, Building2, Palmtree } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useFavorites } from '@/hooks/useFavorites';
+import { currencyToSymbol } from '@/app/lib/utils/transformers';
 import type { FrontendHotel } from '@/app/lib/types/hotel';
 
 interface HotelCardProps {
@@ -37,14 +38,14 @@ const BADGE_COLORS: Record<string, string> = {
 };
 
 export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProps) {
-  const [currentImg] = useState(0);
-  const [imgError, setImgError] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [toggling, setToggling] = useState(false);
-  const { toggleFavorite } = useFavorites('hotel');
+  const { toggleFavorite, isFavorite } = useFavorites('hotel');
+  const [liked, setLiked] = useState(() => isFavorite(hotel.id));
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const images = hotel.images?.length ? hotel.images : [];
+  const images: string[] = hotel.images ?? [];
+  const hasImage = images.length > 0;
   const badge = hotel.specialOffer ? 'Oferta especial' : hotel.rating?.score && hotel.rating.score >= 4.5 ? 'Favorito de los huéspedes' : hotel.rating?.score && hotel.rating.score >= 4 ? 'Popular' : null;
   const badgeStyle = badge ? BADGE_COLORS[badge] || 'bg-white/90 text-[#0A0A0A]' : '';
 
@@ -72,27 +73,39 @@ export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProp
   };
 
   const handleClick = () => {
-    router.push(`/hoteles?hotel=${encodeURIComponent(hotel.id)}`, { scroll: false });
+    const merged = new URLSearchParams(searchParams.toString());
+    merged.set('hotel', hotel.id);
+    router.push(`/hoteles?${merged.toString()}`, { scroll: false });
   };
 
-  const currencySymbol = priceCurrency === 'EUR' ? '€' : priceCurrency === 'USD' ? '$' : '£';
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
+  const currencySymbol = currencyToSymbol(priceCurrency);
 
   return (
     <article
       onClick={handleClick}
-      className="rounded-[18px] bg-white overflow-hidden cursor-pointer transition-all duration-[0.38s] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[3px] hover:shadow-[0_2px_16px_rgba(0,0,0,0.09)] group"
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      className="rounded-[18px] bg-white overflow-hidden cursor-pointer transition-all duration-[0.38s] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[3px] hover:shadow-[0_2px_16px_rgba(0,0,0,0.09)] group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A0A0A]"
       aria-label={`${hotel.name}, ${currencySymbol}${priceAmount} por ${nights} noche${nights !== 1 ? 's' : ''}, puntuación ${hotel.rating?.score ?? 'N/A'}`}
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-[#F5F5F5]">
-        {images.length > 0 && !imgError ? (
+        {hasImage ? (
           <Image
-            src={images[currentImg]}
+            src={images[0]}
             alt={hotel.name}
             fill
+            unoptimized
             className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             sizes="(max-width: 768px) 100vw, 33vw"
-            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200">
@@ -113,7 +126,7 @@ export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProp
         <button
           onClick={handleToggleLike}
           disabled={toggling}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-115"
+          className="absolute top-3 right-3 w-11 h-11 rounded-full flex items-center justify-center transition-transform hover:scale-115 cursor-pointer"
           aria-label={liked ? 'Quitar de favoritos' : 'Añadir a favoritos'}
           aria-pressed={liked}
         >
@@ -124,22 +137,6 @@ export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProp
             strokeWidth={2}
           />
         </button>
-
-        {/* Image dots */}
-        {images.length > 1 && (
-          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1">
-            {images.slice(0, 5).map((_, i) => (
-              <span
-                key={i}
-                className={`block rounded-full transition-all ${
-                  i === currentImg
-                    ? 'w-[18px] h-[5px] bg-white'
-                    : 'w-[5px] h-[5px] bg-white/60'
-                }`}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Body */}
@@ -153,13 +150,13 @@ export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProp
             <div className="flex items-center gap-1 shrink-0">
               <Star className="w-[13px] h-[13px] fill-[#0A0A0A] stroke-none" />
               <span className="text-[13.5px] font-semibold text-[#0A0A0A]">{hotel.rating.score.toFixed(1)}</span>
-              <span className="text-[12px] text-[#888]">({hotel.rating.reviews || 0})</span>
+              <span className="text-[12px] text-[#6A7282]">({hotel.rating.reviews || 0})</span>
             </div>
           )}
         </div>
 
         {/* Subtitle */}
-        <p className="text-[12px] text-[#888] mb-2.5 truncate">
+        <p className="text-[12px] text-[#6A7282] mb-2.5 truncate">
           {hotel.type}{hotel.location?.city ? ` — ${hotel.location.city}` : ''}
         </p>
 

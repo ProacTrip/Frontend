@@ -1,238 +1,266 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { SlidersHorizontal, ChevronDown, X } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import {
+  SlidersHorizontal,
+  ChevronDown,
+  X,
+  Minus,
+  Plus,
+} from 'lucide-react';
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import type { FilterValues } from '@/app/lib/types/hotel';
+import {
+  PROPERTY_TYPES,
+  HOTEL_CLASSES,
+} from './FiltersModal';
 
 // Re-export for page.tsx
 export type { FilterValues } from '@/app/lib/types/hotel';
 
 interface HotelFiltersProps {
+  filters: FilterValues;
   onFilterChange: (filters: FilterValues, sortBy?: string, count?: number) => void;
+  onOpenModal: () => void;
   sortBy?: string;
   filterCount: number;
   vacationRentals: boolean;
   onVacationRentalsChange: (vr: boolean) => void;
 }
 
-const RATING_OPTIONS = [
-  { value: '', label: 'Cualquiera' },
-  { value: '7', label: '3.5+' },
-  { value: '8', label: '4.0+' },
-  { value: '9', label: '4.5+' },
-];
-
-const SORT_OPTIONS = [
-  { value: '', label: 'Relevancia' },
-  { value: '3', label: 'Precio más bajo' },
-  { value: '8', label: 'Mayor puntuación' },
-  { value: '13', label: 'Más reseñas' },
-];
-
-const PROPERTY_TYPES = [
-  { id: 12, name: 'Hoteles de playa' },
-  { id: 13, name: 'Hoteles boutique' },
-  { id: 14, name: 'Hostales' },
-  { id: 17, name: 'Resorts' },
-  { id: 18, name: 'Hoteles spa' },
-  { id: 19, name: 'Bed & breakfast' },
-  { id: 21, name: 'Aparthoteles' },
-];
-
-const HOTEL_CLASSES = [
-  { id: 2, name: '2 estrellas' },
-  { id: 3, name: '3 estrellas' },
-  { id: 4, name: '4 estrellas' },
-  { id: 5, name: '5 estrellas' },
-];
-
-const AMENITIES = [
-  { id: 35, name: 'WiFi gratis' },
-  { id: 9, name: 'Desayuno gratis' },
-  { id: 6, name: 'Piscina' },
-  { id: 10, name: 'Spa' },
-  { id: 1, name: 'Parking gratis' },
-  { id: 8, name: 'Restaurante' },
-  { id: 40, name: 'Aire acondicionado' },
-  { id: 15, name: 'Bar' },
-  { id: 7, name: 'Gimnasio' },
-  { id: 12, name: 'Para niños' },
-  { id: 19, name: 'Admite mascotas' },
-  { id: 11, name: 'Acceso a la playa' },
-  { id: 53, name: 'Accesible' },
-];
+function computeActiveCount(f: FilterValues): number {
+  let c = 0;
+  if (f.min_price != null) c++;
+  if (f.max_price != null) c++;
+  if (f.rating != null) c++;
+  if (f.property_types?.length) c++;
+  if (f.hotel_classes?.length) c++;
+  if (f.amenities?.length) c++;
+  if (f.free_cancellation) c++;
+  if (f.special_offers) c++;
+  if (f.eco_certified) c++;
+  if ((f.bedrooms ?? 0) > 0) c++;
+  if ((f.bathrooms ?? 0) > 0) c++;
+  return c;
+}
 
 export default function HotelFilters({
+  filters,
   onFilterChange,
+  onOpenModal,
   sortBy: initialSortBy,
-  filterCount: externalFilterCount,
+  filterCount,
   vacationRentals,
   onVacationRentalsChange,
 }: HotelFiltersProps) {
-  const [minPrice, setMinPrice] = useState<number>(0);
-  const [maxPrice, setMaxPrice] = useState<number>(1000);
-  const [rating, setRating] = useState<string>('');
-  const [currentSortBy, setCurrentSortBy] = useState<string>(initialSortBy || '');
-  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<number[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<number[]>([]);
-  const [freeCancellation, setFreeCancellation] = useState(false);
-  const [specialOffers, setSpecialOffers] = useState(false);
-  const [ecoCertified, setEcoCertified] = useState(false);
-  const [activeCount, setActiveCount] = useState(externalFilterCount || 0);
-
   const filterBarRef = useRef<HTMLDivElement>(null);
 
-  const computeActiveCount = (
-    mp: number, mpx: number, rt: string, pts: number[], cs: number[], ams: number[], fc: boolean, so: boolean, eco: boolean
-  ) => {
-    let c = 0;
-    if (mp > 0) c++;
-    if (mpx < 1000) c++;
-    if (rt) c++;
-    if (pts.length) c++;
-    if (cs.length) c++;
-    if (ams.length) c++;
-    if (fc) c++;
-    if (so) c++;
-    if (eco) c++;
-    return c;
-  };
+  // ─── APPLY (unified callback) ───
+  const apply = useCallback(
+    (partial: Partial<FilterValues>) => {
+      const merged: FilterValues = {
+        ...filters,
+        ...partial,
+      };
+      const count = computeActiveCount(merged);
+      onFilterChange(merged, initialSortBy || undefined, count);
+    },
+    [filters, initialSortBy, onFilterChange],
+  );
 
-  const apply = (
-    mp: number, mpx: number, rt: string, pts: number[], cs: number[], ams: number[], fc: boolean, so: boolean, eco: boolean, sb: string
-  ) => {
-    const count = computeActiveCount(mp, mpx, rt, pts, cs, ams, fc, so, eco);
-    setActiveCount(count);
-    setCurrentSortBy(sb);
-
-    const f: FilterValues = {
-      min_price: mp > 0 ? mp : null,
-      max_price: mpx < 1000 ? mpx : null,
-      rating: rt ? parseInt(rt, 10) : null,
-      property_types: pts,
-      hotel_classes: cs,
-      amenities: ams,
-      sort_by: sb || undefined,
-      free_cancellation: fc || undefined,
-      special_offers: so || undefined,
-      eco_certified: eco || undefined,
-    };
-    onFilterChange(f, sb || undefined, count);
-  };
-
-  const clearAll = () => {
-    setMinPrice(0); setMaxPrice(1000); setRating('');
-    setSelectedPropertyTypes([]); setSelectedClasses([]); setSelectedAmenities([]);
-    setFreeCancellation(false); setSpecialOffers(false); setEcoCertified(false);
-    setCurrentSortBy('');
-    setActiveCount(0);
-    onFilterChange({
-      min_price: null, max_price: null, rating: null,
-      property_types: [], hotel_classes: [], amenities: [],
-      sort_by: undefined, free_cancellation: undefined, special_offers: undefined, eco_certified: undefined,
-    }, undefined, 0);
-  };
-
-  const toggleItem = <T extends number | string>(arr: T[], item: T): T[] =>
+  // ─── TOGGLE HELPER ───
+  const toggleItem = <T extends number>(arr: T[], item: T): T[] =>
     arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
+
+  // ─── LOCAL STATE FOR PRICE POPOVER ───
+  const [priceMinLocal, setPriceMinLocal] = useState(filters.min_price ?? 0);
+  const [priceMaxLocal, setPriceMaxLocal] = useState(filters.max_price ?? 1000);
+
+  // ─── ACTIVE CHECKS ───
+  const hasPropertyType = (filters.property_types?.length ?? 0) > 0;
+  const hasPriceRange = filters.min_price != null || filters.max_price != null;
+  const hasRoomsBeds =
+    (filters.bedrooms ?? 0) > 0 || (filters.bathrooms ?? 0) > 0;
+  const totalActive = computeActiveCount(filters);
+
+  // ─── CHIP CLASSNAME ───
+  const chipClass = (active: boolean) =>
+    `flex items-center gap-1.5 px-4 py-2 rounded-full border text-[13.5px] font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+      active
+        ? 'border-[#111] border-2 text-[#111]'
+        : 'border-[#e8e8e8] text-[#111] hover:border-[#aaa] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+    }`;
 
   return (
     <>
       {/* Filter bar — fixed below the navbar */}
       <div
         ref={filterBarRef}
-        className="fixed top-[72px] left-0 right-0 z-40 h-16 bg-white border-b border-[#E5E7EB] flex items-center gap-2.5 px-4 lg:px-8 overflow-x-auto no-scrollbar"
+        className="fixed top-[72px] left-0 right-0 z-40 h-16 bg-white border-b border-[#e8e8e8] flex items-stretch px-4 lg:px-8"
       >
-        {/* Vacation rentals / Hotels toggle */}
-        <div className="flex items-center bg-[#F5F5F5] rounded-full p-1 shrink-0">
+        <div className="flex items-center gap-2.5 w-full">
+        {/* ── Hotels / Alquiler toggle ── */}
+        <div className="flex items-center bg-[#f5f5f5] rounded-full p-1 shrink-0">
           <button
             onClick={() => onVacationRentalsChange(false)}
-            className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
-              !vacationRentals ? 'bg-[#0A0A0A] text-white' : 'text-[#6A7282] hover:text-[#0A0A0A]'
+            className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
+              !vacationRentals
+                ? 'bg-[#111] text-white'
+                : 'text-[#6A7282] hover:text-[#111]'
             }`}
           >
             Hoteles
           </button>
           <button
             onClick={() => onVacationRentalsChange(true)}
-            className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
-              vacationRentals ? 'bg-[#0A0A0A] text-white' : 'text-[#6A7282] hover:text-[#0A0A0A]'
+            className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer ${
+              vacationRentals
+                ? 'bg-[#111] text-white'
+                : 'text-[#6A7282] hover:text-[#111]'
             }`}
           >
             Alquileres
           </button>
         </div>
 
-        {/* Sort by */}
+        {/* ── CHIP 1: PROPERTY TYPE ── */}
         <Popover className="relative shrink-0">
-          <PopoverButton className="filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border border-[#E5E7EB] text-[13px] font-medium text-[#0A0A0A] hover:border-[#aaa] transition-colors whitespace-nowrap">
-            <SlidersHorizontal className="w-3 h-3" />
-            Ordenar
+          <PopoverButton className={chipClass(hasPropertyType)}>
+            Tipo de propiedad
             <ChevronDown className="w-3 h-3" />
+            {hasPropertyType && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-[#111] text-white text-[11px] font-bold flex items-center justify-center px-1 border-2 border-white">
+                {filters.property_types!.length}
+              </span>
+            )}
           </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[200px] z-50">
-            <div className="space-y-1">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, selectedAmenities, freeCancellation, specialOffers, ecoCertified, opt.value);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
-                    (currentSortBy || '') === opt.value ? 'bg-[#0A0A0A] text-white' : 'text-[#0A0A0A] hover:bg-[#FAFAFA]'
-                  }`}
+          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#e8e8e8] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[220px] z-30">
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {PROPERTY_TYPES.map((pt) => (
+                <label
+                  key={pt.id}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#fafafa] cursor-pointer text-sm text-[#111]"
                 >
-                  {opt.label}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={(filters.property_types ?? []).includes(pt.id)}
+                    onChange={() => {
+                      const pts = toggleItem(filters.property_types ?? [], pt.id);
+                      apply({ property_types: pts });
+                    }}
+                    className="w-4 h-4 rounded accent-[#111]"
+                  />
+                  {pt.name}
+                </label>
               ))}
+            </div>
+
+            {/* Hotel class sub-group */}
+            <div className="border-t border-[#e8e8e8] mt-2 pt-2">
+              <p className="text-xs text-[#6A7282] font-medium mb-1.5 px-3">
+                Categoría
+              </p>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {HOTEL_CLASSES.map((hc) => (
+                  <label
+                    key={hc.id}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#fafafa] cursor-pointer text-sm text-[#111]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(filters.hotel_classes ?? []).includes(hc.id)}
+                      onChange={() => {
+                        const cs = toggleItem(filters.hotel_classes ?? [], hc.id);
+                        apply({ hotel_classes: cs });
+                      }}
+                      className="w-4 h-4 rounded accent-[#111]"
+                    />
+                    {hc.name}
+                  </label>
+                ))}
+              </div>
             </div>
           </PopoverPanel>
         </Popover>
 
-        {/* Price range */}
+        {/* ── CHIP 2: PRICE RANGE ── */}
         <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            minPrice > 0 || maxPrice < 1000 ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            Precio
+          <PopoverButton
+            className={chipClass(hasPriceRange)}
+            onClick={() => {
+              // Sync local state when opening
+              setPriceMinLocal(filters.min_price ?? 0);
+              setPriceMaxLocal(filters.max_price ?? 1000);
+            }}
+          >
+            Rango de precio
             <ChevronDown className="w-3 h-3" />
-            {((minPrice > 0 || maxPrice < 1000)) && (
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">!</span>
+            {hasPriceRange && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-[#111] text-white text-[11px] font-bold flex items-center justify-center px-1 border-2 border-white">
+                !
+              </span>
             )}
           </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-5 min-w-[220px] z-50">
+          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#e8e8e8] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-5 min-w-[220px] z-30">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-[#6A7282] w-10">Min</label>
                 <input
-                  type="number"
-                  value={minPrice}
-                  min={0}
+                  type="text"
+                  inputMode="numeric"
+                  value={priceMinLocal === 0 && filters.min_price == null ? '' : String(priceMinLocal)}
                   onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setMinPrice(Math.min(v, maxPrice - 10));
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setPriceMinLocal(0);
+                      return;
+                    }
+                    const v = parseInt(raw, 10);
+                    if (!isNaN(v) && v >= 0) {
+                      setPriceMinLocal(v);
+                    }
                   }}
-                  className="flex-1 px-2 py-1.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#0A0A0A]"
+                  onBlur={() => {
+                    if (priceMinLocal > priceMaxLocal - 10) {
+                      setPriceMinLocal(Math.max(0, priceMaxLocal - 10));
+                    }
+                  }}
+                  className="flex-1 px-2 py-1.5 text-sm border border-[#e8e8e8] rounded-lg focus:outline-none focus:border-[#111]"
                 />
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-[#6A7282] w-10">Max</label>
                 <input
-                  type="number"
-                  value={maxPrice}
-                  min={minPrice + 10}
-                  max={10000}
+                  type="text"
+                  inputMode="numeric"
+                  value={priceMaxLocal === 1000 && filters.max_price == null ? '' : String(priceMaxLocal)}
                   onChange={(e) => {
-                    setMaxPrice(Math.max(Number(e.target.value), minPrice + 10));
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setPriceMaxLocal(1000);
+                      return;
+                    }
+                    const v = parseInt(raw, 10);
+                    if (!isNaN(v) && v >= 0) {
+                      setPriceMaxLocal(v);
+                    }
                   }}
-                  className="flex-1 px-2 py-1.5 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#0A0A0A]"
+                  onBlur={() => {
+                    if (priceMaxLocal < priceMinLocal + 10) {
+                      setPriceMaxLocal(priceMinLocal + 10);
+                    }
+                  }}
+                  className="flex-1 px-2 py-1.5 text-sm border border-[#e8e8e8] rounded-lg focus:outline-none focus:border-[#111]"
                 />
               </div>
               <button
-                onClick={() => apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, selectedAmenities, freeCancellation, specialOffers, ecoCertified, currentSortBy)}
-                className="w-full py-2 rounded-full bg-[#0A0A0A] text-white text-sm font-medium hover:bg-[#262626] transition-colors"
+                onClick={() =>
+                  apply({
+                    min_price: priceMinLocal > 0 ? priceMinLocal : null,
+                    max_price: priceMaxLocal < 1000 ? priceMaxLocal : null,
+                  })
+                }
+                className="w-full py-2 rounded-full bg-[#111] text-white text-sm font-medium hover:bg-[#262626] transition-colors"
               >
                 Aplicar
               </button>
@@ -240,213 +268,127 @@ export default function HotelFilters({
           </PopoverPanel>
         </Popover>
 
-        {/* Rating */}
+        {/* ── CHIP 3: ROOMS & BEDS ── */}
         <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            rating ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            Valoración
+          <PopoverButton className={chipClass(hasRoomsBeds)}>
+            Habitaciones y camas
             <ChevronDown className="w-3 h-3" />
-            {rating && <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">!</span>}
+            {hasRoomsBeds && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-[#111] text-white text-[11px] font-bold flex items-center justify-center px-1 border-2 border-white">
+                !
+              </span>
+            )}
           </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[180px] z-50">
+          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#e8e8e8] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-5 min-w-[220px] z-30">
             <div className="space-y-1">
-              {RATING_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    const newRating = opt.value;
-                    setRating(newRating);
-                    apply(minPrice, maxPrice, newRating, selectedPropertyTypes, selectedClasses, selectedAmenities, freeCancellation, specialOffers, ecoCertified, currentSortBy);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
-                    rating === opt.value ? 'bg-[#0A0A0A] text-white' : 'text-[#0A0A0A] hover:bg-[#FAFAFA]'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              {/* Bedrooms */}
+              <div className="flex items-center justify-between py-3 border-b border-[#e8e8e8]">
+                <span className="text-sm font-medium text-[#111]">Dormitorios</span>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() =>
+                      apply({ bedrooms: Math.max(0, (filters.bedrooms ?? 0) - 1) })
+                    }
+                    disabled={(filters.bedrooms ?? 0) <= 0}
+                    className="w-11 h-11 rounded-full border-[1.5px] border-[#e8e8e8] bg-white flex items-center justify-center text-[#111] hover:border-[#888] disabled:text-[#ccc] disabled:border-[#eee] disabled:cursor-default transition-colors"
+                    aria-label="Reducir dormitorios"
+                  >
+                    <Minus className="w-[14px] h-[14px]" strokeWidth={2.5} />
+                  </button>
+                  <span className="text-sm font-medium min-w-[20px] text-center">
+                    {filters.bedrooms ?? 0}
+                  </span>
+                  <button
+                    onClick={() =>
+                      apply({ bedrooms: (filters.bedrooms ?? 0) + 1 })
+                    }
+                    className="w-11 h-11 rounded-full border-[1.5px] border-[#e8e8e8] bg-white flex items-center justify-center text-[#111] hover:border-[#888] transition-colors"
+                    aria-label="Aumentar dormitorios"
+                  >
+                    <Plus className="w-[14px] h-[14px]" strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Bathrooms */}
+              <div className="flex items-center justify-between py-3">
+                <span className="text-sm font-medium text-[#111]">Baños</span>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() =>
+                      apply({ bathrooms: Math.max(0, (filters.bathrooms ?? 0) - 1) })
+                    }
+                    disabled={(filters.bathrooms ?? 0) <= 0}
+                    className="w-11 h-11 rounded-full border-[1.5px] border-[#e8e8e8] bg-white flex items-center justify-center text-[#111] hover:border-[#888] disabled:text-[#ccc] disabled:border-[#eee] disabled:cursor-default transition-colors"
+                    aria-label="Reducir baños"
+                  >
+                    <Minus className="w-[14px] h-[14px]" strokeWidth={2.5} />
+                  </button>
+                  <span className="text-sm font-medium min-w-[20px] text-center">
+                    {filters.bathrooms ?? 0}
+                  </span>
+                  <button
+                    onClick={() =>
+                      apply({ bathrooms: (filters.bathrooms ?? 0) + 1 })
+                    }
+                    className="w-11 h-11 rounded-full border-[1.5px] border-[#e8e8e8] bg-white flex items-center justify-center text-[#111] hover:border-[#888] transition-colors"
+                    aria-label="Aumentar baños"
+                  >
+                    <Plus className="w-[14px] h-[14px]" strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
             </div>
           </PopoverPanel>
         </Popover>
 
-        {/* Property type */}
-        <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            selectedPropertyTypes.length ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            Tipo
-            <ChevronDown className="w-3 h-3" />
-            {selectedPropertyTypes.length > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">
-                {selectedPropertyTypes.length}
-              </span>
-            )}
-          </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[220px] z-50">
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              {PROPERTY_TYPES.map((pt) => (
-                <label key={pt.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#FAFAFA] cursor-pointer text-sm text-[#0A0A0A]">
-                  <input
-                    type="checkbox"
-                    checked={selectedPropertyTypes.includes(pt.id)}
-                    onChange={() => {
-                      const pts = toggleItem(selectedPropertyTypes, pt.id);
-                      setSelectedPropertyTypes(pts);
-                      apply(minPrice, maxPrice, rating, pts, selectedClasses, selectedAmenities, freeCancellation, specialOffers, ecoCertified, currentSortBy);
-                    }}
-                    className="w-4 h-4 rounded accent-[#0A0A0A]"
-                  />
-                  {pt.name}
-                </label>
-              ))}
-            </div>
-          </PopoverPanel>
-        </Popover>
+        {/* ── CHIP 4: ALL FILTERS ── */}
+        <button
+          onClick={onOpenModal}
+          className={chipClass(totalActive > 0) + ' gap-[6px]'}
+        >
+          <SlidersHorizontal className="w-[14px] h-[14px]" strokeWidth={2} />
+          Todos los filtros
+          {totalActive > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-[#111] text-white text-[11px] font-bold flex items-center justify-center px-1 border-2 border-white">
+              {totalActive}
+            </span>
+          )}
+        </button>
 
-        {/* Hotel class */}
-        <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            selectedClasses.length ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            Estrellas
-            <ChevronDown className="w-3 h-3" />
-            {selectedClasses.length > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">
-                {selectedClasses.length}
-              </span>
-            )}
-          </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[180px] z-50">
-            <div className="space-y-1">
-              {HOTEL_CLASSES.map((hc) => (
-                <label key={hc.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#FAFAFA] cursor-pointer text-sm text-[#0A0A0A]">
-                  <input
-                    type="checkbox"
-                    checked={selectedClasses.includes(hc.id)}
-                    onChange={() => {
-                      const cs = toggleItem(selectedClasses, hc.id);
-                      setSelectedClasses(cs);
-                      apply(minPrice, maxPrice, rating, selectedPropertyTypes, cs, selectedAmenities, freeCancellation, specialOffers, ecoCertified, currentSortBy);
-                    }}
-                    className="w-4 h-4 rounded accent-[#0A0A0A]"
-                  />
-                  {hc.name}
-                </label>
-              ))}
-            </div>
-          </PopoverPanel>
-        </Popover>
-
-        {/* Amenities */}
-        <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            selectedAmenities.length ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            Servicios
-            <ChevronDown className="w-3 h-3" />
-            {selectedAmenities.length > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">
-                {selectedAmenities.length}
-              </span>
-            )}
-          </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-3 min-w-[220px] z-50">
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              {AMENITIES.map((am) => (
-                <label key={am.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#FAFAFA] cursor-pointer text-sm text-[#0A0A0A]">
-                  <input
-                    type="checkbox"
-                    checked={selectedAmenities.includes(am.id)}
-                    onChange={() => {
-                      const ams = toggleItem(selectedAmenities, am.id);
-                      setSelectedAmenities(ams);
-                      apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, ams, freeCancellation, specialOffers, ecoCertified, currentSortBy);
-                    }}
-                    className="w-4 h-4 rounded accent-[#0A0A0A]"
-                  />
-                  {am.name}
-                </label>
-              ))}
-            </div>
-          </PopoverPanel>
-        </Popover>
-
-        {/* More filters */}
-        <Popover className="relative shrink-0">
-          <PopoverButton className={`filter-chip flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] font-medium transition-colors whitespace-nowrap ${
-            freeCancellation || specialOffers || ecoCertified ? 'border-[#0A0A0A] border-2 text-[#0A0A0A]' : 'border-[#E5E7EB] text-[#0A0A0A] hover:border-[#aaa]'
-          }`}>
-            <SlidersHorizontal className="w-[14px] h-[14px]" />
-            Más filtros
-            {(freeCancellation || specialOffers || ecoCertified) && (
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-[#0A0A0A] text-white text-[10px] font-bold flex items-center justify-center px-1 border-2 border-white">
-                {[freeCancellation, specialOffers, ecoCertified].filter(Boolean).length}
-              </span>
-            )}
-          </PopoverButton>
-          <PopoverPanel className="absolute top-full left-0 mt-1.5 bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_24px_rgba(0,0,0,0.1)] p-4 min-w-[220px] z-50">
-            <div className="space-y-2.5">
-              <label className="flex items-center gap-2.5 text-sm text-[#0A0A0A] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={freeCancellation}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setFreeCancellation(v);
-                    apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, selectedAmenities, v, specialOffers, ecoCertified, currentSortBy);
-                  }}
-                  className="w-4 h-4 rounded accent-[#0A0A0A]"
-                />
-                Cancelación gratuita
-              </label>
-              <label className="flex items-center gap-2.5 text-sm text-[#0A0A0A] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={specialOffers}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setSpecialOffers(v);
-                    apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, selectedAmenities, freeCancellation, v, ecoCertified, currentSortBy);
-                  }}
-                  className="w-4 h-4 rounded accent-[#0A0A0A]"
-                />
-                Ofertas especiales
-              </label>
-              <label className="flex items-center gap-2.5 text-sm text-[#0A0A0A] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={ecoCertified}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setEcoCertified(v);
-                    apply(minPrice, maxPrice, rating, selectedPropertyTypes, selectedClasses, selectedAmenities, freeCancellation, specialOffers, v, currentSortBy);
-                  }}
-                  className="w-4 h-4 rounded accent-[#0A0A0A]"
-                />
-                Eco certificado
-              </label>
-            </div>
-          </PopoverPanel>
-        </Popover>
-
-        {/* Clear all — only show if there are active filters */}
-        {activeCount > 0 && (
+        {/* ── CLEAR ALL ── */}
+        {totalActive > 0 && (
           <button
-            onClick={clearAll}
-            className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-[13px] font-medium text-[#6A7282] hover:text-[#0A0A0A] hover:bg-[#F5F5F5] transition-colors"
+            onClick={() =>
+              onFilterChange(
+                {
+                  min_price: null,
+                  max_price: null,
+                  rating: null,
+                  property_types: [],
+                  hotel_classes: [],
+                  amenities: [],
+                  sort_by: undefined,
+                  brands: undefined,
+                  free_cancellation: undefined,
+                  special_offers: undefined,
+                  eco_certified: undefined,
+                  bedrooms: undefined,
+                  bathrooms: undefined,
+                  vacation_rentals: filters.vacation_rentals,
+                },
+                initialSortBy || undefined,
+                0,
+              )
+            }
+            className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-[13px] font-medium text-[#6A7282] hover:text-[#111] hover:bg-[#f5f5f5] transition-colors"
           >
             <X className="w-3.5 h-3.5" />
             Limpiar
           </button>
         )}
+        </div>
       </div>
-
-      {/* Hide scrollbar */}
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </>
   );
 }

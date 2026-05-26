@@ -3,17 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "picsum.photos" },
-      { protocol: "https", hostname: "**.googleusercontent.com" },
-      { protocol: "https", hostname: "dynamic-media-cdn.tripadvisor.com" },
-      { protocol: "https", hostname: "media-cdn.tripadvisor.com" },
-      { protocol: "https", hostname: "**.bstatic.com" },
-      { protocol: "https", hostname: "**.booking.com" },
-      { protocol: "https", hostname: "**.agoda.net" },
-      { protocol: "https", hostname: "**.gstatic.com" },
-      { protocol: "https", hostname: "openweathermap.org" },
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
+      { protocol: "https", hostname: "**" },
     ],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,

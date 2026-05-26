@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
-import { Menu, X, Building2, Sparkles, Plane } from "lucide-react";
+import { Menu, X, Building2, Sparkles, Plane, Search, MapPin } from "lucide-react";
 import NavActions from "./NavActions";
 import HotelsSearch from "./tabs/HotelsSearch";
 import AISearch from "./tabs/AISearch";
@@ -24,6 +24,7 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { environment } = useEnvironment();
+  const urlParams = useSearchParams();
 
   // ─── STATE ──────────────────────────────────────
   const [isScrolled, setIsScrolled] = useState(false);
@@ -31,6 +32,13 @@ export default function Navbar() {
   const [tabIndex, setTabIndex] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+
+  // ─── HYDRATION-SAFE validation state ───────────
+  // Server renders disabled={false} (enabled) to match initial client render
+  // before environment pre-fills hotelDest. After hydration, compute real validity.
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => setIsHydrated(true), []);
 
   // Hotels
   const [hotelDest, setHotelDest] = useState("");
@@ -121,7 +129,35 @@ export default function Navbar() {
 
   // ─── DERIVED ────────────────────────────────────
   const isLandingPage = pathname === "/";
+  const isHotelesRoute = pathname === "/hoteles" || pathname.startsWith("/hoteles?");
   const isHero = isLandingPage && !isScrolled && !expanded;
+
+  const guestTotal = adults + childCount;
+
+  // ─── SEARCH VALIDATION ───────────────────────
+  // Hydration-safe: default to true (enabled) on server/first render,
+  // only compute real validity after client hydration when environment data is loaded.
+  const isSearchValid = isHydrated
+    ? (hotelDest.trim() !== '' && hotelDateRange.start !== null && hotelDateRange.end !== null)
+    : true;
+
+  // Pill display values — prefer URL params when on /hoteles route
+  const pillDest = isHotelesRoute ? (urlParams.get('query') || hotelDest) : hotelDest;
+  const pillDateStart = isHotelesRoute && urlParams.get('check_in_date')
+    ? new Date(urlParams.get('check_in_date')! + 'T00:00:00')
+    : hotelDateRange.start;
+  const pillDateEnd = isHotelesRoute && urlParams.get('check_out_date')
+    ? new Date(urlParams.get('check_out_date')! + 'T00:00:00')
+    : hotelDateRange.end;
+  const pillAdults = isHotelesRoute ? (parseInt(urlParams.get('adults') || '0', 10) || adults) : adults;
+  const pillChildren = isHotelesRoute ? (parseInt(urlParams.get('children') || '0', 10) || childCount) : childCount;
+  const pillGuestTotal = pillAdults + pillChildren;
+
+  const formatDateShort = (d: Date | null): string => {
+    if (!d) return '';
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  };
 
   // ─── GUESTS HANDLER ────────────────────────────
   const handleGuestsChange = useCallback(
@@ -144,14 +180,48 @@ export default function Navbar() {
     [],
   );
 
+  // ─── SYNC NAVBAR STATE FROM URL (hoteles route) ──
+  useEffect(() => {
+    if (!isHotelesRoute) return;
+    const q = urlParams.get('query');
+    const ci = urlParams.get('check_in_date');
+    const co = urlParams.get('check_out_date');
+    const ad = urlParams.get('adults');
+    const ch = urlParams.get('children');
+
+    if (q) setHotelDest(q);
+    if (ci) {
+      setHotelDateRange({
+        start: new Date(ci + 'T00:00:00'),
+        end: co ? new Date(co + 'T00:00:00') : null,
+      });
+    }
+    if (ad) setAdults(parseInt(ad, 10));
+    if (ch) setChildren(parseInt(ch, 10));
+  }, [isHotelesRoute, urlParams.toString()]);
+
   // ─── SEARCH ACTIONS ────────────────────────────
   const handleHotelSearch = useCallback(() => {
-    const params = new URLSearchParams();
-    if (hotelDest) params.set("query", hotelDest);
-    if (hotelDateRange.start && hotelDateRange.end) {
-      params.set("check_in_date", hotelDateRange.start.toISOString().split("T")[0]);
-      params.set("check_out_date", hotelDateRange.end.toISOString().split("T")[0]);
+    const dest = hotelDest.trim();
+    
+    // Guard: show validation message instead of silent return
+    if (!dest) {
+      setValidationMessage('Ingresá un destino');
+      return;
     }
+
+    // Guard: show validation message for missing dates
+    if (!hotelDateRange.start || !hotelDateRange.end) {
+      setValidationMessage('Seleccioná las fechas de tu viaje');
+      return;
+    }
+
+    setValidationMessage(null);
+
+    const params = new URLSearchParams();
+    params.set("query", dest);
+    params.set("check_in_date", hotelDateRange.start.toISOString().split("T")[0]);
+    params.set("check_out_date", hotelDateRange.end.toISOString().split("T")[0]);
     if (adults > 0) params.set("adults", String(adults));
     if (childCount > 0) params.set("children", String(childCount));
     const prefs = getUserPreferences();
@@ -230,8 +300,8 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* CENTER — TABS (desktop) */}
-            <TabList className="hidden lg:flex items-center gap-1.5">
+            {/* CENTER — TABS (desktop) or COMPACT PILL (hoteles route) */}
+            <TabList className={`hidden lg:flex items-center gap-1.5 ${isHotelesRoute ? '!hidden' : ''}`}>
               {TABS.map((tab, idx) => {
                 const Icon = tab.icon;
                 return (
@@ -250,6 +320,57 @@ export default function Navbar() {
                 );
               })}
             </TabList>
+
+            {/* Compact search pill — shown only on /hoteles route */}
+            {isHotelesRoute && (
+              <div className="hidden lg:flex items-center gap-0 border-[1.5px] border-[#e8e8e8] rounded-full overflow-hidden cursor-pointer hover:shadow-[0_2px_12px_rgba(0,0,0,0.12)] transition-shadow">
+                {/* Destination segment */}
+                <button
+                  onClick={() => { setTabIndex(0); setExpanded(true); }}
+                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] border-r border-[#e8e8e8] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
+                >
+                  <MapPin className="w-4 h-4 stroke-[#111]" strokeWidth={1.8} />
+                  {pillDest || 'Destino'}
+                </button>
+
+                {/* Dates segment */}
+                <button
+                  onClick={() => { setTabIndex(0); setExpanded(true); }}
+                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] border-r border-[#e8e8e8] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
+                >
+                  {pillDateStart && pillDateEnd
+                    ? `${formatDateShort(pillDateStart)} – ${formatDateShort(pillDateEnd)}`
+                    : 'Fechas'}
+                </button>
+
+                {/* Guests segment */}
+                <button
+                  onClick={() => { setTabIndex(0); setExpanded(true); }}
+                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
+                >
+                  {pillGuestTotal > 0
+                    ? `${pillGuestTotal} ${pillGuestTotal === 1 ? 'huésped' : 'huéspedes'}`
+                    : 'Huéspedes'}
+                </button>
+
+                {/* Search button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isSearchValid) {
+                      setValidationMessage('Ingresá un destino y fechas para buscar');
+                      return;
+                    }
+                    handleHotelSearch();
+                  }}
+                  disabled={!isSearchValid}
+                  className="w-9 h-9 rounded-full bg-[#111] flex items-center justify-center m-1 shrink-0 hover:bg-[#333] hover:scale-105 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#111] disabled:hover:scale-100"
+                  aria-label="Buscar"
+                >
+                  <Search className="w-[15px] h-[15px] stroke-white" strokeWidth={2.2} />
+                </button>
+              </div>
+            )}
 
             {/* RIGHT */}
             <div className="hidden lg:flex items-center gap-2">
@@ -279,6 +400,19 @@ export default function Navbar() {
             className={`search-panel ${expanded ? "is-open" : ""}`}
           >
             <div className="max-w-4xl mx-auto search-panel-content">
+              {/* Validation banner */}
+              {validationMessage && (
+                <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                  <span>{validationMessage}</span>
+                  <button
+                    onClick={() => setValidationMessage(null)}
+                    className="ml-3 text-amber-600 hover:text-amber-800"
+                    aria-label="Cerrar aviso"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <TabPanels>
                 {/* HOTELS */}
                 <TabPanel>
@@ -292,6 +426,7 @@ export default function Navbar() {
                     infants={infants}
                     onGuestsChange={handleGuestsChange}
                     onSearch={handleHotelSearch}
+                    isValid={isSearchValid}
                   />
                 </TabPanel>
 

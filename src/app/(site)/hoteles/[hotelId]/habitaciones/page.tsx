@@ -3,6 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Calendar, Users, Moon, Building2, Baby, Heart, BedDouble, AlertTriangle } from 'lucide-react';
 import RoomCard from './components/RoomCard';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
 import { getHotelRooms } from '@/app/lib/api';
@@ -31,6 +32,8 @@ function HabitacionesContent() {
   const {
     data: hotelRooms = [],
     isLoading,
+    isError,
+    error,
   } = useQuery({
     queryKey: [...queryKeys.hotels.rooms(hotelId), checkIn, checkOut, adults, childrenParam],
     queryFn: async () => {
@@ -48,8 +51,8 @@ function HabitacionesContent() {
           return roomsData;
         }
         return getHotelRoomsMock(hotelId);
-      } catch (error) {
-        console.error('❌ Error cargando habitaciones:', error);
+      } catch (err) {
+        console.error('Error cargando habitaciones:', err);
         return getHotelRoomsMock(hotelId);
       }
     },
@@ -89,79 +92,115 @@ function HabitacionesContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3]">
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="mb-6">
-          <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors mb-4">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver
-          </button>
-          <div className="bg-white rounded-lg shadow-md p-5">
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">{hotelName}</h1>
-            <div className="flex items-center gap-6 text-sm text-gray-600 flex-wrap">
-              {checkIn && checkOut && (
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>{checkIn} → {checkOut}</span>
-                </div>
-              )}
+    <div className="min-h-screen bg-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Back button */}
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-950 transition-colors mb-6 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver
+        </button>
+
+        {/* Hotel info card */}
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 mb-8">
+          <h1 className="text-2xl font-bold text-neutral-950 mb-4">{hotelName}</h1>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-neutral-500">
+            {checkIn && checkOut && (
               <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>{adults} adultos</span>
+                <Calendar className="w-4 h-4 text-neutral-400" />
+                <span className="text-neutral-700">{checkIn} → {checkOut}</span>
               </div>
-              {Number(childrenParam) > 0 && (
-                <div className="flex items-center gap-1.5 text-blue-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  <span>{childrenParam} niños</span>
-                </div>
-              )}
-              {Number(infantsParam) > 0 && (
-                <div className="flex items-center gap-1.5 text-purple-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  <span>{infantsParam} bebés</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-                <span>{nights} noche{parseInt(nights) > 1 ? 's' : ''}</span>
-              </div>
-              {rooms > 1 && (
-                <div className="flex items-center gap-1.5 text-[--color-brand-500] font-medium">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <span>{rooms} habitaciones</span>
-                </div>
-              )}
+            )}
+            <div className="flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-neutral-400" />
+              <span>{adults} adulto{Number(adults) > 1 ? 's' : ''}</span>
             </div>
+            {Number(childrenParam) > 0 && (
+              <div className="flex items-center gap-1.5 text-brand-600">
+                <Baby className="w-4 h-4" />
+                <span>{childrenParam} niño{Number(childrenParam) > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            {Number(infantsParam) > 0 && (
+              <div className="flex items-center gap-1.5 text-purple-600">
+                <Heart className="w-4 h-4" />
+                <span>{infantsParam} bebé{Number(infantsParam) > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <Moon className="w-4 h-4 text-neutral-400" />
+              <span>{nights} noche{Number(nights) > 1 ? 's' : ''}</span>
+            </div>
+            {rooms > 1 && (
+              <div className="flex items-center gap-1.5 text-brand-500 font-medium">
+                <Building2 className="w-4 h-4" />
+                <span>{rooms} habitación{rooms > 1 ? 'es' : ''}</span>
+              </div>
+            )}
           </div>
         </div>
- 
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Elige tu habitación</h2>
+
+        {/* Section heading */}
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-neutral-950">Elige tu habitación</h2>
           {rooms > 1 && (
-            <p className="text-sm text-gray-500 mt-1">
-              El precio mostrado es por habitación · Se reservarán <span className="font-semibold text-[--color-brand-500]">{rooms} habitaciones</span> del tipo que elijas
+            <p className="text-sm text-neutral-500 mt-1.5">
+              El precio mostrado es por habitación · Se reservarán{' '}
+              <span className="font-semibold text-brand-500">{rooms} habitaciones</span> del tipo que elijas
             </p>
           )}
         </div>
- 
+
+        {/* States */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-[--color-brand-500] border-t-transparent rounded-full animate-spin"></div>
-            <span className="ml-3 text-gray-600">Cargando habitaciones...</span>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white border border-neutral-200 rounded-2xl overflow-hidden animate-pulse">
+                <div className="grid grid-cols-12">
+                  <div className="col-span-4 sm:col-span-3 aspect-[4/3] bg-neutral-100" />
+                  <div className="col-span-8 sm:col-span-6 p-5 space-y-3">
+                    <div className="h-5 bg-neutral-100 rounded w-2/3" />
+                    <div className="flex gap-4">
+                      <div className="h-4 bg-neutral-100 rounded w-20" />
+                      <div className="h-4 bg-neutral-100 rounded w-28" />
+                      <div className="h-4 bg-neutral-100 rounded w-16" />
+                    </div>
+                    <div className="flex gap-2">
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <div key={j} className="h-6 bg-neutral-100 rounded-full w-16" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex col-span-3 p-5 flex-col items-end justify-between border-l border-neutral-100">
+                    <div className="h-4 bg-neutral-100 rounded w-16" />
+                    <div className="h-8 bg-neutral-100 rounded w-24" />
+                    <div className="h-10 bg-neutral-100 rounded-lg w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-7 h-7 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-950 mb-2">Error al cargar habitaciones</h3>
+            <p className="text-sm text-neutral-500 max-w-sm">
+              {error instanceof Error ? error.message : 'Ocurrió un error inesperado. Intentá de nuevo más tarde.'}
+            </p>
+          </div>
+        ) : hotelRooms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
+              <Building2 className="w-7 h-7 text-neutral-300" />
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-950 mb-2">Sin habitaciones disponibles</h3>
+            <p className="text-sm text-neutral-500 max-w-sm">
+              No encontramos habitaciones para las fechas seleccionadas. Probá con otras fechas u hotel.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -178,8 +217,8 @@ function HabitacionesContent() {
 export default function HabitacionesPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-r from-[#fff5e6] via-[#ffe4cc] to-[#ffd4b3] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[--color-brand-500] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <HabitacionesContent />
@@ -188,7 +227,7 @@ export default function HabitacionesPage() {
 }
 
 // ==========================================
-// 🚧 MOCK HABITACIONES (Fallback si backend no responde)
+// MOCK HABITACIONES (fallback si backend no responde)
 // ==========================================
 async function getHotelRoomsMock(hotelId: string) {
   const basePrice = 80 + (hotelId.length * 15);

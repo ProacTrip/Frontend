@@ -24,6 +24,14 @@ export function currencyToSymbol(currency: string): string {
     'GBP': '£',
     'JPY': '¥',
     'CHF': 'CHF',
+    'ARS': '$',
+    'MXN': '$',
+    'BRL': 'R$',
+    'CLP': '$',
+    'PEN': 'S/',
+    'COP': '$',
+    'UYU': '$',
+    'PYG': '₲',
   };
   return symbols[currency] || currency;
 }
@@ -89,13 +97,20 @@ export function extractCityFromAddress(address: string | null | undefined): stri
 // ADAPTADORES (CORREGIDOS)
 // ==========================================
 
+function toProxiedUrl(url: string): string {
+  return `/api/img?url=${encodeURIComponent(url)}`;
+}
+
 function adaptImages(backendImages: { thumbnail: string; original: string }[] | null | undefined): string[] {
   if (!backendImages?.length) {
     return [];
   }
   return backendImages
-    .map(img => img.original || img.thumbnail)
-    .filter(Boolean);
+    .map(img => (img.thumbnail || img.original))
+    .filter(Boolean)
+    .map(url => url.replace(/^http:\/\//i, 'https://'))
+    .map(url => url.replace(/=s\d+.*$/, '=s800'))
+    .map(toProxiedUrl);
 }
 
 function adaptRating(

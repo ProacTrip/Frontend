@@ -10,25 +10,52 @@ interface HotelMapProps {
   center: { lat: number; lng: number };
 }
 
-function createPriceIcon(price: number, active = false): L.DivIcon {
+function createPriceIcon(price: number, currencySymbol: string, active = false): L.DivIcon {
   return L.divIcon({
     className: '',
-    html: `<div class="map-price-marker${active ? ' is-active' : ''}" style="
-      background:${active ? '#0A0A0A' : '#fff'};
-      color:${active ? '#fff' : '#0A0A0A'};
-      border-radius:999px;
-      padding:6px 12px;
-      font-family:'DM Sans',system-ui,sans-serif;
-      font-size:12px;
-      font-weight:700;
-      box-shadow:0 2px 10px rgba(0,0,0,0.18);
-      white-space:nowrap;
-      cursor:pointer;
-      border:2px solid ${active ? '#0A0A0A' : 'transparent'};
-      transition:all 0.2s ease;
-    ">€${price}</div>`,
+    html: `
+      <div
+        class="map-price-marker${active ? ' is-active' : ''}"
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+
+          width:44px;
+          height:44px;
+
+          padding:0 14px;
+
+          background:${active ? '#0A0A0A' : '#fff'};
+          color:${active ? '#fff' : '#0A0A0A'};
+
+          border-radius:999px;
+
+          font-family:'DM Sans',system-ui,sans-serif;
+          font-size:13px;
+          font-weight:700;
+          line-height:1;
+
+          box-shadow:0 2px 10px rgba(0,0,0,0.18);
+
+          white-space:nowrap;
+          cursor:pointer;
+
+          border:2px solid ${active ? '#0A0A0A' : 'transparent'};
+
+          transition:
+            background 0.2s ease,
+            color 0.2s ease,
+            transform 0.2s ease;
+
+          transform-origin:center bottom;
+        "
+      >
+        ${currencySymbol}${price}
+      </div>
+    `,
+    iconSize: [60, 36],
     iconAnchor: [30, 18],
-    iconSize: [0, 0],
   });
 }
 
@@ -37,6 +64,8 @@ export default function HotelMap({ hotels, center }: HotelMapProps) {
   const mapInstance = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const initializedRef = useRef(false);
+
+  const currencySymbol = hotels[0]?.price?.currency || '€';
 
   // Initialize map once
   useEffect(() => {
@@ -91,22 +120,22 @@ export default function HotelMap({ hotels, center }: HotelMapProps) {
       const price = hotel.price?.amount || 0;
 
       const marker = L.marker([lat, lng], {
-        icon: createPriceIcon(price),
+        icon: createPriceIcon(price, currencySymbol),
         title: hotel.name,
       }).addTo(map);
 
       marker.bindPopup(`
         <strong style="font-family:'DM Sans',sans-serif;font-size:13px;">${hotel.name}</strong><br>
         <span style="font-size:12px;color:#888;">${hotel.location.city || ''}</span><br>
-        <strong style="font-size:13px;">€${price}</strong>
+        <strong style="font-size:13px;">${currencySymbol}${price}</strong>
       `, { closeButton: false, maxWidth: 200 });
 
       // Hover interactions
       marker.on('mouseover', () => {
-        marker.setIcon(createPriceIcon(price, true));
+        marker.setIcon(createPriceIcon(price, currencySymbol, true));
       });
       marker.on('mouseout', () => {
-        marker.setIcon(createPriceIcon(price, false));
+        marker.setIcon(createPriceIcon(price, currencySymbol, false));
       });
 
       markersRef.current.set(hotel.id, marker);
@@ -120,6 +149,7 @@ export default function HotelMap({ hotels, center }: HotelMapProps) {
           .map((h) => [h.location.coordinates!.lat, h.location.coordinates!.lng] as [number, number])
       );
       if (bounds.isValid()) {
+        map.invalidateSize();
         map.fitBounds(bounds.pad(0.1));
       }
     }

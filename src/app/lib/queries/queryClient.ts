@@ -8,6 +8,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { rateLimitStore } from '@/app/lib/api/rate-limit';
 import { AuthApiError } from '@/app/lib/api/auth';
+import { HotelApiError } from '@/app/lib/api/hotels';
 
 /** Seconds in a minute — avoids magic numbers. */
 const MS_PER_MINUTE = 60_000;
@@ -30,11 +31,35 @@ export function makeQueryClient(): QueryClient {
         staleTime: 60_000,
         gcTime: 5 * MS_PER_MINUTE,
         retry: (failureCount, error) => {
-          // Don't retry if rate limited
+          // Don't retry if rate limited (429 already consumed the quota)
           if (!rateLimitStore.canRetry()) return false;
-          // Don't retry on 4xx errors (except 429 which is handled above)
-          if (error instanceof AuthApiError && error.status >= 400 && error.status < 500 && error.status !== 429) return false;
-          // Max 2 retries
+
+          // Never retry on definitive client/provider errors:
+          // 400 = bad request (invalid params, won't fix itself)
+          // 401 = unauthorized (expired token — needs user action)
+          // 403 = forbidden
+          // 404 = not found
+          // 422 = invalid param range
+          // 429 = rate limited (handled above, but never retry regardless)
+          // 502 = provider bad request (backend got 400 from SerpAPI — invalid params,
+          //       retrying with same params always fails)
+          // 503 = provider unavailable (external service degraded)
+          //
+          // Auth API errors (AuthApiError) and Hotel API errors (HotelApiError)
+          // both carry `.status`. Check both so we don't retry hotel errors either.
+          const nonRetryableStatus = [
+            400, 401, 403, 404, 422, 429, 502, 503,
+          ];
+          if (
+            (error instanceof AuthApiError || error instanceof HotelApiError) &&
+            nonRetryableStatus.includes(error.status)
+          ) {
+            return false;
+          }
+
+          // Only retry on: network errors, timeouts, 500 (internal server error),
+          // and unknown errors. 502/503 are NOT retried — provider errors with
+          // invalid params would fail identically on retry.
           if (failureCount >= 2) return false;
           return true;
         },
