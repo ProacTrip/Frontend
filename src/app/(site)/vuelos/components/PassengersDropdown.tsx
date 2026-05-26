@@ -1,7 +1,7 @@
 // app/vuelos/components/PassengersDropdown.tsx
 'use client';
 
-import React from 'react';
+import { type ReactNode } from 'react';
 import { Users, Minus, Plus, X, Baby, Armchair } from 'lucide-react';
 import { PASSENGER_LIMITS } from '@/app/lib/constants/flights';
 
@@ -19,7 +19,6 @@ export interface PassengerCounts {
 interface PassengersDropdownProps {
   value: PassengerCounts;
   onChange: (counts: PassengerCounts) => void;
-  isOpen: boolean;
   onToggle: () => void;
 }
 
@@ -66,16 +65,16 @@ export default function PassengersDropdown({
   const increment = (type: keyof PassengerCounts) => updateCount(type, 1);
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in">
+    <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-vuelos-border z-[960] overflow-hidden animate-fade-in">
       
       {/* Header */}
-      <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-        <span className="font-semibold text-gray-700">Pasajeros</span>
+      <div className="bg-vuelos-surface px-4 py-3 border-b border-vuelos-border flex justify-between items-center">
+        <span className="font-semibold text-vuelos-black">Pasajeros</span>
         <button 
           onClick={onToggle}
-          className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+          className="p-1 hover:bg-vuelos-skeleton rounded-full transition-colors"
         >
-          <X className="w-4 h-4 text-gray-500" />
+          <X className="w-4 h-4 text-vuelos-muted" />
         </button>
       </div>
 
@@ -85,7 +84,7 @@ export default function PassengersDropdown({
         <PassengerRow
           label="Adultos"
           sublabel="12 años o más"
-          icon={<Users className="w-5 h-5 text-gray-400" />}
+          icon={<Users className="w-5 h-5 text-vuelos-muted" />}
           count={value.adults}
           onDecrement={() => decrement('adults')}
           onIncrement={() => increment('adults')}
@@ -97,7 +96,7 @@ export default function PassengersDropdown({
         <PassengerRow
           label="Niños"
           sublabel="2 - 11 años"
-          icon={<Users className="w-5 h-5 text-gray-400" />}
+          icon={<Users className="w-5 h-5 text-vuelos-muted" />}
           count={value.children}
           onDecrement={() => decrement('children')}
           onIncrement={() => increment('children')}
@@ -105,7 +104,7 @@ export default function PassengersDropdown({
           max={PASSENGER_LIMITS.MAX_CHILDREN}
         />
 
-        <div className="border-t border-dashed border-gray-200 my-2"></div>
+        <div className="border-t border-dashed border-vuelos-border my-2"></div>
 
         {/* BEBÉS EN ASIENTO */}
         <PassengerRow
@@ -146,7 +145,7 @@ export default function PassengersDropdown({
 interface PassengerRowProps {
   label: string;
   sublabel: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   count: number;
   onDecrement: () => void;
   onIncrement: () => void;
@@ -173,12 +172,12 @@ function PassengerRow({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-full ${warning ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+        <div className={`p-2 rounded-full ${warning ? 'bg-orange-100 text-orange-600' : 'bg-vuelos-surface text-vuelos-muted'}`}>
           {icon}
         </div>
         <div>
-          <div className="font-medium text-gray-900 text-sm">{label}</div>
-          <div className="text-xs text-gray-500">{sublabel}</div>
+          <div className="font-medium text-vuelos-black text-sm">{label}</div>
+          <div className="text-xs text-vuelos-muted">{sublabel}</div>
         </div>
       </div>
 
@@ -191,14 +190,14 @@ function PassengerRow({
           aria-label={`Quitar ${label.toLowerCase()}`}
           className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors
             ${count <= min 
-              ? 'border-gray-100 text-gray-300 cursor-not-allowed' 
-              : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500'
+              ? 'border-vuelos-border text-vuelos-muted cursor-not-allowed' 
+              : 'border-vuelos-border text-vuelos-black hover:border-blue-500 hover:text-blue-500'
             }`}
         >
           <Minus className="w-3 h-3" />
         </button>
         
-        <span className="w-6 text-center font-medium text-gray-900">{count}</span>
+        <span className="w-6 text-center font-medium text-vuelos-black">{count}</span>
         
         {/* BOTÓN DE INCREMENTO (+) */}
         <button
@@ -208,7 +207,7 @@ function PassengerRow({
           aria-label={`Añadir ${label.toLowerCase()}`}
           className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors
             ${isMaxReached
-              ? 'border-gray-100 text-gray-300 cursor-not-allowed' 
+              ? 'border-vuelos-border text-vuelos-muted cursor-not-allowed' 
               : 'border-blue-500 text-blue-500 hover:bg-blue-50'
             }`}
         >

@@ -99,7 +99,7 @@ export default function LocationCombobox({
         <ComboboxOptions
           anchor={{ to: 'bottom start', gap: 8 }}
           transition
-          className="w-[var(--input-width)] bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-2 z-50 origin-top transition duration-200 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 [--anchor-gap:8px]"
+          className="w-[var(--input-width)] bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-2 z-[960] origin-top transition duration-200 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 [--anchor-gap:8px]"
         >
           <p className="text-xs font-medium text-[#A1A1A1] uppercase tracking-wider px-3 py-2">
             Ubicaciones sugeridas

@@ -1,13 +1,12 @@
 // app/vuelos/components/FlightSearchForm.tsx
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react';
 import { Plane, Calendar, MapPin, Search, ArrowRightLeft, ChevronDown, AlertCircle, Clock } from 'lucide-react';
 
 import PassengersDropdown, { PassengerCounts } from './PassengersDropdown';
 import TimeRangeFilter, { TimeRange } from './TimeRangeFilter';
-import MultiCityLegs from './MultiCityLegs';
-import { TripType, TravelClass, FlightSearchRequest, FlightSearchResponse, MultiCityLeg } from '@/app/lib/types/flight';
+import { TripType, TravelClass, FlightSearchRequest, FlightSearchResponse } from '@/app/lib/types/flight';
 import { searchFlights, FlightApiError } from '@/app/lib/api/flights';
 import { getUserPreferences } from '@/app/lib/utils/location';
 
@@ -30,7 +29,6 @@ interface FlightSearchFormState {
   returnTimeRange: TimeRange;
   emissionsFilter: boolean;
   maxDurationMinutes: number | null;
-  legs: MultiCityLeg[];
   gl: string;
   hl: string;
   currency: string;
@@ -71,7 +69,6 @@ const DEFAULT_STATE: FlightSearchFormState = {
   returnTimeRange: { start: 0, end: 23 },
   emissionsFilter: false,
   maxDurationMinutes: null,
-  legs: [],
   gl: defaultPrefs.gl,
   hl: defaultPrefs.hl,
   currency: defaultPrefs.currency,
@@ -91,6 +88,7 @@ export default function FlightSearchForm({
   const [isPassengersOpen, setIsPassengersOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   
   const passengerRef = useRef<HTMLDivElement>(null);
 
@@ -104,21 +102,9 @@ export default function FlightSearchForm({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Initialize 2 empty legs when user switches to multi_city
+  // Trip type change handler
   const handleTripTypeChange = useCallback((tripType: TripType) => {
-    setFormState(prev => {
-      if (tripType === 'multi_city' && prev.legs.length === 0) {
-        return {
-          ...prev,
-          tripType,
-          legs: [
-            { departure: '', arrival: '', date: '' },
-            { departure: '', arrival: '', date: '' },
-          ],
-        };
-      }
-      return { ...prev, tripType };
-    });
+    setFormState(prev => ({ ...prev, tripType }));
     setError(null);
   }, []);
 
@@ -138,43 +124,8 @@ export default function FlightSearchForm({
     }));
   }, []);
 
-  const updateLegs = useCallback((legs: MultiCityLeg[]) => {
-    setFormState(prev => ({ ...prev, legs }));
-    setError(null);
-  }, []);
-
   const validateForm = (): string | null => {
-    const { departure, arrival, outboundDate, returnDate, tripType, legs } = formState;
-
-    if (tripType === 'multi_city') {
-      if (legs.length < 2) return 'Añade al menos 2 tramos';
-      if (legs.length > 6) return 'Máximo 6 tramos permitidos';
-
-      for (let i = 0; i < legs.length; i++) {
-        const leg = legs[i];
-        const tramo = `Tramo ${i + 1}`;
-
-        if (!leg.departure.trim()) return `${tramo}: Ingresa el aeropuerto de origen`;
-        if (!leg.arrival.trim()) return `${tramo}: Ingresa el aeropuerto de destino`;
-        if (leg.departure.toLowerCase() === leg.arrival.toLowerCase()) {
-          return `${tramo}: El origen y destino no pueden ser iguales`;
-        }
-        if (!leg.date) return `${tramo}: Selecciona la fecha`;
-
-        const today = getTodayString();
-        if (leg.date < today) return `${tramo}: La fecha no puede ser en el pasado`;
-
-        // Sequential dates: each leg must be on or after the previous
-        if (i > 0) {
-          const prevLeg = legs[i - 1];
-          if (prevLeg.date && leg.date && leg.date < prevLeg.date) {
-            return `${tramo}: La fecha debe ser posterior al Tramo ${i}`;
-          }
-        }
-      }
-
-      return null;
-    }
+    const { departure, arrival, outboundDate, returnDate, tripType } = formState;
 
     if (!departure.trim()) return 'Ingresa el aeropuerto de origen';
     if (!arrival.trim()) return 'Ingresa el aeropuerto de destino';
@@ -197,7 +148,7 @@ export default function FlightSearchForm({
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     const validationError = validateForm();
@@ -210,67 +161,41 @@ export default function FlightSearchForm({
     setError(null);
 
     try {
-      const isMultiCity = formState.tripType === 'multi_city';
-
-      const searchRequest: FlightSearchRequest = isMultiCity
-        ? {
-            trip_type: 'multi_city',
-            legs: formState.legs.map(leg => ({
-              departure: leg.departure.toUpperCase().trim(),
-              arrival: leg.arrival.toUpperCase().trim(),
-              date: leg.date,
-              ...(leg.times ? { times: leg.times } : {}),
-            })),
-            adults: formState.passengers.adults,
-            children: formState.passengers.children,
-            infants_in_seat: formState.passengers.infantsInSeat,
-            infants_on_lap: formState.passengers.infantsOnLap,
-            travel_class: formState.travelClass,
-            currency: formState.currency,
-            hl: formState.hl,
-            gl: formState.gl,
-            ...(formState.emissionsFilter) && {
-              emissions_filter: true,
-            },
-            ...(formState.maxDurationMinutes) && {
-              max_duration_minutes: formState.maxDurationMinutes,
-            },
-          }
-        : {
-            trip_type: formState.tripType,
-            departure: formState.departure,
-            arrival: formState.arrival,
-            outbound_date: formState.outboundDate,
-            return_date: formState.tripType === 'round_trip' ? formState.returnDate : undefined,
-            adults: formState.passengers.adults,
-            children: formState.passengers.children,
-            infants_in_seat: formState.passengers.infantsInSeat,
-            infants_on_lap: formState.passengers.infantsOnLap,
-            travel_class: formState.travelClass,
-            currency: formState.currency,
-            hl: formState.hl,
-            gl: formState.gl,
-            
-            ...(formState.outboundTimeRange.start !== 0 || formState.outboundTimeRange.end !== 23) && {
-              outbound_times: {
-                departure_from: formState.outboundTimeRange.start,
-                departure_to: formState.outboundTimeRange.end,
-              },
-            },
-            ...(formState.tripType === 'round_trip' && 
-               (formState.returnTimeRange.start !== 0 || formState.returnTimeRange.end !== 23)) && {
-              return_times: {
-                departure_from: formState.returnTimeRange.start,
-                departure_to: formState.returnTimeRange.end,
-              },
-            },
-            ...(formState.emissionsFilter) && {
-              emissions_filter: true,
-            },
-            ...(formState.maxDurationMinutes) && {
-              max_duration_minutes: formState.maxDurationMinutes,
-            },
-          };
+      const searchRequest: FlightSearchRequest = {
+        trip_type: formState.tripType,
+        departure: formState.departure,
+        arrival: formState.arrival,
+        outbound_date: formState.outboundDate,
+        return_date: formState.tripType === 'round_trip' ? formState.returnDate : undefined,
+        adults: formState.passengers.adults,
+        children: formState.passengers.children,
+        infants_in_seat: formState.passengers.infantsInSeat,
+        infants_on_lap: formState.passengers.infantsOnLap,
+        travel_class: formState.travelClass,
+        currency: formState.currency,
+        hl: formState.hl,
+        gl: formState.gl,
+        
+        ...(formState.outboundTimeRange.start !== 0 || formState.outboundTimeRange.end !== 23) && {
+          outbound_times: {
+            departure_from: formState.outboundTimeRange.start,
+            departure_to: formState.outboundTimeRange.end,
+          },
+        },
+        ...(formState.tripType === 'round_trip' && 
+           (formState.returnTimeRange.start !== 0 || formState.returnTimeRange.end !== 23)) && {
+          return_times: {
+            departure_from: formState.returnTimeRange.start,
+            departure_to: formState.returnTimeRange.end,
+          },
+        },
+        ...(formState.emissionsFilter) && {
+          emissions_filter: true,
+        },
+        ...(formState.maxDurationMinutes) && {
+          max_duration_minutes: formState.maxDurationMinutes,
+        },
+      };
 
       const response = await searchFlights(searchRequest);
 
@@ -295,11 +220,11 @@ export default function FlightSearchForm({
                           formState.passengers.infantsOnLap;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-6 border border-gray-100 relative">
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-6 border border-vuelos-border relative">
       
-      <div className="flex items-center gap-2 text-[#c54141] mb-2">
+      <div className="flex items-center gap-2 text-vuelos-black mb-2">
         <Plane className="w-6 h-6" />
-        <h2 className="text-xl font-bold">Buscar vuelos</h2>
+        <h2 className="text-xl font-bold font-[family-name:var(--font-syne)]">Buscar vuelos</h2>
       </div>
 
       {error && (
@@ -310,11 +235,10 @@ export default function FlightSearchForm({
       )}
 
       {/* Tipo de Viaje */}
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+      <div className="flex gap-2 p-1 bg-vuelos-surface rounded-lg">
         {[
           { id: 'round_trip' as TripType, label: 'Ida y vuelta' },
           { id: 'one_way' as TripType, label: 'Solo ida' },
-          { id: 'multi_city' as TripType, label: 'Multi-destino' },
         ].map((option) => (
           <button
             key={option.id}
@@ -322,8 +246,8 @@ export default function FlightSearchForm({
             onClick={() => handleTripTypeChange(option.id)}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
               formState.tripType === option.id
-                ? 'bg-white text-[#c54141] shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-vuelos-accent shadow-sm'
+                : 'text-vuelos-muted hover:text-vuelos-black'
             }`}
           >
             {option.label}
@@ -331,120 +255,111 @@ export default function FlightSearchForm({
         ))}
       </div>
 
-      {formState.tripType === 'multi_city' ? (
-        <MultiCityLegs
-          legs={formState.legs}
-          onLegsChange={updateLegs}
-        />
-      ) : (
-        <>
-          {/* Origen y Destino */}
-          <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-start">
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Origen
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formState.departure}
-                  onChange={(e) => updateField('departure', e.target.value.toUpperCase())}
-                  placeholder="MAD (Madrid)"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] uppercase font-medium transition-all"
-                  maxLength={10}
-                />
-              </div>
-            </div>
+      {/* Origen y Destino */}
+      <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-start">
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
+            Origen
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-3 w-5 h-5 text-vuelos-muted" />
+            <input
+              type="text"
+              value={formState.departure}
+              onChange={(e) => updateField('departure', e.target.value.toUpperCase())}
+              placeholder="MAD (Madrid)"
+              className="w-full pl-10 pr-4 py-2.5 border border-vuelos-border rounded-lg focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent uppercase font-medium transition-all"
+              maxLength={10}
+            />
+          </div>
+        </div>
 
-            <div className="flex justify-center pt-6">
-              <button
-                type="button"
-                onClick={swapLocations}
-                className="p-2 rounded-full hover:bg-[#c54141]/10 text-gray-400 hover:text-[#c54141] transition-colors"
-                title="Intercambiar origen y destino"
-              >
-                <ArrowRightLeft className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="flex justify-center pt-6">
+          <button
+            type="button"
+            onClick={swapLocations}
+            className="p-2 rounded-full hover:bg-vuelos-accent/10 text-vuelos-muted hover:text-vuelos-accent transition-colors"
+            title="Intercambiar origen y destino"
+          >
+            <ArrowRightLeft className="w-5 h-5" />
+          </button>
+        </div>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Destino
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formState.arrival}
-                  onChange={(e) => updateField('arrival', e.target.value.toUpperCase())}
-                  placeholder="LIM (Lima)"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] uppercase font-medium transition-all"
-                  maxLength={10}
-                />
-              </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
+            Destino
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-3 w-5 h-5 text-vuelos-muted" />
+            <input
+              type="text"
+              value={formState.arrival}
+              onChange={(e) => updateField('arrival', e.target.value.toUpperCase())}
+              placeholder="LIM (Lima)"
+              className="w-full pl-10 pr-4 py-2.5 border border-vuelos-border rounded-lg focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent uppercase font-medium transition-all"
+              maxLength={10}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Fechas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
+            Fecha Ida
+          </label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-3 w-5 h-5 text-vuelos-muted" />
+            <input
+              type="date"
+              value={formState.outboundDate}
+              onChange={(e) => updateField('outboundDate', e.target.value)}
+              min={getTodayString()}
+              suppressHydrationWarning
+              placeholder="dd-mm-aaaa"
+              className="w-full pl-10 pr-4 py-2.5 border border-vuelos-border rounded-lg focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent text-sm placeholder:text-vuelos-muted"
+            />
+          </div>
+        </div>
+
+        {formState.tripType === 'round_trip' && (
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
+              Fecha Vuelta
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 w-5 h-5 text-vuelos-muted" />
+              <input
+                type="date"
+                value={formState.returnDate}
+                onChange={(e) => updateField('returnDate', e.target.value)}
+                min={formState.outboundDate || getTodayString()}
+                suppressHydrationWarning
+                placeholder="dd-mm-aaaa"
+                className="w-full pl-10 pr-4 py-2.5 border border-vuelos-border rounded-lg focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent text-sm placeholder:text-vuelos-muted"
+              />
             </div>
           </div>
-
-          {/* Fechas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Fecha Ida
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="date"
-                  value={formState.outboundDate}
-                  onChange={(e) => updateField('outboundDate', e.target.value)}
-                  min={getTodayString()}
-                  suppressHydrationWarning
-                  placeholder="dd-mm-aaaa"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] text-sm placeholder:text-gray-400"
-                />
-              </div>
-            </div>
-
-            {formState.tripType === 'round_trip' && (
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Fecha Vuelta
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <input
-                    type="date"
-                    value={formState.returnDate}
-                    onChange={(e) => updateField('returnDate', e.target.value)}
-                    min={formState.outboundDate || getTodayString()}
-                    suppressHydrationWarning
-                    placeholder="dd-mm-aaaa"
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] text-sm placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* Pasajeros y Clase */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         <div className="relative space-y-1" ref={passengerRef}>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
             Viajeros
           </label>
           <button
             type="button"
             onClick={() => setIsPassengersOpen(!isPassengersOpen)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-left focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] bg-white hover:border-gray-400 transition-all"
+            className="w-full px-4 py-2.5 border border-vuelos-border rounded-lg text-left focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent bg-white hover:border-[#aaa] transition-all"
           >
-            <span className="text-gray-900 font-medium">
+            <span className="text-vuelos-black font-medium">
               {totalPassengers} pasajero{totalPassengers !== 1 ? 's' : ''}
             </span>
-            <span className="text-gray-500 text-sm ml-2 block truncate">
+            <span className="text-vuelos-muted text-sm ml-2 block truncate">
               {formState.passengers.adults} Adultos
               {formState.passengers.children > 0 && `, ${formState.passengers.children} Niños`}
               {(formState.passengers.infantsInSeat + formState.passengers.infantsOnLap) > 0 && `, ${formState.passengers.infantsInSeat + formState.passengers.infantsOnLap} Bebés`}
@@ -453,32 +368,31 @@ export default function FlightSearchForm({
 
           {isPassengersOpen && (
             <div className="absolute z-50 w-full mt-1">
-              <PassengersDropdown
-                value={formState.passengers}
-                onChange={(newPassengers) => updateField('passengers', newPassengers)}
-                isOpen={isPassengersOpen}
-                onToggle={() => setIsPassengersOpen(false)}
-              />
+                <PassengersDropdown
+                  value={formState.passengers}
+                  onChange={(newPassengers) => updateField('passengers', newPassengers)}
+                  onToggle={() => setIsPassengersOpen(false)}
+                />
             </div>
           )}
         </div>
 
         <div className="space-y-1">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <label className="block text-xs font-semibold text-vuelos-muted uppercase tracking-wide">
             Clase
           </label>
           <div className="relative">
             <select
               value={formState.travelClass}
               onChange={(e) => updateField('travelClass', e.target.value as TravelClass)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c54141] focus:border-[#c54141] bg-white appearance-none cursor-pointer"
+              className="w-full px-4 py-2.5 border border-vuelos-border rounded-lg focus:ring-2 focus:ring-vuelos-accent focus:border-vuelos-accent bg-white appearance-none cursor-pointer"
             >
               <option value="economy">Turista</option>
               <option value="premium_economy">Turista Premium</option>
               <option value="business">Business</option>
               <option value="first">Primera</option>
             </select>
-            <div className="absolute right-3 top-3 pointer-events-none text-gray-500">
+            <div className="absolute right-3 top-3 pointer-events-none text-vuelos-muted">
               <ChevronDown className="w-4 h-4" />
             </div>
           </div>
@@ -486,35 +400,31 @@ export default function FlightSearchForm({
       </div>
 
       {/* Filtros Avanzados */}
-      <div className="border-t border-gray-100 pt-4">
-        <details className="group" open>
-          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-600 hover:text-[#c54141] list-none">
+      <div className="border-t border-vuelos-border pt-4">
+        <details className="group" open={filtersOpen} onToggle={(e) => setFiltersOpen(e.currentTarget.open)}>
+          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-vuelos-muted hover:text-vuelos-accent list-none">
             <span className="transition-transform group-open:rotate-90 mr-1">▶</span>
             <span>Filtros avanzados</span>
           </summary>
           
           <div className="mt-4 space-y-4 pl-6">
-            {formState.tripType !== 'multi_city' && (
-              <>
-                <TimeRangeFilter
-                  label="Salida (Ida)"
-                  value={formState.outboundTimeRange}
-                  onChange={(range) => updateField('outboundTimeRange', range)}
-                />
-                
-                {formState.tripType === 'round_trip' && (
-                  <TimeRangeFilter
-                    label="Salida (Vuelta)"
-                    value={formState.returnTimeRange}
-                    onChange={(range) => updateField('returnTimeRange', range)}
-                  />
-                )}
-              </>
+            <TimeRangeFilter
+              label="Salida (Ida)"
+              value={formState.outboundTimeRange}
+              onChange={(range) => updateField('outboundTimeRange', range)}
+            />
+            
+            {formState.tripType === 'round_trip' && (
+              <TimeRangeFilter
+                label="Salida (Vuelta)"
+                value={formState.returnTimeRange}
+                onChange={(range) => updateField('returnTimeRange', range)}
+              />
             )}
 
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <Clock className="w-4 h-4 text-gray-400" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
+                <Clock className="w-4 h-4 text-vuelos-muted" />
                 Duracion maxima
               </label>
               <input
@@ -527,11 +437,11 @@ export default function FlightSearchForm({
                   const val = parseInt(e.target.value);
                   updateField('maxDurationMinutes', val < 1440 ? val : null);
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#c54141]"
+                className="w-full h-2 bg-vuelos-surface rounded-lg appearance-none cursor-pointer accent-vuelos-accent"
               />
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-vuelos-muted">
                 <span>1h</span>
-                <span className="font-medium text-[#c54141]">
+                <span className="font-medium text-vuelos-accent">
                   {formState.maxDurationMinutes 
                     ? `${Math.floor(formState.maxDurationMinutes / 60)}h ${formState.maxDurationMinutes % 60}m`
                     : 'Sin limite'
@@ -541,16 +451,16 @@ export default function FlightSearchForm({
               </div>
             </div>
 
-            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+            <label className="flex items-center gap-3 p-3 border border-vuelos-border rounded-lg cursor-pointer hover:border-green-300 transition-colors">
               <input
                 type="checkbox"
                 checked={formState.emissionsFilter}
                 onChange={(e) => updateField('emissionsFilter', e.target.checked)}
-                className="w-4 h-4 text-green-600 rounded focus:ring-green-500 border-gray-300"
+                className="w-4 h-4 text-green-600 rounded focus:ring-green-500 border-vuelos-border"
               />
               <div className="text-sm">
-                <span className="font-medium text-gray-900">Solo vuelos eco-friendly</span>
-                <p className="text-xs text-gray-500">Emisiones inferiores a la media</p>
+                <span className="font-medium text-vuelos-black">Solo vuelos eco-friendly</span>
+                <p className="text-xs text-vuelos-muted">Emisiones inferiores a la media</p>
               </div>
             </label>
           </div>
@@ -560,7 +470,7 @@ export default function FlightSearchForm({
       <button
         type="submit"
         disabled={isLoading || searchBlocked}
-        className="w-full py-3.5 bg-[#c54141] text-white font-bold rounded-lg hover:bg-[#a03535] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+        className="w-full py-3.5 bg-vuelos-black text-white font-bold rounded-full hover:bg-[#333] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer"
       >
         {isLoading ? (
           <>

@@ -105,18 +105,21 @@ async function parseHotelError(response: Response, endpoint: string): Promise<Ho
   const type: string = (body?.type as string) || '';
   const status = response.status;
 
-  // Log full error details for debugging
-  console.group(`❌ [HotelAPI] Error ${status} — ${endpoint}`);
-  console.log('Type:', type || '(none)');
-  console.log('Detail:', body?.detail || body?.title || '(none)');
-  console.log('Trace ID:', body?.trace_id || '(none)');
-  console.log('Headers:');
-  response.headers.forEach((value, key) => {
-    console.log(`  ${key}: ${value}`);
-  });
-  console.groupEnd();
+  // Log full error details for debugging (skip 404 — endpoint not yet implemented)
+  if (status !== 404) {
+    console.group(`❌ [HotelAPI] Error ${status} — ${endpoint}`);
+    console.log('Type:', type || '(none)');
+    console.log('Detail:', body?.detail || body?.title || '(none)');
+    console.log('Trace ID:', body?.trace_id || '(none)');
+    console.log('Headers:');
+    response.headers.forEach((value, key) => {
+      console.log(`  ${key}: ${value}`);
+    });
+    console.groupEnd();
+  }
 
   let code: HotelErrorCode;
+  let detailOverride: string | undefined;
   if (status === 400 || type.includes('validation')) {
     code = 'VALIDATION_ERROR';
   } else if (status === 422 || type.includes('invalid-param')) {
@@ -125,6 +128,7 @@ async function parseHotelError(response: Response, endpoint: string): Promise<Ho
     code = 'RATE_LIMIT_EXCEEDED';
   } else if (status === 404 || type.includes('property-not-found')) {
     code = 'PROPERTY_NOT_FOUND';
+    detailOverride = 'La reserva de habitaciones no está disponible aún.';
   } else if (status === 401 || status === 403 || type.includes('token')) {
     code = 'TOKEN_INVALID';
   } else if (status === 503 || type.includes('provider')) {
@@ -146,7 +150,7 @@ async function parseHotelError(response: Response, endpoint: string): Promise<Ho
   return new HotelApiError(
     code,
     status,
-    body?.detail || body?.title || `Error ${status}`,
+    detailOverride || body?.detail || body?.title || `Error ${status}`,
     body?.trace_id || undefined,
     retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined,
   );

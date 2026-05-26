@@ -5,7 +5,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
-import { Menu, X, Building2, Sparkles, Plane, Search, MapPin } from "lucide-react";
+import { Menu, X, Building2, Sparkles, Plane } from "lucide-react";
 import NavActions from "./NavActions";
 import HotelsSearch from "./tabs/HotelsSearch";
 import AISearch from "./tabs/AISearch";
@@ -105,12 +105,24 @@ export default function Navbar() {
     };
   }, [expanded]);
 
-  // ─── PRE-FILL CITY FROM ENVIRONMENT ────────────
+  // ─── PRE-FILL STATE/REGION FROM ENVIRONMENT ──────
   useEffect(() => {
-    if (!environment?.location?.city) return;
-    setHotelDest((prev) => prev || environment.location.city);
-    setFlightOrigin((prev) => prev || environment.location.city);
-  }, [environment?.location?.city]);
+    if (!environment?.location?.state) return;
+    setHotelDest((prev) => prev || environment.location.state);
+    setFlightOrigin((prev) => prev || environment.location.state);
+  }, [environment?.location?.state]);
+
+  // ─── DERIVED (MUST be declared BEFORE useCallback that references them) ──
+  const isLandingPage = pathname === "/";
+  const isHotelesRoute = pathname === "/hoteles" || pathname.startsWith("/hoteles?");
+  const isVuelosRoute = pathname === "/vuelos" || pathname.startsWith("/vuelos?");
+  const isHero = isLandingPage && !isScrolled && !expanded;
+
+  // ─── Pre-select tab based on route ──
+  useEffect(() => {
+    if (isVuelosRoute) setTabIndex(2);
+    else if (isHotelesRoute) setTabIndex(0);
+  }, [isVuelosRoute, isHotelesRoute]);
 
   // ─── TAB HANDLER ───────────────────────────────
   const handleTabChange = useCallback((index: number) => {
@@ -120,17 +132,23 @@ export default function Navbar() {
 
   const handleTabClick = useCallback(
     (idx: number) => {
-      if (idx === tabIndex) {
+      const isVuelosTab = TABS[idx]?.id === "vuelos";
+      const isHotelesTab = TABS[idx]?.id === "hoteles";
+
+      // Clicking the tab that matches current route => toggle the main search panel
+      const matchesCurrentRoute =
+        (isVuelosTab && isVuelosRoute) || (isHotelesTab && isHotelesRoute);
+
+      if (matchesCurrentRoute) {
         setExpanded((prev) => !prev);
+      } else {
+        // Different search type: switch tab and open the panel
+        setTabIndex(idx);
+        setExpanded(true);
       }
     },
-    [tabIndex],
+    [isVuelosRoute, isHotelesRoute],
   );
-
-  // ─── DERIVED ────────────────────────────────────
-  const isLandingPage = pathname === "/";
-  const isHotelesRoute = pathname === "/hoteles" || pathname.startsWith("/hoteles?");
-  const isHero = isLandingPage && !isScrolled && !expanded;
 
   const guestTotal = adults + childCount;
 
@@ -140,24 +158,6 @@ export default function Navbar() {
   const isSearchValid = isHydrated
     ? (hotelDest.trim() !== '' && hotelDateRange.start !== null && hotelDateRange.end !== null)
     : true;
-
-  // Pill display values — prefer URL params when on /hoteles route
-  const pillDest = isHotelesRoute ? (urlParams.get('query') || hotelDest) : hotelDest;
-  const pillDateStart = isHotelesRoute && urlParams.get('check_in_date')
-    ? new Date(urlParams.get('check_in_date')! + 'T00:00:00')
-    : hotelDateRange.start;
-  const pillDateEnd = isHotelesRoute && urlParams.get('check_out_date')
-    ? new Date(urlParams.get('check_out_date')! + 'T00:00:00')
-    : hotelDateRange.end;
-  const pillAdults = isHotelesRoute ? (parseInt(urlParams.get('adults') || '0', 10) || adults) : adults;
-  const pillChildren = isHotelesRoute ? (parseInt(urlParams.get('children') || '0', 10) || childCount) : childCount;
-  const pillGuestTotal = pillAdults + pillChildren;
-
-  const formatDateShort = (d: Date | null): string => {
-    if (!d) return '';
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    return `${d.getDate()} ${months[d.getMonth()]}`;
-  };
 
   // ─── GUESTS HANDLER ────────────────────────────
   const handleGuestsChange = useCallback(
@@ -199,6 +199,28 @@ export default function Navbar() {
     if (ad) setAdults(parseInt(ad, 10));
     if (ch) setChildren(parseInt(ch, 10));
   }, [isHotelesRoute, urlParams.toString()]);
+
+  // ─── SYNC NAVBAR STATE FROM URL (vuelos route) ──
+  useEffect(() => {
+    if (!isVuelosRoute) return;
+    const orig = urlParams.get('origen');
+    const dest = urlParams.get('destino');
+    const fi = urlParams.get('fecha_ida');
+    const fv = urlParams.get('fecha_vuelta');
+    const ad = urlParams.get('adults');
+    const ch = urlParams.get('children');
+
+    if (orig) setFlightOrigin(orig);
+    if (dest) setFlightDest(dest);
+    if (ad) setAdults(parseInt(ad, 10));
+    if (ch) setChildren(parseInt(ch, 10));
+    if (fi) {
+      setFlightDateRange({
+        start: new Date(fi + 'T00:00:00'),
+        end: fv ? new Date(fv + 'T00:00:00') : null,
+      });
+    }
+  }, [isVuelosRoute, urlParams.toString()]);
 
   // ─── SEARCH ACTIONS ────────────────────────────
   const handleHotelSearch = useCallback(() => {
@@ -269,7 +291,7 @@ export default function Navbar() {
     <>
       <header
         ref={headerRef}
-        className="fixed top-0 left-0 right-0 z-50"
+        className="fixed top-0 left-0 right-0 z-[950]"
       >
         <TabGroup selectedIndex={tabIndex} onChange={handleTabChange}>
           {/* NAVBAR STRIP */}
@@ -300,8 +322,8 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* CENTER — TABS (desktop) or COMPACT PILL (hoteles route) */}
-            <TabList className={`hidden lg:flex items-center gap-1.5 ${isHotelesRoute ? '!hidden' : ''}`}>
+            {/* CENTER — TABS (desktop, all routes) */}
+            <TabList className="hidden lg:flex items-center gap-1.5">
               {TABS.map((tab, idx) => {
                 const Icon = tab.icon;
                 return (
@@ -320,57 +342,6 @@ export default function Navbar() {
                 );
               })}
             </TabList>
-
-            {/* Compact search pill — shown only on /hoteles route */}
-            {isHotelesRoute && (
-              <div className="hidden lg:flex items-center gap-0 border-[1.5px] border-[#e8e8e8] rounded-full overflow-hidden cursor-pointer hover:shadow-[0_2px_12px_rgba(0,0,0,0.12)] transition-shadow">
-                {/* Destination segment */}
-                <button
-                  onClick={() => { setTabIndex(0); setExpanded(true); }}
-                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] border-r border-[#e8e8e8] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
-                >
-                  <MapPin className="w-4 h-4 stroke-[#111]" strokeWidth={1.8} />
-                  {pillDest || 'Destino'}
-                </button>
-
-                {/* Dates segment */}
-                <button
-                  onClick={() => { setTabIndex(0); setExpanded(true); }}
-                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] border-r border-[#e8e8e8] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
-                >
-                  {pillDateStart && pillDateEnd
-                    ? `${formatDateShort(pillDateStart)} – ${formatDateShort(pillDateEnd)}`
-                    : 'Fechas'}
-                </button>
-
-                {/* Guests segment */}
-                <button
-                  onClick={() => { setTabIndex(0); setExpanded(true); }}
-                  className="flex items-center gap-2 px-[18px] py-2.5 text-sm font-medium text-[#111] whitespace-nowrap hover:bg-[#fafafa] transition-colors"
-                >
-                  {pillGuestTotal > 0
-                    ? `${pillGuestTotal} ${pillGuestTotal === 1 ? 'huésped' : 'huéspedes'}`
-                    : 'Huéspedes'}
-                </button>
-
-                {/* Search button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isSearchValid) {
-                      setValidationMessage('Ingresá un destino y fechas para buscar');
-                      return;
-                    }
-                    handleHotelSearch();
-                  }}
-                  disabled={!isSearchValid}
-                  className="w-9 h-9 rounded-full bg-[#111] flex items-center justify-center m-1 shrink-0 hover:bg-[#333] hover:scale-105 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#111] disabled:hover:scale-100"
-                  aria-label="Buscar"
-                >
-                  <Search className="w-[15px] h-[15px] stroke-white" strokeWidth={2.2} />
-                </button>
-              </div>
-            )}
 
             {/* RIGHT */}
             <div className="hidden lg:flex items-center gap-2">

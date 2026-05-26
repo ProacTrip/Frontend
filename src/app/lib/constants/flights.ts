@@ -21,19 +21,19 @@ export const PASSENGER_LIMITS = {
 // 2. CLASES DE VIAJE (travel_class)
 // ==========================================
 export const TRAVEL_CLASSES = [
-  { value: 'economy', label: 'Turista', icon: '💺' },
-  { value: 'premium_economy', label: 'Turista Premium', icon: '⭐' },
-  { value: 'business', label: 'Business', icon: '💼' },
-  { value: 'first', label: 'Primera', icon: '👑' },
+  { value: 'economy', label: 'Turista', icon: 'Seat' },
+  { value: 'premium_economy', label: 'Turista Premium', icon: 'Star' },
+  { value: 'business', label: 'Business', icon: 'Briefcase' },
+  { value: 'first', label: 'Primera', icon: 'Crown' },
 ] as const;
 
 // ==========================================
 // 3. TIPOS DE VIAJE (trip_type)
 // ==========================================
 export const TRIP_TYPES = [
-  { value: 'one_way', label: 'Solo ida', icon: '➡️', description: 'Vuelo sin regreso' },
-  { value: 'round_trip', label: 'Ida y vuelta', icon: '↔️', description: 'Vuelo de ida y regreso' },
-  { value: 'multi_city', label: 'Multidestino', icon: '🌐', description: 'Varias ciudades' },
+  { value: 'one_way', label: 'Solo ida', icon: 'ArrowRight', description: 'Vuelo sin regreso' },
+  { value: 'round_trip', label: 'Ida y vuelta', icon: 'ArrowRightLeft', description: 'Vuelo de ida y regreso' },
+
 ] as const;
 
 // ==========================================
@@ -53,12 +53,12 @@ export type StopOption = typeof STOP_OPTIONS[number]['value'];
 // 5. OPCIONES DE ORDENAMIENTO (sort_by)
 // ==========================================
 export const SORT_OPTIONS = [
-  { value: 'top', label: 'Mejores vuelos', icon: '🏆' },
-  { value: 'price', label: 'Precio más bajo', icon: '💰' },
-  { value: 'departure_time', label: 'Hora de salida', icon: '🛫' },
-  { value: 'arrival_time', label: 'Hora de llegada', icon: '🛬' },
-  { value: 'duration', label: 'Duración', icon: '⏱️' },
-  { value: 'emissions', label: 'Menos emisiones', icon: '🌱' },
+  { value: 'top', label: 'Mejores vuelos', icon: 'Trophy' },
+  { value: 'price', label: 'Precio más bajo', icon: 'DollarSign' },
+  { value: 'departure_time', label: 'Hora de salida', icon: 'PlaneTakeoff' },
+  { value: 'arrival_time', label: 'Hora de llegada', icon: 'PlaneLanding' },
+  { value: 'duration', label: 'Duración', icon: 'Clock' },
+  { value: 'emissions', label: 'Menos emisiones', icon: 'Leaf' },
 ] as const;
 
 export type SortOption = typeof SORT_OPTIONS[number]['value'];
@@ -123,9 +123,9 @@ export const SEARCH_CONFIG = {
   DEFAULT_TRAVEL_CLASS: 'economy' as TravelClass,
   DEFAULT_SORT_BY: 'top' as SortOption,
   DEFAULT_STOPS: 'any' as StopOption,
-  RESULTS_PER_PAGE: 10,
-  MAX_RESULTS_PER_PAGE: 100,
 } as const;
+
+// Legacy config values removed — RESULTS_PER_PAGE and MAX_RESULTS_PER_PAGE were dead code.
 
 // ==========================================
 // 9. MENSAJES DE ERROR / ESTADOS
@@ -153,3 +153,4 @@ export const PRICE_RANGES = {
   MEDIUM_HAUL: { min: 200, max: 800 },
   LONG_HAUL: { min: 600, max: 2000 },
 } as const;
+

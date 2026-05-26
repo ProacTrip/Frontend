@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // WARNING: routes added here MUST also be added to the matcher config below
+// Search routes (hoteles, vuelos) are intentionally NOT protected — the API
+// does not require authentication for public search (see Backend docs).
 const PROTECTED_ROUTES = [
   "/perfil",
   "/documentos",
@@ -11,8 +13,6 @@ const PROTECTED_ROUTES = [
   "/checkout",
   "/confirmacion",
   "/admin",
-  "/hoteles",
-  "/vuelos",
 ];
 
 const AUTH_ROUTES = [

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
@@ -19,6 +20,7 @@ export default function ProfileDropdown({
   const { user, profileFirstName, profileAvatar } = useAuthContext();
   const { environment } = useEnvironment();
   const router = useRouter();
+  const [avatarError, setAvatarError] = useState(false);
 
   const userName = profileFirstName ?? (user?.email ? user.email.split("@")[0] : null);
 
@@ -36,13 +38,14 @@ export default function ProfileDropdown({
         }`}
         aria-label="Cuenta de usuario"
       >
-        {profileAvatar ? (
+        {profileAvatar && !avatarError ? (
           <Image
             src={profileAvatar}
             alt=""
             width={36}
             height={36}
             className="w-full h-full object-cover"
+            onError={() => setAvatarError(true)}
           />
         ) : (
           <User className="w-[18px] h-[18px]" />
@@ -67,25 +70,18 @@ export default function ProfileDropdown({
             {/* USER HEADER */}
             <div className="flex items-center gap-3 px-3 py-3">
               <div className="w-10 h-10 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center shrink-0">
-                {profileAvatar ? (
+                {profileAvatar && !avatarError ? (
                   <Image
                     src={profileAvatar}
                     alt=""
                     width={40}
                     height={40}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
+                    onError={() => setAvatarError(true)}
                   />
-                ) : null}
-                <div
-                  className={`w-full h-full flex items-center justify-center ${
-                    profileAvatar ? "hidden" : ""
-                  }`}
-                >
+                ) : (
                   <User className="w-5 h-5 text-[#6A7282]" />
-                </div>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-[#0A0A0A] truncate">

@@ -129,7 +129,7 @@ async function parseFlightError(response: Response, endpoint: string): Promise<F
 // ==========================================
 
 /**
- * Search flights — supports one_way, round_trip (multi-phase), and multi_city.
+ * Search flights — supports one_way and round_trip (multi-phase).
  *
  * Raw fetch with credentials:"include" for cookie-based auth.
  * 30s timeout via AbortController.
@@ -144,9 +144,15 @@ export async function searchFlights(request: FlightSearchRequest, signal?: Abort
 
   const user = getUserPreferences();
 
-  // 2. Build request body
+  // 2. Normalize airport codes to uppercase (SerpAPI requirement)
+  const normalizedDeparture = request.departure?.toUpperCase();
+  const normalizedArrival = request.arrival?.toUpperCase();
+
+  // 3. Build request body
   const apiBody: FlightSearchRequest = {
     ...request,
+    departure: normalizedDeparture,
+    arrival: normalizedArrival,
     outbound_date: formatDate(request.outbound_date),
     return_date: formatDate(request.return_date),
     hl: request.hl || user.hl,
@@ -154,7 +160,6 @@ export async function searchFlights(request: FlightSearchRequest, signal?: Abort
     currency: request.currency || user.currency,
     ...(request.include_airlines?.length ? { include_airlines: request.include_airlines } : {}),
     ...(request.exclude_airlines?.length ? { exclude_airlines: request.exclude_airlines } : {}),
-    legs: request.legs || [],
     cursor: request.cursor ?? null,
     limit: request.limit ?? undefined,
   };
@@ -229,6 +234,8 @@ export async function getFlightDetails(
     arrival: string;
     outbound_date: string;
     return_date?: string;
+    hl?: string;
+    gl?: string;
   },
   signal?: AbortSignal
 ): Promise<FlightDetailsResponse> {
@@ -239,11 +246,11 @@ export async function getFlightDetails(
   const apiBody: FlightDetailsRequest = {
     booking_token: bookingToken,
     adults: adults || 1,
-    hl: user.hl,
-    gl: user.gl,
+    hl: routeParams?.hl || user.hl,
+    gl: routeParams?.gl || user.gl,
     currency: currency || user.currency,
-    ...(routeParams?.departure ? { departure: routeParams.departure } : {}),
-    ...(routeParams?.arrival ? { arrival: routeParams.arrival } : {}),
+    ...(routeParams?.departure ? { departure: routeParams.departure.toUpperCase() } : {}),
+    ...(routeParams?.arrival ? { arrival: routeParams.arrival.toUpperCase() } : {}),
     ...(routeParams?.outbound_date ? { outbound_date: routeParams.outbound_date } : {}),
     ...(routeParams?.return_date ? { return_date: routeParams.return_date } : {}),
   };

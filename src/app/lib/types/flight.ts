@@ -11,40 +11,14 @@ export interface LayoverDurationFilter {
   max_minutes: number;
 }
 
-// Tipo para un tramo individual en búsquedas multi-destino (estado del formulario frontend)
-export interface MultiCityLeg {
-  departure: string;
-  arrival: string;
-  date: string;               // YYYY-MM-DD
-  times?: {
-    departure_from?: number;  // 0-23
-    departure_to?: number;    // 0-23
-    arrival_from?: number;    // 0-23
-    arrival_to?: number;      // 0-23
-  };
-}
-
 export interface FlightSearchRequest {
-  trip_type: 'round_trip' | 'one_way' | 'multi_city';
+  trip_type: 'round_trip' | 'one_way';
   
   // Para round_trip y one_way (campos sueltos, NO en array)
   departure?: string;           // IATA o kgmid (ej: "MAD" o "/m/04jpl")
   arrival?: string;             // IATA o kgmid
   outbound_date?: string;       // YYYY-MM-DD
   return_date?: string;         // Solo round_trip
-  
-  // Para multi_city (array de tramos)
-  legs?: Array<{
-    departure: string;
-    arrival: string;
-    date: string;              // YYYY-MM-DD
-    times?: {
-      departure_from?: number;
-      departure_to?: number;
-      arrival_from?: number;
-      arrival_to?: number;
-    };
-  }>;
   
   // Pasajeros
   adults?: number;
@@ -101,7 +75,7 @@ export interface FlightSearchRequest {
 // ==========================================
 
 export interface FlightSearchResponse {
-  trip_type: 'round_trip' | 'one_way' | 'multi_city';
+  trip_type: 'round_trip' | 'one_way';
   phase: 'outbound_selection' | 'return_selection' | 'complete';
   results_state: 'matching' | 'empty';
   
@@ -164,8 +138,6 @@ export interface FlightOffer {
   
   type: 'Round trip' | 'One way';
   airline_logo_url?: string;
-
-  also_sold_by?: string[];
 }
 
 export interface FlightLeg {
@@ -200,7 +172,6 @@ export interface AirportEndpoint {
   country: string;
   country_code: string;
   datetime: string;             // "YYYY-MM-DD HH:MM"
-  terminal?: string;
 }
 
 export interface Layover {
@@ -208,7 +179,6 @@ export interface Layover {
   airport_name: string;
   duration_minutes: number;
   overnight: boolean;
-  change_terminal?: boolean;
 }
 
 export interface AirportInfo {
@@ -295,97 +265,8 @@ export interface ItinerarySegment {
 }
 
 // ==========================================
-// 4. DOMINIO FRONTEND (CamelCase - Post Transformer)
-// ==========================================
-
-export interface FlightOfferUI {
-  id: string;                   // Generado o booking_token
-  offerId: string;              // booking_token o departure_token
-  isOutboundPhase: boolean;     // true si tiene departure_token
-  
-  // Segmentos normalizados
-  segments: SegmentUI[];
-  
-  price: {
-    total: number;
-    currency: string;
-  };
-  
-  airline: {
-    name: string;
-    code: string;
-    logoUrl: string;
-  };
-  
-  alsoSoldBy: string[];
-  oftenDelayed: boolean;
-  baggage: {
-    carryOnIncluded: boolean;
-    checkedIncluded: boolean;
-  } | null;
-
-  // ✅ CAMBIOS AÑADIDOS
-  isRecommended: boolean;
-  carbonEmissions?: {
-    thisFlight: number;
-    typicalRoute: number;
-    differencePercent: number;
-  } | null;
-}
-
-export interface SegmentUI {
-  type: 'outbound' | 'return';
-  legs: LegUI[];
-  layovers: LayoverUI[];
-  totalDuration: number;        // minutos
-}
-
-export interface LegUI {
-  flightNumber: string;
-  airline: {
-    name: string;
-    code: string;
-    logoUrl: string;
-  };
-  operatingCarrier?: string;    // Si es codeshare
-  origin: {
-    code: string;
-    name: string;
-    city: string;
-    datetime: string;
-    terminal?: string;
-  };
-  destination: {
-    code: string;
-    name: string;
-    city: string;
-    datetime: string;
-    terminal?: string;
-  };
-  duration: number;             // minutos
-  aircraft?: string;
-  features: {
-    wifi?: boolean | 'paid';
-    power?: boolean;
-    entertainment?: boolean;
-  };
-  oftenDelayed: boolean;
-  overnight?: boolean;
-  legroom?: string;
-  legroomQuality?: 'average' | 'above_average' | 'below_average';
-}
-
-export interface LayoverUI {
-  airportCode: string;
-  airportName: string;
-  duration: number;             // minutos
-  overnight: boolean;
-  changeTerminal?: boolean;
-}
-
-// ==========================================
 // EXPORTS PARA USO COMPARTIDO (Constants y API)
 // ==========================================
 // Extraemos los tipos de las interfaces para poder usarlos sueltos
-export type TripType = 'round_trip' | 'one_way' | 'multi_city';
+export type TripType = 'round_trip' | 'one_way';
 export type TravelClass = 'economy' | 'premium_economy' | 'business' | 'first';

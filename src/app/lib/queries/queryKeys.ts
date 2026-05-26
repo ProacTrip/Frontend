@@ -45,12 +45,29 @@ const favoritesKeys = {
 // DOMAIN: Flights
 // ==========================================
 export interface FlightSearchFilters {
-  origin?: string;
-  destination?: string;
-  departureDate?: string;
-  returnDate?: string;
+  departure?: string;
+  arrival?: string;
+  outbound_date?: string;
+  return_date?: string;
   adults?: number;
+  children?: number;
   tripType?: string;
+  travel_class?: string;
+  currency?: string;
+  // Round-trip phase 2 token (MUST be in queryKey to trigger refetch)
+  outbound_selection_token?: string | null;
+  // Filter version (_fv) — change triggers refetch when any filter updates
+  _fv?: string;
+  // Direct filter params for cache separation
+  stops?: string;
+  sort_by?: string;
+  max_price?: number | null;
+  include_airlines?: string[];
+  travel_class_filter?: string;
+  // Pagination cursor
+  cursor?: string | null;
+  // Locale currency override (triggers refetch on currency change)
+  _localeCurrency?: string;
 }
 
 const flightKeys = {

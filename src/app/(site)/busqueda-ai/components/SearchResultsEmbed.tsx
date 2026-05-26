@@ -3,11 +3,9 @@
 
 import { useState, useMemo } from 'react';
 import { Plane, Building2, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
-import type { FlightSearchResponse, FlightOfferUI } from '@/app/lib/types/flight';
+import type { FlightSearchResponse, FlightOffer } from '@/app/lib/types/flight';
 import type { SearchHotelsResponse, FrontendHotel, BackendSearchHotel } from '@/app/lib/types/hotel';
-import FlightCard from '@/app/(site)/vuelos/components/FlightCard';
 import HotelCard from '@/app/(site)/hoteles/components/HotelCard';
-import { transformFlightSearchResponse } from '@/app/lib/utils/flightTransformers';
 import { adaptSearchResults } from '@/app/lib/utils/transformers';
 
 interface SearchResultsEmbedProps {
@@ -26,14 +24,11 @@ export default function SearchResultsEmbed({
   const [flightsExpanded, setFlightsExpanded] = useState(true);
   const [hotelsExpanded, setHotelsExpanded] = useState(true);
 
-  // Transform flight results using existing utility
-  const flightOffers: FlightOfferUI[] = useMemo(() => {
+  // Extract flights from raw API response
+  const flightOffers: FlightOffer[] = useMemo(() => {
     if (!flights) return [];
-    try {
-      return transformFlightSearchResponse(flights);
-    } catch {
-      return [];
-    }
+    const raw = [...(flights.best_flights || []), ...(flights.other_flights || [])];
+    return raw;
   }, [flights]);
 
   // Transform hotel results using existing utility
@@ -95,12 +90,12 @@ export default function SearchResultsEmbed({
                 </div>
               )}
               {hasFlights &&
-                flightOffers.slice(0, 5).map((offer) => (
+                flightOffers.slice(0, 5).map((offer, idx) => (
                   <FlightCard
-                    key={offer.id}
+                    key={offer.booking_token || offer.departure_token || `flight-${idx}`}
                     offer={offer}
-                    variant="compact"
-                    onShowDetails={() => {}}
+                    isExpanded={false}
+                    onToggle={() => {}}
                   />
                 ))}
               {hasFlights && flightOffers.length > 5 && (

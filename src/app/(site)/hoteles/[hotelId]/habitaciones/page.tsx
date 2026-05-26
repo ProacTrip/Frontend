@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Calendar, Users, Moon, Building2, Baby, Heart, BedDouble, AlertTriangle } from 'lucide-react';
 import RoomCard from './components/RoomCard';
 import { goToCheckout } from '@/app/lib/utils/checkoutUtils';
-import { getHotelRooms } from '@/app/lib/api';
+import { getHotelRooms, HotelApiError } from '@/app/lib/api';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 
 function HabitacionesContent() {
@@ -52,7 +52,12 @@ function HabitacionesContent() {
         }
         return getHotelRoomsMock(hotelId);
       } catch (err) {
-        console.error('Error cargando habitaciones:', err);
+        // Backend /v1/search/hotel-rooms not implemented yet — use mock data
+        if (err instanceof HotelApiError) {
+          console.warn('Habitaciones no disponibles (endpoint pendiente):', err.detail);
+        } else {
+          console.error('Error cargando habitaciones:', err);
+        }
         return getHotelRoomsMock(hotelId);
       }
     },
@@ -105,7 +110,7 @@ function HabitacionesContent() {
 
         {/* Hotel info card */}
         <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 mb-8">
-          <h1 className="text-2xl font-bold text-neutral-950 mb-4">{hotelName}</h1>
+          <h1 suppressHydrationWarning className="text-2xl font-bold text-neutral-950 mb-4">{hotelName}</h1>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-neutral-500">
             {checkIn && checkOut && (
               <div className="flex items-center gap-1.5">
@@ -144,7 +149,7 @@ function HabitacionesContent() {
 
         {/* Section heading */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-neutral-950">Elige tu habitación</h2>
+          <h2 suppressHydrationWarning className="text-xl font-bold text-neutral-950">Elige tu habitación</h2>
           {rooms > 1 && (
             <p className="text-sm text-neutral-500 mt-1.5">
               El precio mostrado es por habitación · Se reservarán{' '}
