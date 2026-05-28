@@ -114,7 +114,7 @@ export default function DocumentDetailModal({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-neutral-600"><FileText className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Tamaño: {formatBytes(detail.file_size)}</span></div>
+                  <div className="flex items-center gap-2 text-neutral-600"><FileText className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Tamaño: {detail.file_size != null ? formatBytes(detail.file_size) : '—'}</span></div>
                   <div className="flex items-center gap-2 text-neutral-600"><Calendar className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Creado: {new Date(detail.created_at).toLocaleDateString('es-AR')}</span></div>
                   {ed?.document_number != null && typeof ed.document_number !== 'object' && <div className="flex items-center gap-2 text-neutral-600"><Hash className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>Nº {String(ed.document_number)}</span></div>}
                   {ed?.issuing_country != null && typeof ed.issuing_country !== 'object' && <div className="flex items-center gap-2 text-neutral-600"><Globe className="w-4 h-4 flex-shrink-0 text-neutral-400" /><span>{String(ed.issuing_country)}</span></div>}

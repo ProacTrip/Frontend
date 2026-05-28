@@ -29,6 +29,8 @@ interface LocationComboboxProps {
   label?: string;
   suggestions?: LocationSuggestion[];
   className?: string;
+  /** Optional icon rendered inside the input area (left side) */
+  leftIcon?: React.ReactNode;
 }
 
 export default function LocationCombobox({
@@ -38,6 +40,7 @@ export default function LocationCombobox({
   label = 'Ubicación',
   suggestions = DEFAULT_SUGGESTIONS,
   className = '',
+  leftIcon,
 }: LocationComboboxProps) {
   const [query, setQuery] = useState('');
 
@@ -73,18 +76,25 @@ export default function LocationCombobox({
     <Combobox value={value || null} onChange={handleSelect}>
       <div className={`relative ${className}`}>
         <div className="w-full h-full text-left px-4 py-3 hover:bg-[#FAFAFA] rounded-l-2xl transition-colors group relative">
-          <span className="block text-[13px] font-medium text-[#0A0A0A]">
-            {label}
-          </span>
-          <ComboboxInput
-            className={`w-full bg-transparent outline-none text-[13px] pr-6 ${
-              value ? 'text-[#0A0A0A]' : 'text-[#6A7282]'
-            } placeholder:text-[#6A7282]`}
-            placeholder={value || placeholder}
-            displayValue={() => value}
-            onChange={(event) => setQuery(event.target.value)}
-            onFocus={() => setQuery('')}
-          />
+          <div className="flex items-center gap-2">
+            {leftIcon && (
+              <span className="text-gray-400 shrink-0 mt-0.5">{leftIcon}</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium text-[#0A0A0A]">
+                {label}
+              </span>
+              <ComboboxInput
+                className={`w-full bg-transparent outline-none text-[13px] pr-6 ${
+                  value ? 'text-[#0A0A0A]' : 'text-[#6A7282]'
+                } placeholder:text-[#6A7282]`}
+                placeholder={value || placeholder}
+                displayValue={() => value}
+                onChange={(event) => setQuery(event.target.value)}
+                onFocus={() => setQuery('')}
+              />
+            </div>
+          </div>
           {value && (
             <button
               type="button"

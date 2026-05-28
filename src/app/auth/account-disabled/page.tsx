@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
 import Button from "@/components/ui/Button";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AccountDisabledPage() {
-  const router = useRouter();
   const { logout } = useAuthContext();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
+    // Clear ALL cached auth/profile data so Navbar doesn't show stale login state.
+    // Cookies are already invalid for API calls (account is disabled), but
+    // TanStack cache may still have old user data.
+    queryClient.clear();
     try {
       sessionStorage.removeItem("user_session");
       sessionStorage.removeItem("session_saved_at");
@@ -20,9 +24,12 @@ export default function AccountDisabledPage() {
     } catch {
       /* private browsing mode may fail */
     }
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleBackHome = () => router.push("/");
+  const handleBackHome = async () => {
+    // Clear cookies + redirect to home so Navbar shows logged-out state.
+    await logout();
+  };
 
   const handleLogout = async () => {
     await logout();

@@ -2,7 +2,9 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { loginUser } from '@/app/lib/api/auth';
+import { getProfile } from '@/app/lib/api/user';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
+import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
 /**
  * TanStack Query mutation hook wrapping POST /v1/auth/login.
@@ -25,8 +27,22 @@ export function useLoginMutation() {
       // MFA responses do NOT set cookies — skip cache invalidation
       if ('mfa_required' in data && data.mfa_required) return;
 
+      // Immediately populate the identity cache so AuthContext + Navbar
+      // react to the login without waiting for a full page reload.
+      queryClient.setQueryData(queryKeys.user.me(), { user: data.user });
+
+      // Prefetch the real profile (includes avatar_url, language, currency)
+      // so the avatar loads immediately after login without visiting /perfil.
+      // Run in parallel with invalidations for speed.
+      const profilePromise = queryClient.prefetchQuery({
+        queryKey: queryKeys.user.profile(),
+        queryFn: ({ signal }) => getProfile(signal),
+        staleTime: PROFILE_STALE_TIME,
+      });
+
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.profile.all }),
+        profilePromise,
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.me() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.env.all }),
       ]);
 

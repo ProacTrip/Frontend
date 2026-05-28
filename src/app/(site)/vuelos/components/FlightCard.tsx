@@ -98,7 +98,7 @@ export default function FlightCard({
   );
 
   return (
-    <div className="rounded-[16px] border border-vuelos-border bg-white transition-shadow hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+    <div className="rounded-2xl border border-neutral-200 bg-white transition-shadow hover:shadow-lg hover:border-neutral-300">
       {/* ── Card Row ── */}
       <div
         role="button"
@@ -107,10 +107,10 @@ export default function FlightCard({
         aria-controls={`flight-detail-${offer.booking_token || offer.departure_token}`}
         onClick={() => onToggle(offer)}
         onKeyDown={handleKeyDown}
-        className={`flex items-center gap-4 px-5 py-4 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#111] focus-visible:ring-offset-2 rounded-[16px]`}
+        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2 rounded-2xl"
       >
-        {/* Logo */}
-        <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+        {/* Airline logo */}
+        <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center">
           {airline.logoUrl ? (
             <Image
               src={airline.logoUrl}
@@ -120,53 +120,60 @@ export default function FlightCard({
               className="object-contain"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-vuelos-surface flex items-center justify-center text-xs text-vuelos-muted font-medium">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-100 flex items-center justify-center text-xs text-neutral-500 font-medium">
               {airline.code}
             </div>
           )}
         </div>
 
-        {/* Times + Airline */}
-        <div className="min-w-0 shrink-0 w-[120px]">
-          <div className="font-[family-name:var(--font-syne)] text-[15px] font-semibold text-vuelos-black">
-            {formatTime(firstLeg?.departure?.datetime)}
-            {' \u2013 '}
-            {formatTime(lastLeg?.arrival?.datetime)}
-          </div>
-          <div className="text-[12.5px] text-vuelos-muted truncate">{airline.name}</div>
-        </div>
-
-        {/* Route + Duration */}
+        {/* Departure → Arrival (CEEPII-style: compact flowing text) */}
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-medium text-vuelos-black">
-            {firstLeg?.departure?.airport_code} → {lastLeg?.arrival?.airport_code}
+          {/* Times + Airports — single flowing line */}
+          <div className="text-sm sm:text-base font-medium text-neutral-900 leading-snug">
+            <span className="font-semibold tabular-nums">{formatTime(firstLeg?.departure?.datetime)}</span>
+            {' '}{firstLeg?.departure?.airport_code}{' '}
+            <span className="font-semibold tabular-nums">{formatTime(lastLeg?.arrival?.datetime)}</span>
+            {' '}{lastLeg?.arrival?.airport_code}
           </div>
-          <div className="text-[12px] text-vuelos-muted">{formatDuration(offer.total_duration_minutes)}</div>
-        </div>
-
-        {/* Stops + Badges */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[12.5px] font-medium text-vuelos-muted">{stopsLabel(offer)}</span>
-          {hasOvernight && <Moon className="w-3.5 h-3.5 text-vuelos-muted" aria-label="Vuelo nocturno" />}
-          {isOftenDelayed && (
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-label="Suele retrasarse" />
-          )}
-        </div>
-
-        {/* Price */}
-        <div className="text-right shrink-0 min-w-[90px]">
-          <div className="font-[family-name:var(--font-syne)] text-[15px] font-bold text-vuelos-black">
-            {formatPrice(offer.price.amount, offer.price.currency)}
+          {/* Airline + Stops + Duration — compact badges line */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+            <span className="text-[12px] text-neutral-500">{airline.name}</span>
+            <span className="text-neutral-300 text-[10px]">·</span>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              (offer.layovers?.length || 0) === 0
+                ? 'bg-green-50 text-green-700'
+                : 'bg-neutral-100 text-neutral-600'
+            }`}>
+              {stopsLabel(offer)}
+            </span>
+            <span className="text-neutral-300 text-[10px]">·</span>
+            <span className="text-[12px] text-neutral-500">{formatDuration(offer.total_duration_minutes)}</span>
+            {offer.layovers && offer.layovers.length > 0 && offer.layovers[0]?.airport_code && (
+              <>
+                <span className="text-neutral-300 text-[10px]">·</span>
+                <span className="text-[12px] text-neutral-500">{offer.layovers[0].airport_code}</span>
+              </>
+            )}
+            {hasOvernight && <Moon className="w-3.5 h-3.5 text-amber-500 ml-0.5" aria-label="Vuelo nocturno" />}
+            {isOftenDelayed && (
+              <AlertTriangle className="w-3.5 h-3.5 text-red-500 ml-0.5" aria-label="Suele retrasarse" />
+            )}
           </div>
-          <div className="text-[11.5px] text-vuelos-muted">por persona</div>
         </div>
 
-        {/* Chevron */}
-        <ChevronDown
-          className={`w-5 h-5 text-vuelos-muted shrink-0 transition-transform duration-[0.38s] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
-        />
+        {/* Price + chevron — right aligned compact */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <div className="text-sm sm:text-base font-semibold text-neutral-900 tabular-nums">
+              {formatPrice(offer.price.amount, offer.price.currency)}
+            </div>
+          </div>
+          <ChevronDown
+            className={`w-5 h-5 text-neutral-400 shrink-0 transition-transform duration-[0.38s] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          />
+        </div>
       </div>
 
       {/* ── Expandable Detail Panel ── */}

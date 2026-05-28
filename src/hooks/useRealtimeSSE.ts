@@ -70,7 +70,8 @@ async function connectSSE(
  *   - `credentials: 'include'` → HttpOnly cookies sent correctly
  *   - Exponential backoff + jitter on disconnect (1s → 30s cap)
  *   - Late-join refetch on (re)connect
- *   - Medical cache invalidation for conflict events
+ *   - Document SSE: doc.completed / doc.rejected / doc.failed / doc.processing → invalidates documents
+ *   - Medical SSE: medical.conflict.* → invalidates medical profile + conflicts
  *   - Automatic cleanup on logout / unmount
  */
 export function useRealtimeSSE(): { isConnected: boolean } {
@@ -94,8 +95,11 @@ export function useRealtimeSSE(): { isConnected: boolean } {
         case 'user.profile.updated':
           queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
           break;
-        case 'document.processing.completed':
-        case 'document.verification.updated':
+        case 'doc.completed':
+        case 'doc.rejected':
+        case 'doc.failed':
+        case 'doc.processing':
+        case 'doc.verification.updated':
           queryClient.invalidateQueries({ queryKey: userKeys.documents() });
           break;
         case 'medical.conflict.created':
@@ -103,6 +107,18 @@ export function useRealtimeSSE(): { isConnected: boolean } {
           queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
           queryClient.invalidateQueries({ queryKey: userKeys.medicalConflicts() });
           queryClient.invalidateQueries({ queryKey: userKeys.medical() });
+          break;
+         case 'search.conversation.expired':
+          // The backend published this event when a conversation's TTL expired.
+          // Invalidate the conversation list so the UI removes it without refresh.
+          queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['conversation'] });
+          break;
+        case 'account.disabled':
+          // Admin disabled the account — force logout and redirect.
+          // Clear all cached data and send the user to the account-disabled page.
+          queryClient.clear();
+          window.location.href = '/auth/account-disabled';
           break;
       }
     };
@@ -116,11 +132,12 @@ export function useRealtimeSSE(): { isConnected: boolean } {
           handleEvent,
           () => {
             setIsConnected(true);
-            backoffRef.current = 1000; // Reset backoff on successful connection
-            // Late-join: refetch active user queries so the UI catches
-            // up with any state changes that happened while disconnected.
-            queryClient.refetchQueries({ queryKey: userKeys.all, type: 'active' });
-            queryClient.refetchQueries({ queryKey: queryKeys.profile.all, type: 'active' });
+            backoffRef.current = 1000;
+            // Late-join: invalidate profile so it re-fetches immediately.
+            // refetchQueries only re-fetches non-stale queries; invalidateQueries
+            // forces a fresh fetch even within staleTime window.
+            queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
           },
           controller.signal,
         );
@@ -143,13 +160,8 @@ export function useRealtimeSSE(): { isConnected: boolean } {
   }, [queryClient]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      abortRef.current?.abort();
-      abortRef.current = null;
-      setIsConnected(false);
-      return;
-    }
-
+    // Always connect — the backend now supports both authenticated
+    // (via access_token cookie) and anonymous (via anon_token cookie) users.
     connect();
 
     return () => {
@@ -157,7 +169,7 @@ export function useRealtimeSSE(): { isConnected: boolean } {
       abortRef.current = null;
       setIsConnected(false);
     };
-  }, [isAuthenticated, connect]);
+  }, [connect]);
 
   return { isConnected };
 }

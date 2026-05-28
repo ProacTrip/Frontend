@@ -4,10 +4,12 @@ import type { NextRequest } from "next/server";
 // WARNING: routes added here MUST also be added to the matcher config below
 // Search routes (hoteles, vuelos) are intentionally NOT protected — the API
 // does not require authentication for public search (see Backend docs).
+// /busqueda-ai is intentionally NOT protected — anonymous users can access
+// AI-powered search (same as /vuelos and /hoteles). The backend API does not
+// require authentication for public search (see Backend docs).
 const PROTECTED_ROUTES = [
   "/perfil",
   "/documentos",
-  "/busqueda-ai",
   "/favoritos",
   "/compras",
   "/checkout",
@@ -57,7 +59,7 @@ export function middleware(request: NextRequest) {
     !isAuthenticated &&
     PROTECTED_ROUTES.some((route) => pathname.startsWith(route))
   ) {
-    const returnUrl = encodeURIComponent(pathname);
+    const returnUrl = encodeURIComponent(pathname + request.nextUrl.search);
     return NextResponse.redirect(
       new URL(`/auth/login?returnUrl=${returnUrl}`, request.url)
     );

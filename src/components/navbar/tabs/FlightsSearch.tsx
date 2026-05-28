@@ -136,7 +136,7 @@ export default function FlightsSearch({
           <MenuItems
             anchor={{ to: "bottom start", gap: 4 }}
             transition
-            className="bg-white rounded-xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1)] border border-[#E5E7EB] py-1 z-50 min-w-[160px] origin-top transition duration-200 ease-out data-[closed]:scale-95 data-[closed]:opacity-0"
+            className="bg-white rounded-xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1)] border border-[#E5E7EB] py-1 z-[1000] min-w-[160px] origin-top transition duration-200 ease-out data-[closed]:scale-95 data-[closed]:opacity-0"
           >
             {(["economy", "business", "first"] as CabinClass[]).map((cls) => (
               <MenuItem key={cls}>

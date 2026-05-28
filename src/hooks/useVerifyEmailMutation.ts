@@ -24,6 +24,7 @@ export function useVerifyEmailMutation() {
 
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.me() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.profile.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.env.all }),
       ]);

@@ -13,7 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthUser } from '@/app/lib/types/auth';
 import type { Profile } from '@/app/lib/types/user';
 import { logoutUser } from '@/app/lib/api/auth';
-import { getProfile, UserApiError } from '@/app/lib/api/user';
+import { getProfile, getMe, UserApiError } from '@/app/lib/api/user';
 import { queryKeys } from '@/app/lib/queries/queryKeys';
 import { PROFILE_STALE_TIME } from '@/app/lib/queries/staleTimes';
 
@@ -41,10 +41,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 /**
  * Extract identity fields ({id, email, role_name}) from the profile response.
  *
- * The Profile type in types/user.ts does not declare id/email/role_name,
- * but the backend returns them at the top level of the profile object
- * (verified against AUTH_API.md §172).
- *
  * Falls back to role_name='client' when the backend omits it.
  */
 function extractAuthUser(profile: Profile): AuthUser | null {
@@ -69,32 +65,52 @@ export function AuthProvider({
   const queryClient = useQueryClient();
 
   // ── Manual overrides — backward compat for pages that call setUser ──
-  //     These will be removed in PR 3 when pages switch to useMutation hooks.
   const [manualUser, setManualUser] = useState<AuthUser | null>(null);
 
-   // ── Profile query — declarative session bootstrap ────────────────────────────
-  //     Replaced all imperative getCurrentUser() → /v1/auth/me calls.
-  //     TanStack Query handles cache, refetch on window focus, and staleTime.
-  const profileQuery = useQuery({
-    queryKey: queryKeys.profile.all,
-    queryFn: ({ signal }) => getProfile(signal),
+  // ── Identity query (GET /v1/auth/me — works for ALL roles) ──────────────
+  const meQuery = useQuery({
+    queryKey: queryKeys.user.me(),
+    queryFn: ({ signal }) => getMe(signal),
     enabled: serverAuthenticated,
+    retry: 1,
+    staleTime: PROFILE_STALE_TIME,
+  });
+
+  // ── Profile query (GET /v1/user/profile — client-only) ──────────────────
+  //     Enabled when server says we're authenticated OR when manualUser is set
+  //     (post-login, serverAuthenticated stays false until full page reload).
+  const profileQuery = useQuery({
+    queryKey: queryKeys.user.profile(),
+    queryFn: ({ signal }) => getProfile(signal),
+    enabled: serverAuthenticated || !!manualUser,
     retry: false,
     staleTime: PROFILE_STALE_TIME,
   });
 
-  // ── Derived state ────────────────────────────────────────────────────────────
+  // ── Derived state: identity from /auth/me ───────────────────────────────
 
-  // Extract identity from the profile query data (raw fields not in Profile type)
+  const meUser = useMemo<AuthUser | null>(() => {
+    if (!meQuery.data?.user) return null;
+    const u = meQuery.data.user;
+    if (typeof u.id !== 'string' || typeof u.email !== 'string') return null;
+    return {
+      id: u.id,
+      email: u.email,
+      role_name: typeof u.role_name === 'string' ? u.role_name : 'client',
+      permissions: Array.isArray(u.permissions) ? u.permissions : [],
+    };
+  }, [meQuery.data]);
+
+  // Extract identity from profile query (secondary, for clients)
   const profileUser = useMemo(() => {
     if (!profileQuery.data) return null;
     return extractAuthUser(profileQuery.data.profile);
   }, [profileQuery.data]);
 
-  // Effective user: profile query wins; manualUser is a bridge for pre-PR3 pages
-  const user = profileUser ?? manualUser;
+  // Effective user: meQuery wins; fallback to profileUser; then manual
+  const user = meUser ?? profileUser ?? manualUser;
 
-  // ── Profile locale — extracted from profile query for useLocalePreferences() ──
+  // ── Profile locale — extracted from profile query ──────────────────────
   const profileLanguage = useMemo(() => {
     if (!profileQuery.data?.profile) return null;
     return profileQuery.data.profile.language_code ?? null;
@@ -106,19 +122,27 @@ export function AuthProvider({
   }, [profileQuery.data]);
 
   const profileFirstName = useMemo(() => {
-    if (!profileQuery.data?.profile) return null;
-    return profileQuery.data.profile.first_name ?? null;
-  }, [profileQuery.data]);
+    const liveProfile = profileQuery.data?.profile;
+    const cachedProfile = queryClient.getQueryData<{ profile: { first_name?: string | null } }>(queryKeys.user.profile())?.profile;
+    const profile = liveProfile ?? cachedProfile;
+    return profile?.first_name ?? null;
+  }, [profileQuery.data, queryClient]);
 
   const profileAvatar = useMemo(() => {
-    if (!profileQuery.data?.profile) return null;
-    return profileQuery.data.profile.avatar_url ?? null;
-  }, [profileQuery.data]);
+    // Check live query data first, then fall back to cache
+    // (TanStack Query v5 disabled queries don't subscribe to cache updates)
+    const liveProfile = profileQuery.data?.profile;
+    const cachedProfile = queryClient.getQueryData<{ profile: { avatar_url?: string | null } }>(queryKeys.user.profile())?.profile;
+    const profile = liveProfile ?? cachedProfile;
+    return profile?.avatar_url ?? null;
+  }, [profileQuery.data, queryClient]);
 
-  // Loading: true while profile query is pending AND we expected auth cookies
-  const isLoading = serverAuthenticated && profileQuery.isPending;
+  // Loading: true while either identity query is pending
+  const isLoading = serverAuthenticated && meQuery.isPending;
 
-  // Account-disabled detection: derived from error, no separate useState
+  // ── Error handling ──────────────────────────────────────────────────────
+
+  // Account-disabled detection: from profile query only (not meQuery)
   const isAccountDisabled = useMemo(() => {
     if (!profileQuery.error) return false;
     const err = profileQuery.error;
@@ -129,52 +153,73 @@ export function AuthProvider({
     );
   }, [profileQuery.error]);
 
-  // Error: 401 = normal (no session), account-disabled = redirect, other = surface
+  // Profile PERMISSION_DENIED is expected for admins — suppress it
+  const isProfilePermissionDenied = useMemo(() => {
+    if (!profileQuery.error) return false;
+    const err = profileQuery.error;
+    return (
+      err instanceof UserApiError &&
+      err.code === 'PERMISSION_DENIED' &&
+      !isAccountDisabled
+    );
+  }, [profileQuery.error, isAccountDisabled]);
+
+  // Error: derived from meQuery (identity), profile 401/TOKEN_INVALID, account-disabled
   const error = useMemo(() => {
+    // meQuery error → surface it (real auth problem)
+    if (meQuery.error) {
+      const err = meQuery.error;
+      if (err instanceof UserApiError && err.code === 'TOKEN_INVALID') {
+        return null; // handled by redirect effect
+      }
+      if (err instanceof Error) return err.message;
+      return 'Error al verificar la sesión';
+    }
+
+    // Profile error
     if (!profileQuery.error) return null;
     const err = profileQuery.error;
 
-    // 401 / TOKEN_INVALID → no valid session — normal state, not an error
+    // TOKEN_INVALID on profile → session expired
     if (err instanceof UserApiError && err.code === 'TOKEN_INVALID') {
       return null;
     }
 
-    // Account disabled — handled by useEffect redirect below
-    if (isAccountDisabled) {
-      return null;
-    }
+    // PERMISSION_DENIED on profile for admins → expected, not an error
+    if (isProfilePermissionDenied) return null;
+
+    // Account disabled → handled by redirect
+    if (isAccountDisabled) return null;
 
     if (err instanceof Error) return err.message;
     return 'Error al cargar el perfil';
-  }, [profileQuery.error, isAccountDisabled]);
+  }, [meQuery.error, profileQuery.error, isProfilePermissionDenied, isAccountDisabled]);
 
   // ── Effect: redirect on account-disabled ────────────────────────────────
   useEffect(() => {
-    if (isAccountDisabled) {
+    if (isAccountDisabled && !window.location.pathname.startsWith('/auth/account-disabled')) {
       window.location.href = '/auth/account-disabled';
     }
   }, [isAccountDisabled]);
 
-  // ── Effect: redirect on session expiry (TOKEN_INVALID) ─────────────────────
-  // Guards:
-  //   • serverAuthenticated=true → profile query actually ran (not cold load)
-  //   • Skip if already on /auth/login → prevents redirect loop (middleware
-  //     already forwarded with ?reason=session_expired)
-  //   • Preserves returnUrl so login can redirect back after re-auth
+  // ── Effect: redirect on session expiry (TOKEN_INVALID from meQuery) ─────
   useEffect(() => {
     if (!serverAuthenticated) return;
+    // Don't redirect from auth pages — login handles its own flow,
+    // account-disabled is a terminal state for blocked users.
     if (window.location.pathname.startsWith('/auth/login')) return;
+    if (window.location.pathname.startsWith('/auth/account-disabled')) return;
 
-    const err = profileQuery.error;
+    const err = meQuery.error;
     if (err instanceof UserApiError && err.code === 'TOKEN_INVALID') {
       const returnUrl = encodeURIComponent(
         window.location.pathname + window.location.search
       );
       window.location.href = `/auth/login?reason=session_expired&returnUrl=${returnUrl}`;
     }
-  }, [serverAuthenticated, profileQuery.error]);
+  }, [serverAuthenticated, meQuery.error]);
 
-  // ── Public API (backward-compat bridge) ──────────────────────────────────────
+  // ── Public API (backward-compat bridge) ──────────────────────────────────
 
   const setUser = useCallback((u: AuthUser | null) => {
     setManualUser(u);
@@ -183,15 +228,17 @@ export function AuthProvider({
   const logout = useCallback(async () => {
     try {
       await logoutUser();
+      // logoutUser() handles the redirect (reads Location from 302 response)
+      return;
     } catch {
-      // Best effort — backend still emits Clear-Site-Data
+      // Fallback: clear local state and redirect
     }
     queryClient.clear();
     setManualUser(null);
     window.location.href = '/';
   }, [queryClient]);
 
-  // ── Memoized context value ───────────────────────────────────────────────────
+  // ── Memoized context value ───────────────────────────────────────────────
 
   const value = useMemo<AuthContextType>(
     () => ({

@@ -9,8 +9,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import {
   Search,
   FileCheck,
@@ -56,15 +57,34 @@ const STATUS_COLORS: Record<DocumentVerificationStatus, string> = {
 };
 
 export default function DocumentVerificationPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-neutral-400">Cargando...</div>}>
+      <DocumentVerificationContent />
+    </Suspense>
+  );
+}
+
+function DocumentVerificationContent() {
   const queryClient = useQueryClient();
-  const [inputDocId, setInputDocId] = useState('');
-  const [searchDocId, setSearchDocId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const docIdFromUrl = searchParams.get('id') || '';
+
+  const [inputDocId, setInputDocId] = useState(docIdFromUrl);
+  const [searchDocId, setSearchDocId] = useState<string | null>(docIdFromUrl || null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<Exclude<DocumentVerificationStatus, 'pending'> | null>(null);
   const [statusReason, setStatusReason] = useState('');
+
+  // Sync URL param → input on mount
+  useEffect(() => {
+    if (docIdFromUrl) {
+      setInputDocId(docIdFromUrl);
+      setSearchDocId(docIdFromUrl);
+    }
+  }, [docIdFromUrl]);
 
   // ---- useQuery for document verification (lazy) ----
   const {
@@ -427,7 +447,7 @@ export default function DocumentVerificationPage() {
                 </button>
                 <button
                   onClick={handleUpdateStatus}
-                  disabled={actionLoading || !statusReason.trim()}
+                  disabled={actionLoading}
                   className={`flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${
                     pendingStatus === 'verified'
                       ? 'bg-emerald-600 hover:bg-emerald-700'

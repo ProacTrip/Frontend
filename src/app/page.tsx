@@ -91,11 +91,12 @@ export default function LandingPage() {
               </p>
 
               <button
-                onClick={() =>
+                onClick={() => {
+                  const prompt = `Vuelos y hoteles a ${backgroundDestination.place} en ${backgroundDestination.name}`;
                   router.push(
-                    `/hoteles?query=${encodeURIComponent(backgroundDestination.place)}`
-                  )
-                }
+                    `/busqueda-ai?prompt=${encodeURIComponent(prompt)}`
+                  );
+                }}
                 className="group inline-flex items-center gap-2.5 px-7 py-3.5 bg-white text-neutral-900 rounded-full text-base font-medium hover:bg-white/95 transition-all duration-200 cursor-pointer"
               >
                 Descubrir destino

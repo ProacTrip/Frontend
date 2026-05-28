@@ -46,7 +46,7 @@ export default function HotelesPage() {
       />
       <Suspense
         fallback={
-          <div className="min-h-screen bg-white pt-[72px]">
+          <div className="min-h-screen bg-white pt-[128px] lg:pt-[136px]">
             <div className="px-4 lg:px-8 pb-4">
               <div className="h-8 w-64 bg-[#F5F5F5] rounded animate-pulse" />
               <div className="h-4 w-48 bg-[#F5F5F5] rounded mt-2 animate-pulse" />

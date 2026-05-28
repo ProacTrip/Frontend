@@ -2,6 +2,8 @@ export interface AuthUser {
   id: string;
   email: string;
   role_name: string;
+  /** RBAC permissions resolved by the backend (e.g. "users:read", "users:write") */
+  permissions: string[];
 }
 
 /**

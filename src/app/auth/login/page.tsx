@@ -12,6 +12,7 @@ import { useLoginMutation } from "@/hooks/useLoginMutation";
 import { validateLoginField, isValid } from "@/app/lib/validations/auth";
 import { getOAuthUrl, AuthApiError } from "@/app/lib/api";
 import { useRateLimit } from "@/hooks/useRateLimit";
+import { useAuthContext } from "@/contexts/AuthContext";
 import RateLimitBanner from "@/components/ui/RateLimitBanner";
 import { getAuthErrorMessage, extractFieldErrors } from "@/app/lib/utils/auth-errors";
 
@@ -28,6 +29,7 @@ export default function LoginPage() {
 
   const loginMutation = useLoginMutation();
   const { isBlocked } = useRateLimit();
+  const { setUser } = useAuthContext();
 
   // ── Validation ─────────────────────────────────────────────────────
 
@@ -53,9 +55,18 @@ export default function LoginPage() {
       { email, password },
       {
         onSuccess: (data) => {
-          // Hook already handles MFA check + query invalidation.
-          // Override the default redirect with returnUrl.
           if ("mfa_required" in data && data.mfa_required) return;
+          // Immediately notify AuthContext so Navbar updates without full reload
+          setUser(data.user);
+          // Admin users go straight to /admin — force full reload to ensure
+          // cookies are properly set before the admin page mounts.
+          // Use permissions if available (from /v1/auth/me), fallback to role_name.
+          const isAdmin = (Array.isArray(data.user?.permissions) && data.user.permissions.includes('users:read')) ||
+                          data.user?.role_name === 'admin';
+          if (isAdmin) {
+            window.location.href = '/admin';
+            return;
+          }
           router.push(returnUrl);
         },
         onError: (err: unknown) => {

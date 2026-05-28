@@ -1,91 +1,112 @@
 // app/busqueda-ai/components/ChatInput.tsx
 'use client';
 
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type KeyboardEvent } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled: boolean;
   placeholder?: string;
+  /** Pre-fill the textarea without auto-sending. Used by homepage → /busqueda-ai prompts. */
+  initialValue?: string;
 }
 
-export default function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
-  const [value, setValue] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+export interface ChatInputHandle {
+  focus: () => void;
+}
 
-  const defaultPlaceholder = 'Escribí tu consulta de viaje... (ej: "Vuelos a Madrid en junio")';
+const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
+  function ChatInput({ onSend, disabled, placeholder, initialValue }, ref) {
+    const [value, setValue] = useState(initialValue || '');
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-  }, [value]);
+    // Sync initialValue when it changes externally
+    useEffect(() => {
+      if (initialValue) setValue(initialValue);
+    }, [initialValue]);
 
-  // Re-focus after sending
-  useEffect(() => {
-    if (!disabled && textareaRef.current) {
-      textareaRef.current.focus();
+    const defaultPlaceholder =
+      'Escribí tu consulta de viaje... (ej: "Vuelos a Madrid en junio")';
+
+    // Expose focus() via ref
+    useImperativeHandle(ref, () => ({
+      focus: () => {
+        textareaRef.current?.focus();
+      },
+    }));
+
+    // Auto-resize textarea
+    useEffect(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    }, [value]);
+
+    // Re-focus after sending (preventScroll avoids auto-scroll on mount)
+    useEffect(() => {
+      if (!disabled && textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+      }
+    }, [disabled]);
+
+    function handleSubmit() {
+      const trimmed = value.trim();
+      if (!trimmed || disabled) return;
+      onSend(trimmed);
+      setValue('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
-  }, [disabled]);
 
-  function handleSubmit() {
-    const trimmed = value.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
-    setValue('');
-    // Reset height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
     }
-  }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    // Enter sends, Shift+Enter adds newline
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }
-
-  return (
-    <div className="border-t border-gray-200 bg-white p-3 md:p-4">
-      <div className="max-w-3xl mx-auto flex items-end gap-2">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder || defaultPlaceholder}
-          disabled={disabled}
-          rows={1}
-          maxLength={2000}
-          className="
-            flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm
-            placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#c54141]/30
-            focus:border-[#c54141] disabled:bg-gray-100 disabled:text-gray-400
-            transition-colors min-h-[44px] max-h-[120px]
-          "
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
-          className="
-            w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0
-            bg-[#c54141] text-white hover:bg-[#a03535] transition-colors
-            disabled:bg-gray-300 disabled:cursor-not-allowed
-          "
-          aria-label="Enviar mensaje"
-        >
-          {disabled ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <Send className="w-5 h-5" />
-          )}
-        </button>
+    return (
+      <div className="border-t border-[#e8e8e8] bg-white p-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder || defaultPlaceholder}
+            disabled={disabled}
+            rows={1}
+            maxLength={2000}
+            className="
+              flex-1 resize-none rounded-xl border border-[#e8e8e8] px-4 py-3 text-sm
+              placeholder:text-[#767676] focus:outline-none focus:ring-2 focus:ring-[#0A0A0A]/20
+              focus:border-[#0A0A0A] disabled:bg-[#F5F5F5] disabled:text-[#767676]
+              transition-colors min-h-[44px] max-h-[120px]
+            "
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !value.trim()}
+            className="
+              w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0
+              bg-[#0A0A0A] text-white hover:bg-[#333] transition-colors
+              disabled:bg-[#e8e8e8] disabled:cursor-not-allowed
+            "
+            aria-label="Enviar mensaje"
+          >
+            {disabled && !value.trim() ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+);
+
+export default ChatInput;

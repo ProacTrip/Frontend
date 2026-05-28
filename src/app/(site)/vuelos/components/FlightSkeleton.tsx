@@ -11,36 +11,32 @@ export default function FlightSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-[16px] border border-vuelos-border bg-white p-4 animate-pulse"
+          className="rounded-2xl border border-neutral-200 bg-white p-4 animate-pulse"
           style={{ animationDelay: `${i * 0.08}s` }}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             {/* Logo placeholder */}
-            <div className="w-10 h-10 rounded-full bg-vuelos-skeleton" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-100 shrink-0" />
 
-            {/* Times + airline */}
-            <div className="space-y-1.5">
-              <div className="h-5 w-24 rounded bg-vuelos-skeleton" />
-              <div className="h-3 w-16 rounded bg-vuelos-skeleton" />
+            {/* Main content — compact single line */}
+            <div className="flex-1 space-y-1.5 min-w-0">
+              {/* Times + Airports */}
+              <div className="h-4 w-full max-w-[260px] rounded bg-neutral-100" />
+              {/* Airline + stops + duration */}
+              <div className="flex items-center gap-1.5">
+                <div className="h-3.5 w-20 rounded bg-neutral-100" />
+                <div className="h-5 w-14 rounded-full bg-neutral-100" />
+                <div className="h-3.5 w-10 rounded bg-neutral-100" />
+              </div>
             </div>
-
-            {/* Route + duration */}
-            <div className="flex-1 space-y-1.5">
-              <div className="h-4 w-32 rounded bg-vuelos-skeleton mx-auto" />
-              <div className="h-3 w-20 rounded bg-vuelos-skeleton mx-auto" />
-            </div>
-
-            {/* Stops */}
-            <div className="h-5 w-16 rounded-full bg-vuelos-skeleton" />
 
             {/* Price */}
-            <div className="space-y-1.5 shrink-0">
-              <div className="h-5 w-20 rounded bg-vuelos-skeleton ml-auto" />
-              <div className="h-3 w-12 rounded bg-vuelos-skeleton ml-auto" />
+            <div className="shrink-0">
+              <div className="h-5 w-14 rounded bg-neutral-100 ml-auto" />
             </div>
 
             {/* Chevron */}
-            <div className="w-5 h-5 rounded bg-vuelos-skeleton" />
+            <div className="w-5 h-5 rounded bg-neutral-100" />
           </div>
         </div>
       ))}

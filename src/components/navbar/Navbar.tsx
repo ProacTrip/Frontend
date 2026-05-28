@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import NavActions from "./NavActions";
 import HotelsSearch from "./tabs/HotelsSearch";
 import AISearch from "./tabs/AISearch";
 import FlightsSearch from "./tabs/FlightsSearch";
+import MobileDrawer from "./MobileDrawer";
+import { MobileHotelsSearch, MobileFlightsSearch, MobileAISearch } from "./MobileSearchContent";
 import Backdrop from "./Backdrop";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { getUserPreferences } from "@/app/lib/utils/location";
@@ -30,15 +32,13 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [tabIndex, setTabIndex] = useState(0);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   // ─── HYDRATION-SAFE validation state ───────────
-  // Server renders disabled={false} (enabled) to match initial client render
-  // before environment pre-fills hotelDest. After hydration, compute real validity.
   const [isHydrated, setIsHydrated] = useState(false);
-  useEffect(() => setIsHydrated(true), []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional hydration guard
+  useEffect(() => { setIsHydrated(true); }, []);
 
   // Hotels
   const [hotelDest, setHotelDest] = useState("");
@@ -60,9 +60,6 @@ export default function Navbar() {
 
   // AI
   const [aiMessage, setAiMessage] = useState("");
-  const [aiChat, setAiChat] = useState<
-    { role: "user" | "assistant"; text: string }[]
-  >([]);
 
   // ─── SCROLL ─────────────────────────────────────
   useEffect(() => {
@@ -71,58 +68,57 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ─── CLICK OUTSIDE (mobile) ────────────────────
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        headerRef.current &&
-        !headerRef.current.contains(e.target as Node)
-      ) {
-        setMobileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   // ─── KEYBOARD ──────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setExpanded(false);
-        setMobileOpen(false);
+        setMobileMenuOpen(false);
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
-  // ─── BODY SCROLL ───────────────────────────────
+  // ─── BODY SCROLL LOCK (desktop panel only; MobileDrawer handles its own) ──
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    document.body.style.overflow = expanded ? "hidden" : "";
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = expanded && isDesktop ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [expanded]);
+  }, [expanded, isDesktop]);
 
   // ─── PRE-FILL STATE/REGION FROM ENVIRONMENT ──────
   useEffect(() => {
     if (!environment?.location?.state) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time pre-fill from env data */
     setHotelDest((prev) => prev || environment.location.state);
     setFlightOrigin((prev) => prev || environment.location.state);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [environment?.location?.state]);
 
-  // ─── DERIVED (MUST be declared BEFORE useCallback that references them) ──
+  // ─── DERIVED ──
   const isLandingPage = pathname === "/";
   const isHotelesRoute = pathname === "/hoteles" || pathname.startsWith("/hoteles?");
   const isVuelosRoute = pathname === "/vuelos" || pathname.startsWith("/vuelos?");
+  const isBusquedaAIRoute = pathname === "/busqueda-ai" || pathname.startsWith("/busqueda-ai?");
   const isHero = isLandingPage && !isScrolled && !expanded;
 
   // ─── Pre-select tab based on route ──
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- route-driven tab sync
     if (isVuelosRoute) setTabIndex(2);
+    else if (isBusquedaAIRoute) setTabIndex(1);
     else if (isHotelesRoute) setTabIndex(0);
-  }, [isVuelosRoute, isHotelesRoute]);
+  }, [isVuelosRoute, isHotelesRoute, isBusquedaAIRoute]);
 
   // ─── TAB HANDLER ───────────────────────────────
   const handleTabChange = useCallback((index: number) => {
@@ -132,29 +128,25 @@ export default function Navbar() {
 
   const handleTabClick = useCallback(
     (idx: number) => {
-      const isVuelosTab = TABS[idx]?.id === "vuelos";
-      const isHotelesTab = TABS[idx]?.id === "hoteles";
+      const tabId = TABS[idx]?.id;
+      const isVuelosTab = tabId === "vuelos";
+      const isHotelesTab = tabId === "hoteles";
+      const isAITab = tabId === "ia";
 
-      // Clicking the tab that matches current route => toggle the main search panel
       const matchesCurrentRoute =
-        (isVuelosTab && isVuelosRoute) || (isHotelesTab && isHotelesRoute);
+        (isVuelosTab && isVuelosRoute) || (isHotelesTab && isHotelesRoute) || (isAITab && isBusquedaAIRoute);
 
       if (matchesCurrentRoute) {
         setExpanded((prev) => !prev);
       } else {
-        // Different search type: switch tab and open the panel
         setTabIndex(idx);
         setExpanded(true);
       }
     },
-    [isVuelosRoute, isHotelesRoute],
+    [isVuelosRoute, isHotelesRoute, isBusquedaAIRoute],
   );
 
-  const guestTotal = adults + childCount;
-
   // ─── SEARCH VALIDATION ───────────────────────
-  // Hydration-safe: default to true (enabled) on server/first render,
-  // only compute real validity after client hydration when environment data is loaded.
   const isSearchValid = isHydrated
     ? (hotelDest.trim() !== '' && hotelDateRange.start !== null && hotelDateRange.end !== null)
     : true;
@@ -180,7 +172,9 @@ export default function Navbar() {
     [],
   );
 
-  // ─── SYNC NAVBAR STATE FROM URL (hoteles route) ──
+  // ─── SYNC NAVBAR STATE FROM URL (hoteles) ──
+  const urlString = urlParams.toString();
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional URL→state sync */
   useEffect(() => {
     if (!isHotelesRoute) return;
     const q = urlParams.get('query');
@@ -198,9 +192,12 @@ export default function Navbar() {
     }
     if (ad) setAdults(parseInt(ad, 10));
     if (ch) setChildren(parseInt(ch, 10));
-  }, [isHotelesRoute, urlParams.toString()]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHotelesRoute, urlString]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // ─── SYNC NAVBAR STATE FROM URL (vuelos route) ──
+  // ─── SYNC NAVBAR STATE FROM URL (vuelos) ──
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional URL→state sync */
   useEffect(() => {
     if (!isVuelosRoute) return;
     const orig = urlParams.get('origen');
@@ -220,19 +217,19 @@ export default function Navbar() {
         end: fv ? new Date(fv + 'T00:00:00') : null,
       });
     }
-  }, [isVuelosRoute, urlParams.toString()]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVuelosRoute, urlString]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── SEARCH ACTIONS ────────────────────────────
   const handleHotelSearch = useCallback(() => {
     const dest = hotelDest.trim();
-    
-    // Guard: show validation message instead of silent return
+
     if (!dest) {
       setValidationMessage('Ingresá un destino');
       return;
     }
 
-    // Guard: show validation message for missing dates
     if (!hotelDateRange.start || !hotelDateRange.end) {
       setValidationMessage('Seleccioná las fechas de tu viaje');
       return;
@@ -251,10 +248,12 @@ export default function Navbar() {
     if (prefs.hl) params.set("hl", prefs.hl);
     if (prefs.gl) params.set("gl", prefs.gl);
     setExpanded(false);
+    setMobileMenuOpen(false);
     router.push(`/hoteles?${params.toString()}`);
   }, [hotelDest, hotelDateRange, adults, childCount, router]);
 
   const handleFlightSearch = useCallback(() => {
+    setMobileMenuOpen(false);
     const params = new URLSearchParams();
     if (flightOrigin) params.set("origen", flightOrigin);
     if (flightDest) params.set("destino", flightDest);
@@ -270,33 +269,60 @@ export default function Navbar() {
 
   const handleAiSend = useCallback(() => {
     if (!aiMessage.trim()) return;
-    const userMsg = aiMessage.trim();
-    setAiChat((prev) => [...prev, { role: "user", text: userMsg }]);
+    const query = aiMessage.trim();
     setAiMessage("");
-    setTimeout(() => {
-      setAiChat((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text:
-            `¡Claro! Basado en "${userMsg}", te recomiendo explorar destinos ` +
-            "como Santorini, Tokio o las Islas Lofoten. ¿Querés que busque vuelos u hoteles para alguno de estos destinos?",
-        },
-      ]);
-    }, 1200);
-  }, [aiMessage]);
+    setExpanded(false);
+    setMobileMenuOpen(false);
+    router.push(`/busqueda-ai?q=${encodeURIComponent(query)}`);
+  }, [aiMessage, router]);
+
+  const handleMobileClear = useCallback(() => {
+    const activeTab = TABS[tabIndex];
+    switch (activeTab.id) {
+      case "hoteles":
+        setHotelDest("");
+        setHotelDateRange({ start: null, end: null });
+        break;
+      case "vuelos":
+        setFlightOrigin("");
+        setFlightDest("");
+        setFlightDateRange({ start: null, end: null });
+        break;
+      case "ia":
+        setAiMessage("");
+        break;
+    }
+    setAdults(2);
+    setChildren(0);
+    setInfants(0);
+    setValidationMessage(null);
+  }, [tabIndex]);
+
+  const handleMobileSearch = useCallback(() => {
+    const activeTab = TABS[tabIndex];
+    switch (activeTab.id) {
+      case "hoteles":
+        handleHotelSearch();
+        break;
+      case "vuelos":
+        handleFlightSearch();
+        break;
+      case "ia":
+        handleAiSend();
+        break;
+    }
+  }, [tabIndex, handleHotelSearch, handleFlightSearch, handleAiSend]);
 
   // ─── RENDER ─────────────────────────────────────
   return (
     <>
       <header
-        ref={headerRef}
         className="fixed top-0 left-0 right-0 z-[950]"
       >
         <TabGroup selectedIndex={tabIndex} onChange={handleTabChange}>
-          {/* NAVBAR STRIP */}
+          {/* ── NAVBAR STRIP ── */}
           <div
-            className={`relative z-20 h-[72px] flex items-center justify-between px-6 lg:px-8 transition-colors duration-300 ${
+            className={`relative z-20 h-[72px] flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-colors duration-300 ${
               isHero ? "bg-transparent" : "bg-white shadow-sm border-b border-neutral-100"
             }`}
           >
@@ -322,7 +348,7 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* CENTER — TABS (desktop, all routes) */}
+            {/* CENTER — TABS (desktop only) */}
             <TabList className="hidden lg:flex items-center gap-1.5">
               {TABS.map((tab, idx) => {
                 const Icon = tab.icon;
@@ -343,137 +369,156 @@ export default function Navbar() {
               })}
             </TabList>
 
-            {/* RIGHT */}
+            {/* RIGHT — Actions (desktop) */}
             <div className="hidden lg:flex items-center gap-2">
               <NavActions isLanding={isHero} />
             </div>
 
-            {/* MOBILE HAMBURGER */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className={`lg:hidden w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
-                isHero
-                  ? "text-white hover:bg-white/10"
-                  : "text-[#0A0A0A] hover:bg-[#F5F5F5]"
-              }`}
-              aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
-            >
-              {mobileOpen ? (
-                <X className="w-5 h-5" />
-              ) : (
-                <Menu className="w-5 h-5" />
-              )}
-            </button>
+            {/* RIGHT — Mobile: NavActions + Hamburger */}
+            <div className="flex lg:hidden items-center gap-1.5">
+              <NavActions isLanding={isHero} />
+              <div className="w-px h-6 bg-current opacity-15 mx-1" />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                  isHero
+                    ? "text-white hover:bg-white/10"
+                    : "text-[#0A0A0A] hover:bg-[#F5F5F5]"
+                }`}
+                aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-5 h-5" />
+                ) : (
+                  <Menu className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* SEARCH PANEL — slides down from behind navbar */}
-          <div
-            className={`search-panel ${expanded ? "is-open" : ""}`}
-          >
-            <div className="max-w-4xl mx-auto search-panel-content">
-              {/* Validation banner */}
-              {validationMessage && (
-                <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
-                  <span>{validationMessage}</span>
-                  <button
-                    onClick={() => setValidationMessage(null)}
-                    className="ml-3 text-amber-600 hover:text-amber-800"
-                    aria-label="Cerrar aviso"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              <TabPanels>
-                {/* HOTELS */}
-                <TabPanel>
-                  <HotelsSearch
-                    destination={hotelDest}
-                    onDestinationChange={setHotelDest}
-                    dateRange={hotelDateRange}
-                    onDateRangeChange={handleDateRangeChange}
-                    adults={adults}
-                    childCount={childCount}
-                    infants={infants}
-                    onGuestsChange={handleGuestsChange}
-                    onSearch={handleHotelSearch}
-                    isValid={isSearchValid}
-                  />
-                </TabPanel>
-
-                {/* AI */}
-                <TabPanel>
-                  <AISearch
-                    message={aiMessage}
-                    onMessageChange={setAiMessage}
-                    chat={aiChat}
-                    onSend={handleAiSend}
-                  />
-                </TabPanel>
-
-                {/* FLIGHTS */}
-                <TabPanel>
-                  <FlightsSearch
-                    origin={flightOrigin}
-                    onOriginChange={setFlightOrigin}
-                    dest={flightDest}
-                    onDestChange={setFlightDest}
-                    adults={adults}
-                    childCount={childCount}
-                    infants={infants}
-                    onGuestsChange={handleGuestsChange}
-                    onSearch={handleFlightSearch}
-                    dateRange={flightDateRange}
-                    onDateRangeChange={handleFlightDateRangeChange}
-                  />
-                </TabPanel>
-              </TabPanels>
+          {/* ── DESKTOP SEARCH PANEL ── */}
+          <div className="hidden lg:block">
+            <div className={`search-panel ${expanded ? "is-open" : ""}`}>
+              <div className="max-w-4xl mx-auto search-panel-content">
+                {validationMessage && (
+                  <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                    <span>{validationMessage}</span>
+                    <button
+                      onClick={() => setValidationMessage(null)}
+                      className="ml-3 text-amber-600 hover:text-amber-800"
+                      aria-label="Cerrar aviso"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <TabPanels>
+                  <TabPanel>
+                    <HotelsSearch
+                      destination={hotelDest}
+                      onDestinationChange={setHotelDest}
+                      dateRange={hotelDateRange}
+                      onDateRangeChange={handleDateRangeChange}
+                      adults={adults}
+                      childCount={childCount}
+                      infants={infants}
+                      onGuestsChange={handleGuestsChange}
+                      onSearch={handleHotelSearch}
+                      isValid={isSearchValid}
+                    />
+                  </TabPanel>
+                  <TabPanel>
+                    <AISearch
+                      message={aiMessage}
+                      onMessageChange={setAiMessage}
+                      chat={[]}
+                      onSend={handleAiSend}
+                    />
+                  </TabPanel>
+                  <TabPanel>
+                    <FlightsSearch
+                      origin={flightOrigin}
+                      onOriginChange={setFlightOrigin}
+                      dest={flightDest}
+                      onDestChange={setFlightDest}
+                      adults={adults}
+                      childCount={childCount}
+                      infants={infants}
+                      onGuestsChange={handleGuestsChange}
+                      onSearch={handleFlightSearch}
+                      dateRange={flightDateRange}
+                      onDateRangeChange={handleFlightDateRangeChange}
+                    />
+                  </TabPanel>
+                </TabPanels>
+              </div>
             </div>
           </div>
         </TabGroup>
       </header>
 
-      {/* BACKDROP — behind panel */}
+      {/* ── DESKTOP BACKDROP ── */}
       <Backdrop
         isVisible={expanded}
         onClick={() => setExpanded(false)}
       />
 
-      {/* MOBILE MENU */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 top-[72px] z-40 bg-white overflow-y-auto border-t border-[#F5F5F5]">
-          <div className="px-6 py-4 space-y-3">
-            <p className="text-xs font-semibold text-[#A1A1A1] uppercase tracking-wider">
-              Buscar
-            </p>
-            {TABS.map((tab, idx) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setTabIndex(idx);
-                    setExpanded(true);
-                    setMobileOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    idx === tabIndex
-                      ? "bg-[#111] text-white"
-                      : "text-[#0A0A0A] hover:bg-[#F5F5F5]"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+      {/* ── MOBILE DRAWER (Stitch-style) ── */}
+      <MobileDrawer
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        activeTab={tabIndex}
+        onTabChange={(idx) => {
+          setTabIndex(idx);
+          setValidationMessage(null);
+        }}
+        onClear={handleMobileClear}
+        onSearch={handleMobileSearch}
+        searchLabel={TABS[tabIndex].id === "ia" ? "Preguntar" : "Buscar"}
+      >
+        {/* Tab-based search content — mobile-optimized vertical cards */}
+        {tabIndex === 0 && (
+          <>
+            <MobileHotelsSearch
+              destination={hotelDest}
+              onDestinationChange={setHotelDest}
+              dateRange={hotelDateRange}
+              onDateRangeChange={handleDateRangeChange}
+              adults={adults}
+              childCount={childCount}
+              infants={infants}
+              onGuestsChange={handleGuestsChange}
+            />
+            {validationMessage && (
+              <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800">
+                {validationMessage}
+              </div>
+            )}
+          </>
+        )}
 
-            <div className="border-t border-[#F5F5F5] pt-3 mt-3">
-              <NavActions isLanding={false} />
-            </div>
-          </div>
-        </div>
-      )}
+        {tabIndex === 1 && (
+          <MobileAISearch
+            message={aiMessage}
+            onMessageChange={setAiMessage}
+          />
+        )}
+
+        {tabIndex === 2 && (
+          <MobileFlightsSearch
+            origin={flightOrigin}
+            onOriginChange={setFlightOrigin}
+            dest={flightDest}
+            onDestChange={setFlightDest}
+            dateRange={flightDateRange}
+            onDateRangeChange={handleFlightDateRangeChange}
+            adults={adults}
+            childCount={childCount}
+            infants={infants}
+            onGuestsChange={handleGuestsChange}
+          />
+        )}
+      </MobileDrawer>
     </>
   );
 }

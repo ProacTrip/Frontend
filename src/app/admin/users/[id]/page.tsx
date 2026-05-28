@@ -59,6 +59,7 @@ export default function AdminUserDetailPage() {
 
   const user = detailRes?.user ?? null;
   const effectivePermissions = detailRes?.effective_permissions ?? [];
+  const documents = detailRes?.documents ?? [];
 
   // ---- useMutation for status change ----
   const statusMutation = useMutation({
@@ -230,7 +231,46 @@ export default function AdminUserDetailPage() {
 
           {/* Feature Limits */}
           {user && (
-            <FeatureLimitsCard userId={userId} roleId={user.role_id} />
+            <FeatureLimitsCard userId={userId} />
+          )}
+
+          {/* Documents — enlaza a verificación */}
+          {documents.length > 0 && (
+            <div className="bg-white rounded-2xl border border-neutral-200 p-6">
+              <h2 className="text-base font-semibold text-neutral-900 mb-4">
+                Documentos ({documents.length})
+              </h2>
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    href={`/admin/documentos?id=${doc.id}`}
+                    className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-100 hover:border-neutral-300 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-neutral-800 truncate">
+                        {doc.file_name}
+                      </p>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        {doc.document_type || 'Sin clasificar'}
+                        <span className="mx-1.5 text-neutral-300">·</span>
+                        {doc.ocr_status === 'completed' ? 'OCR completado' : doc.ocr_status}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 ml-3 px-2 py-1 rounded-full text-[11px] font-medium ${
+                      doc.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-700' :
+                      doc.verification_status === 'rejected' ? 'bg-red-100 text-red-600' :
+                      'bg-neutral-100 text-neutral-600'
+                    }`}>
+                      {doc.verification_status === 'verified' ? 'Verificado' :
+                       doc.verification_status === 'rejected' ? 'Rechazado' :
+                       doc.verification_status === 'unverified' ? 'Sin verificar' :
+                       doc.verification_status}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

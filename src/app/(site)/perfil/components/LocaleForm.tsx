@@ -89,8 +89,10 @@ export function LocaleForm({ profile }: Props) {
 
     try {
       const payload: UpdateProfileBody = {};
-      if (form.language_code) payload.language = form.language_code;
-      if (form.currency_code) payload.currency = form.currency_code;
+      // Always send language_code and currency_code, even if empty.
+      // Empty string explicitly clears the field on the backend.
+      if (form.language_code !== undefined) payload.language = form.language_code;
+      if (form.currency_code !== undefined) payload.currency = form.currency_code;
 
       await updateProfileMutation.mutateAsync(payload);
       if (payload.currency) {

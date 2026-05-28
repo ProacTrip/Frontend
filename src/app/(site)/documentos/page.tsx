@@ -9,6 +9,7 @@ import {
   downloadDocument,
   listDocumentTypes,
 } from '@/app/lib/api/documents';
+import { userKeys, queryKeys } from '@/app/lib/queries/queryKeys';
 import { UserApiError } from '@/app/lib/api/user';
 import DocumentCard from './components/DocumentCard';
 import DocumentUpload from './components/DocumentUpload';
@@ -47,7 +48,11 @@ export default function DocumentosPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['user-documents', filters.status, filters.document_type],
+    queryKey: userKeys.documents(
+      filters.status || filters.document_type
+        ? { status: filters.status ?? undefined, document_type: filters.document_type ?? undefined }
+        : undefined,
+    ),
     queryFn: () =>
       listDocuments({
         status: filters.status || undefined,
@@ -65,12 +70,18 @@ export default function DocumentosPage() {
           ? 'Error al cargar los documentos.'
           : null;
 
+  const docQueryKey = userKeys.documents(
+    filters.status || filters.document_type
+      ? { status: filters.status ?? undefined, document_type: filters.document_type ?? undefined }
+      : undefined,
+  );
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteDocument(id),
     onMutate: (id) => setDeletingId(id),
     onSuccess: (_data, id) => {
       queryClient.setQueryData(
-        ['user-documents', filters.status, filters.document_type],
+        docQueryKey,
         (old: typeof documentListData) => {
           if (!old) return old;
           return { ...old, documents: old.documents.filter((d) => d.id !== id) };
@@ -84,10 +95,10 @@ export default function DocumentosPage() {
   const handleUploadSuccess = useCallback(
     (_response: { document_id: string; status: string }) => {
       queryClient.invalidateQueries({
-        queryKey: ['user-documents', filters.status, filters.document_type],
+        queryKey: docQueryKey,
       });
     },
-    [queryClient, filters],
+    [queryClient, docQueryKey],
   );
 
   const handleDelete = useCallback(() => {
@@ -110,7 +121,7 @@ export default function DocumentosPage() {
   const handleStatusUpdate = useCallback(
     (event: DocumentEvent, docId: string) => {
       queryClient.setQueryData(
-        ['user-documents', filters.status, filters.document_type],
+        docQueryKey,
         (old: typeof documentListData) => {
           if (!old) return old;
           return {

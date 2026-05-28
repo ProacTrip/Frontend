@@ -19,6 +19,8 @@ interface GuestCounterProps {
   isOpen?: boolean;
   onClose?: () => void;
   className?: string;
+  /** Render at full width (mobile drawers) */
+  fullWidth?: boolean;
 }
 
 export default function GuestCounter({
@@ -26,6 +28,7 @@ export default function GuestCounter({
   isOpen: controlledOpen,
   onClose,
   className = '',
+  fullWidth = false,
 }: GuestCounterProps) {
   const isOpen = controlledOpen !== undefined ? controlledOpen : true;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,7 +60,11 @@ export default function GuestCounter({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className={`absolute top-full right-0 mt-2 z-50 bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-6 ${className}`}
+      className={`${
+        fullWidth
+          ? 'absolute top-full left-0 right-0 mt-2'
+          : 'absolute top-full right-0 mt-2'
+      } z-50 bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-6 ${className}`}
     >
         <div className="space-y-6">
           {guests.map((guest) => (

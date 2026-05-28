@@ -241,6 +241,56 @@ export async function parseUserError(response: Response, endpoint: string): Prom
 // PERFIL PRINCIPAL
 // ==========================================
 
+// ── GET /v1/auth/me — Identity endpoint (works for all roles) ──────────
+
+/** Response from GET /v1/auth/me — identity only, no profile data. */
+export interface MeResponse {
+  user: {
+    id: string;
+    email: string;
+    role_name: string;
+  };
+}
+
+/**
+ * Get authenticated user identity.
+ * Works for ALL roles (client + admin) — no RequireClientRole middleware.
+ */
+export async function getMe(signal?: AbortSignal): Promise<MeResponse> {
+  const endpoint = '/v1/auth/me';
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+  const effectiveSignal = signal
+    ? AbortSignal.any([signal, timeoutController.signal])
+    : timeoutController.signal;
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: effectiveSignal,
+    });
+
+    clearTimeout(timeoutId);
+    extractRateLimitHeaders(response, endpoint);
+
+    if (!response.ok) {
+      await parseUserError(response, endpoint);
+    }
+
+    return response.json();
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    if (error instanceof UserApiError) throw error;
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('La petición ha excedido el tiempo de espera.');
+    }
+    throw error;
+  }
+}
+
+// ── GET /v1/user/profile — Profile (client-only) ────────────────────────
+
 /**
  * Get user profile and travel preferences.
  *
@@ -305,6 +355,7 @@ function adaptProfileResponse(raw: Record<string, unknown>): ProfileResponse {
       nationality: (raw.nationality as string | null) ?? null,
       phone: (raw.phone as string | null) ?? null,
       bio: (raw.bio as string | null) ?? null,
+      role_name: (raw.role_name as string) ?? undefined,
       avatar_url: (raw.avatar_url as string | null) ?? null,
       language_code: (loc.language as string) ?? null,
       currency_code: (loc.currency as string) ?? null,

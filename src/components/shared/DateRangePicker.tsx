@@ -21,6 +21,8 @@ interface DateRangePickerProps {
   startLabel?: string;
   endLabel?: string;
   className?: string;
+  /** Render at full width (mobile drawers) */
+  fullWidth?: boolean;
 }
 
 export default function DateRangePicker({
@@ -33,6 +35,7 @@ export default function DateRangePicker({
   startLabel = 'Check-in',
   endLabel = 'Check-out',
   className = '',
+  fullWidth = false,
 }: DateRangePickerProps) {
   const today = useMemoizedToday();
   const isOpen = controlledOpen !== undefined ? controlledOpen : true;
@@ -180,7 +183,7 @@ export default function DateRangePicker({
     }
 
     return (
-      <div className="flex-1 min-w-[280px]">
+      <div className="flex-1 min-w-0 sm:min-w-[280px]">
         <div className="flex items-center justify-between mb-4">
           {/* Prev — only on left calendar */}
           {month === leftMonth && year === leftYear ? (
@@ -276,9 +279,13 @@ export default function DateRangePicker({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -8, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-        className={`absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-6 ${className}`}
+        className={`${
+          fullWidth
+            ? 'absolute top-full left-0 right-0 mt-2'
+            : 'absolute top-full left-0 mt-2'
+        } z-50 bg-white rounded-2xl shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)] border border-[#E5E7EB] p-4 sm:p-6 ${className}`}
       >
-        <div className="flex gap-8">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
           {renderCalendar(leftMonth, leftYear)}
           {mode !== 'single' && renderCalendar(rightMonth, rightYear)}
         </div>

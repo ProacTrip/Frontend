@@ -37,7 +37,7 @@ export default function FilterBar({
   const totalActive = Object.values(activeChipCounts).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="fixed top-[72px] left-0 right-0 z-[900] h-16 bg-white border-b border-vuelos-border flex items-center justify-center gap-2.5 px-4 lg:px-8 overflow-x-auto hide-scrollbar">
+    <div className="fixed top-[72px] left-0 right-0 z-[900] h-16 bg-white/90 backdrop-blur-sm border-b border-neutral-200 flex items-center justify-center gap-2.5 px-4 lg:px-8 overflow-x-auto hide-scrollbar">
       {CHIP_DEFS.map((chip) => {
         const count = activeChipCounts[chip.id] || 0;
         const isActive = count > 0;
@@ -46,15 +46,15 @@ export default function FilterBar({
           <button
             key={chip.id}
             onClick={() => onChipClick(chip.id)}
-            className={`relative flex items-center gap-[6px] px-4 py-2 rounded-full border-[1.5px] text-[13.5px] font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-              isActive
-                ? 'border-vuelos-black border-[2px] text-vuelos-black'
-                : 'border-vuelos-border text-vuelos-black hover:border-[#aaa] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
-            }`}
+        className={`relative flex items-center gap-[6px] px-4 py-2 rounded-full border text-[13.5px] font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+          isActive
+            ? 'border-neutral-900! ring-1 ring-neutral-900 ring-inset text-neutral-900 bg-neutral-50'
+            : 'border-neutral-200 text-neutral-700 hover:border-neutral-400 hover:text-neutral-900'
+        }`}
           >
             {chip.label}
             {isActive && (
-              <span className="min-w-[18px] h-[18px] rounded-full bg-vuelos-black text-white text-[11px] font-bold flex items-center justify-center px-1">
+              <span className="min-w-[18px] h-[18px] rounded-full bg-neutral-900 text-white text-[11px] font-bold flex items-center justify-center px-1">
                 {count}
               </span>
             )}
@@ -62,19 +62,19 @@ export default function FilterBar({
         );
       })}
 
-      {/* All Filters */}
+      {/* All Filters — CEEPII-style outlined button */}
       <button
         onClick={onOpenFilterModal}
-        className={`relative flex items-center gap-[6px] px-4 py-2 rounded-full border-[1.5px] text-[13.5px] font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+        className={`relative flex items-center gap-[6px] px-4 py-2 rounded-full border text-[13.5px] font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
           totalActive > 0
-            ? 'border-vuelos-black border-[2px] text-vuelos-black'
-            : 'border-vuelos-border text-vuelos-black hover:border-[#aaa] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+            ? 'border-neutral-900! ring-1 ring-neutral-900 ring-inset text-neutral-900 bg-neutral-50'
+            : 'border-neutral-200 text-neutral-700 hover:border-neutral-400 hover:text-neutral-900'
         }`}
       >
-        <SlidersHorizontal className="w-[14px] h-[14px]" strokeWidth={2} />
+        <SlidersHorizontal className="w-[14px] h-[14px]" strokeWidth={1.5} />
         Todos los filtros
         {totalActive > 0 && (
-          <span className="min-w-[18px] h-[18px] rounded-full bg-vuelos-black text-white text-[11px] font-bold flex items-center justify-center px-1">
+          <span className="min-w-[18px] h-[18px] rounded-full bg-neutral-900 text-white text-[11px] font-bold flex items-center justify-center px-1">
             {totalActive}
           </span>
         )}
@@ -84,7 +84,7 @@ export default function FilterBar({
       {totalActive > 0 && (
         <button
           onClick={onClearAll}
-          className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-[13px] font-medium text-vuelos-muted hover:text-vuelos-black hover:bg-vuelos-surface transition-colors"
+          className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-[13px] font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
         >
           <X className="w-3.5 h-3.5" />
           Limpiar

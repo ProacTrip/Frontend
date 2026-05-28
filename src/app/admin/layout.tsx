@@ -18,7 +18,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [redirected, setRedirected] = useState(false);
 
-  const canAccessDashboard = user?.role_name === 'admin';
+  const canAccessDashboard = user?.permissions?.includes('users:read') || user?.role_name === 'admin';
 
   useEffect(() => {
     if (isLoading || redirected) return;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, AlertCircle, Loader2 } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ type SearchPhase = 'outbound_selection' | 'return_selection' | 'complete' | 'err
 // ─── Component ──────────────────────────────────────
 export default function VuelosContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { environment } = useEnvironment();
   const { currency: localeCurrency } = useLocalePreferences();
 
@@ -76,6 +77,21 @@ export default function VuelosContent() {
   // ─── Rate limit ────────────────────────────────────
   // Subscribes to rate limit store for global rate-limit awareness
   void useRateLimit();
+
+  // ─── CURRENCY SYNC: keep URL in sync with active currency selection ──
+  // When the user changes currency in the navbar, update the URL so the
+  // search refetches via React Query key change AND the URL is shareable.
+  useEffect(() => {
+    if (!searchRequest || !localeCurrency) return;
+    const currentCurrency = searchParams.get('currency');
+    if (currentCurrency === localeCurrency) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('currency', localeCurrency);
+    // Use window.location.replace to avoid adding to browser history
+    // (same behavior as HotelesContent router.replace)
+    router.replace(`/vuelos?${params.toString()}`, { scroll: false });
+  }, [localeCurrency, searchRequest, searchParams, router]);
 
   // ─── Filter version (changes trigger refetch) ──────
   const filterVersion = useMemo(() => JSON.stringify({
@@ -226,21 +242,21 @@ export default function VuelosContent() {
     return (
       <div className="min-h-screen bg-white pt-[72px]">
         <div className="flex flex-col items-center justify-center py-32 text-center px-4">
-          <div className="w-24 h-24 rounded-2xl bg-vuelos-surface flex items-center justify-center mb-6">
-            <Plane className="w-12 h-12 text-vuelos-muted" />
+          <div className="w-24 h-24 rounded-2xl bg-neutral-100 flex items-center justify-center mb-6">
+            <Plane className="w-12 h-12 text-neutral-400" />
           </div>
           <h2
             suppressHydrationWarning
-            className="text-2xl font-[family-name:var(--font-syne)] font-bold text-vuelos-black mb-2"
+            className="text-2xl font-[family-name:var(--font-syne)] font-bold text-neutral-900 mb-2"
           >
             Busca tu vuelo ideal
           </h2>
-          <p className="text-vuelos-muted max-w-md mb-6">
+          <p className="text-neutral-500 max-w-md mb-6">
             Usa la barra de búsqueda en el navbar para encontrar vuelos al mejor precio.
           </p>
           <Link
             href="/?search=vuelos"
-            className="px-6 py-2.5 rounded-full bg-vuelos-black text-white text-sm font-medium hover:bg-[#333] transition-colors"
+            className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
           >
             Comenzar búsqueda
           </Link>
@@ -287,7 +303,7 @@ export default function VuelosContent() {
           {/* Heading */}
           {!isLoading && (
             <div className="mb-4">
-              <h1 className="font-[family-name:var(--font-syne)] text-xl lg:text-2xl font-bold text-vuelos-black tracking-tight">
+              <h1 className="font-[family-name:var(--font-syne)] text-xl lg:text-2xl font-bold text-neutral-900 tracking-tight">
                 {(() => {
                   const apiPhase = pagesData?.pages?.[0]?.phase;
                   const isOneWay = searchRequest?.trip_type === 'one_way';
@@ -312,7 +328,7 @@ export default function VuelosContent() {
                 })()}
               </h1>
               {searchRequest && (
-                <p className="text-sm text-vuelos-muted mt-1">
+                <p className="text-sm text-neutral-500 mt-1">
                   {searchRequest.departure} &rarr; {searchRequest.arrival}
                   {searchRequest.outbound_date && (
                     <> &middot; {searchRequest.outbound_date}</>
@@ -330,12 +346,12 @@ export default function VuelosContent() {
 
           {/* Selected outbound banner */}
           {searchPhase === 'return_selection' && selectedOutbound && (
-            <div className="mb-4 p-3 rounded-[12px] border border-vuelos-border bg-vuelos-subtle-bg flex items-center justify-between gap-3">
+            <div className="mb-4 p-3 rounded-xl border border-neutral-200 bg-neutral-50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <Plane className="w-4 h-4 text-vuelos-black shrink-0" />
+                <Plane className="w-4 h-4 text-neutral-900 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs text-vuelos-muted">Vuelo de ida seleccionado</p>
-                  <p className="font-medium text-vuelos-black text-sm truncate">
+                  <p className="text-xs text-neutral-500">Vuelo de ida seleccionado</p>
+                  <p className="font-medium text-neutral-900 text-sm truncate">
                     {selectedOutbound.legs?.[0]?.departure?.airport_code} &rarr;{' '}
                     {selectedOutbound.legs?.[selectedOutbound.legs.length - 1]?.arrival?.airport_code}
                     {' '}&middot;{' '}
@@ -344,7 +360,7 @@ export default function VuelosContent() {
                       {selectedOutbound.price.currency}
                     </span>
                     {selectedOutbound.price.currency !== localeCurrency && (
-                      <span className="text-[11px] text-vuelos-muted ml-1">
+                      <span className="text-[11px] text-neutral-400 ml-1">
                         (precio original)
                       </span>
                     )}
@@ -357,7 +373,7 @@ export default function VuelosContent() {
                   setOutboundToken(null);
                   setSearchPhase('outbound_selection');
                 }}
-                className="text-xs text-vuelos-muted hover:text-vuelos-black underline shrink-0"
+                className="text-xs text-neutral-500 hover:text-neutral-900 underline shrink-0"
               >
                 Cambiar
               </button>
@@ -383,16 +399,16 @@ export default function VuelosContent() {
           {/* Empty state */}
           {isEmpty && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 rounded-full bg-vuelos-surface flex items-center justify-center mb-4">
-                <Plane className="w-8 h-8 text-vuelos-icon-muted" />
+              <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
+                <Plane className="w-8 h-8 text-neutral-400" />
               </div>
-              <p className="text-lg font-semibold text-vuelos-black mb-1">No se encontraron vuelos</p>
-              <p className="text-sm text-vuelos-muted mb-6">
+              <p className="text-lg font-semibold text-neutral-900 mb-1">No se encontraron vuelos</p>
+              <p className="text-sm text-neutral-500 mb-6">
                 Proba ajustando los filtros o cambiando las fechas.
               </p>
               <Link
                 href="/?search=vuelos"
-                className="px-6 py-2.5 rounded-full bg-vuelos-black text-white text-sm font-medium hover:bg-[#333] transition-colors"
+                className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
               >
                 Modificar búsqueda
               </Link>
@@ -436,8 +452,8 @@ export default function VuelosContent() {
       {/* Fetching indicator — only shows during background re-fetch, not initial load */}
       {isFetching && !isLoading && (
         <div className="fixed top-[136px] left-0 right-0 z-30 flex justify-center pointer-events-none">
-          <div className="bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-vuelos-border shadow-sm">
-            <span className="text-xs text-vuelos-muted flex items-center gap-2">
+          <div className="bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-neutral-200 shadow-sm">
+            <span className="text-xs text-neutral-500 flex items-center gap-2">
               <Loader2 className="w-3 h-3 animate-spin" />
               Actualizando resultados...
             </span>
@@ -475,7 +491,7 @@ function ErrorState({
           isRateLimited ? 'text-amber-500' : isProviderDown ? 'text-blue-500' : 'text-red-500'
         }`} />
       </div>
-      <p className="text-lg font-semibold text-vuelos-black mb-1">
+      <p className="text-lg font-semibold text-neutral-900 mb-1">
         {isValidationError
           ? 'Busqueda invalida'
           : isRateLimited
@@ -486,7 +502,7 @@ function ErrorState({
                 ? 'Error de conexion'
                 : 'Error en la busqueda'}
       </p>
-      <p className="text-sm text-vuelos-muted mb-1 max-w-sm">
+      <p className="text-sm text-neutral-500 mb-1 max-w-sm">
         {isValidationError
           ? detail || 'Revisa los aeropuertos y fechas.'
           : isRateLimited
@@ -498,7 +514,7 @@ function ErrorState({
       {!isValidationError && (
         <button
           onClick={onRetry}
-          className="px-6 py-2.5 rounded-full bg-vuelos-black text-white text-sm font-medium hover:bg-[#333] transition-colors mt-4"
+          className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors mt-4"
         >
           Reintentar
         </button>
@@ -506,7 +522,7 @@ function ErrorState({
       {isValidationError && (
         <Link
           href="/?search=vuelos"
-          className="px-6 py-2.5 rounded-full bg-vuelos-black text-white text-sm font-medium hover:bg-[#333] transition-colors mt-4 inline-block"
+          className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors mt-4 inline-block"
         >
           Volver al formulario
         </Link>

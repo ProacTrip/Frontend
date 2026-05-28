@@ -676,14 +676,29 @@ export async function logoutUser(): Promise<void> {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
+    // redirect: 'manual' — the browser processes Set-Cookie headers from the
+    // 302 response, but doesn't follow the redirect. We handle navigation
+    // ourselves AFTER the cookies are cleared.
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       credentials: 'include',
+      redirect: 'manual',
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
     extractRateLimitHeaders(response, endpoint);
+
+    // The backend responds with 302 + Set-Cookie (Max-Age=0) + Location header.
+    // Browser has processed the Set-Cookie headers by now.
+    // We follow the redirect manually.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('Location');
+      if (location) {
+        window.location.href = location;
+        return;
+      }
+    }
 
     if (!response.ok) {
       await parseAuthError(response, endpoint);

@@ -23,21 +23,21 @@ export default function ChatBubble({ role, text, timestamp, children }: ChatBubb
 
   return (
     <div className={`flex gap-2 mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      {/* AI avatar */}
+      {/* AI avatar — monochrome */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0 mt-1">
+        <div className="w-8 h-8 rounded-full bg-[#0A0A0A] flex items-center justify-center flex-shrink-0 mt-1">
           <Sparkles className="w-4 h-4 text-white" />
         </div>
       )}
 
       <div className={`max-w-[80%] md:max-w-[70%] ${isUser ? 'order-first' : ''}`}>
-        {/* Bubble */}
+        {/* Bubble with asymmetric tail */}
         <div
           className={`
             px-4 py-3 rounded-2xl shadow-sm
             ${isUser
-              ? 'bg-[#c54141] text-white rounded-br-sm'
-              : 'bg-white border border-gray-200 text-gray-900 rounded-bl-sm'
+              ? 'bg-[#0A0A0A] text-white rounded-br-sm'
+              : 'bg-white border border-[#e8e8e8] text-[#0A0A0A] rounded-bl-sm'
             }
           `}
         >
@@ -46,15 +46,15 @@ export default function ChatBubble({ role, text, timestamp, children }: ChatBubb
         </div>
 
         {/* Timestamp */}
-        <p className={`text-[10px] text-gray-400 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+        <p className={`text-[10px] text-[#6A7282] mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
           {formatTime(timestamp)}
         </p>
       </div>
 
       {/* User avatar */}
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-1">
-          <User className="w-4 h-4 text-gray-600" />
+        <div className="w-8 h-8 rounded-full bg-[#e8e8e8] flex items-center justify-center flex-shrink-0 mt-1">
+          <User className="w-4 h-4 text-[#0A0A0A]" />
         </div>
       )}
     </div>

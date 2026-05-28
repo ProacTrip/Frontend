@@ -20,7 +20,6 @@ import {
   getUserFeatureLimits,
   setUserFeatureLimit,
   deleteUserFeatureLimit,
-  getRoleFeatureLimits,
   DashboardApiError,
 } from '@/app/lib/api/management';
 import type { FeatureLimit } from '@/app/lib/types/admin';
@@ -45,7 +44,6 @@ const COMMON_FEATURES = ['projects', 'searches', 'exports', 'api_calls', 'storag
 
 interface FeatureLimitsCardProps {
   userId: string;
-  roleId: string;
 }
 
 type LimitType = 'unlimited' | 'blocked' | 'quota';
@@ -56,12 +54,10 @@ interface LimitFormData {
   window: string;
 }
 
-export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardProps) {
+export default function FeatureLimitsCard({ userId }: FeatureLimitsCardProps) {
   const [userLimits, setUserLimits] = useState<FeatureLimit[]>([]);
-  const [roleDefaults, setRoleDefaults] = useState<FeatureLimit[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLimitsError, setUserLimitsError] = useState<string | null>(null);
-  const [roleDefaultsError, setRoleDefaultsError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLimit, setEditingLimit] = useState<FeatureLimit | null>(null);
@@ -80,41 +76,24 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
   const loadData = async () => {
     setLoading(true);
     setUserLimitsError(null);
-    setRoleDefaultsError(null);
 
     try {
-      const results = await Promise.allSettled([
-        getUserFeatureLimits(userId),
-        getRoleFeatureLimits(roleId),
-      ]);
-
-      if (results[0].status === 'fulfilled') {
-        setUserLimits(results[0].value.limits ?? []);
-      } else {
-        const err = results[0].reason;
-        setUserLimitsError(
-          err instanceof Error ? err.message : 'Error cargando límites del usuario.'
-        );
-      }
-
-      if (results[1].status === 'fulfilled') {
-        setRoleDefaults(results[1].value.limits ?? []);
-      } else {
-        const err = results[1].reason;
-        setRoleDefaultsError(
-          err instanceof Error ? err.message : 'Error cargando defaults del rol.'
-        );
-      }
+      const result = await getUserFeatureLimits(userId);
+      setUserLimits(result.limits ?? []);
+    } catch (err: unknown) {
+      setUserLimitsError(
+        err instanceof Error ? err.message : 'Error cargando límites del usuario.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadData is async, setState happens in callbacks
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, roleId]);
+  }, [userId]);
 
   function openCreateModal() {
     setEditingLimit(null);
@@ -307,49 +286,6 @@ export default function FeatureLimitsCard({ userId, roleId }: FeatureLimitsCardP
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Role Defaults */}
-      <div>
-        <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">
-          Defaults del Rol
-        </h3>
-
-        {loading ? (
-          <div className="flex items-center gap-2 py-6 text-neutral-400 text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Cargando...
-          </div>
-        ) : roleDefaultsError ? (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
-            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-600">{roleDefaultsError}</p>
-          </div>
-        ) : roleDefaults.length === 0 ? (
-          <p className="text-sm text-neutral-400 text-center py-6">
-            El rol no tiene límites por defecto.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {roleDefaults.map((limit) => (
-              <div
-                key={`${limit.feature_key}-${limit.window}`}
-                className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-100"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-neutral-700 font-mono">
-                    {limit.feature_key}
-                  </p>
-                  <p className="text-sm text-neutral-500 mt-0.5">
-                    {formatLimitValue(limit.limit_value)}
-                    <span className="text-neutral-300 mx-1.5">·</span>
-                    {formatWindow(limit.window)}
-                  </p>
                 </div>
               </div>
             ))}

@@ -54,11 +54,11 @@ export interface DocumentDetail {
   id: string;
   user_id: string;
   file_name: string;
-  file_size: number;
-  mime_type: string;
+  file_size: number | null;                     // ← omitzero: nil cuando no se envió en upload
+  mime_type: string | null;                     // ← omitzero: nil cuando no se envió en upload
   detected_mime_type: string | null;
-  detected_size_bytes: number;                 // ← new field
-  document_type: string;
+  detected_size_bytes: number | null;           // ← omitzero: nil hasta que el validador procesa
+  document_type: string | null;                 // ← omitzero: nil hasta que OCR completa
   storage_key: string;
   ocr_status: OcrStatus;
   ocr_confidence: number | null;

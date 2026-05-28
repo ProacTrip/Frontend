@@ -107,7 +107,7 @@ export interface Profile {
   last_name: string | null;
   date_of_birth: string | null;         // ISO 8601: YYYY-MM-DD
   gender: Gender | null;
-  nationality: string | null;           // ISO 3166-1 alpha-2 (ej: "AR")
+  nationality: string | null;           // ISO 3166-1 alpha-2 (ej: "AR") o nombre completo (ej: "Argentina")
   phone: string | null;                 // E.164 (ej: "+5491123456789")
   bio: string | null;
   avatar_url: string | null;

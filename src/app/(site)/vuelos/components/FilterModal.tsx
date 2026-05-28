@@ -93,15 +93,15 @@ export default function FilterModal({
       <div className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <DialogPanel className="w-full sm:max-w-lg max-h-[85dvh] bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-vuelos-border shrink-0">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-5 h-5 text-vuelos-black" />
-              <DialogTitle className="font-[family-name:var(--font-syne)] text-lg font-bold text-vuelos-black">
+              <SlidersHorizontal className="w-5 h-5 text-neutral-900" />
+              <DialogTitle className="font-[family-name:var(--font-syne)] text-lg font-bold text-neutral-900">
                 Filtros
               </DialogTitle>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-vuelos-surface transition-colors" aria-label="Cerrar">
-              <X className="w-5 h-5 text-vuelos-muted" />
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors" aria-label="Cerrar">
+              <X className="w-5 h-5 text-neutral-500" />
             </button>
           </div>
 
@@ -109,7 +109,7 @@ export default function FilterModal({
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
             {/* Sort */}
             <div id="filter-section-sort" className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                 Ordenar por
               </label>
               <div className="grid grid-cols-1 gap-1.5">
@@ -118,8 +118,8 @@ export default function FilterModal({
                     key={opt.value}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer text-sm transition-colors ${
                       draft.sort_by === opt.value
-                        ? 'border-vuelos-black bg-vuelos-selected'
-                        : 'border-vuelos-border hover:border-[#aaa]'
+                        ? 'border-neutral-900 bg-neutral-50'
+                        : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <input
@@ -127,7 +127,7 @@ export default function FilterModal({
                       name="sort_by"
                       checked={draft.sort_by === opt.value || (!draft.sort_by && opt.value === 'top')}
                       onChange={() => setDraft({ ...draft, sort_by: opt.value })}
-                      className="w-4 h-4 accent-vuelos-black"
+                      className="w-4 h-4 accent-neutral-900"
                     />
                     {opt.label}
                   </label>
@@ -138,24 +138,24 @@ export default function FilterModal({
             {/* Airlines */}
             {availableAirlines.length > 0 && (
               <div id="filter-section-airlines" className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
-                  <Building2 className="w-4 h-4 text-vuelos-muted" />
+                <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                  <Building2 className="w-4 h-4 text-neutral-500" />
                   Aerolineas
                 </label>
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {availableAirlines.map((al) => (
                     <label
                       key={al.code}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-vuelos-subtle-bg cursor-pointer text-sm"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer text-sm"
                     >
                       <input
                         type="checkbox"
                         checked={(draft.include_airlines || []).includes(al.code)}
                         onChange={() => toggleAirline(al.code)}
-                        className="w-4 h-4 rounded accent-vuelos-black"
+                        className="w-4 h-4 rounded accent-neutral-900"
                       />
                       {al.name}
-                      <span className="text-vuelos-muted text-xs ml-auto">{al.code}</span>
+                      <span className="text-neutral-400 text-xs ml-auto">{al.code}</span>
                     </label>
                   ))}
                 </div>
@@ -164,8 +164,8 @@ export default function FilterModal({
 
             {/* Stops */}
             <div id="filter-section-stops" className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
-                <Plane className="w-4 h-4 text-vuelos-muted" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <Plane className="w-4 h-4 text-neutral-500" />
                 Escalas
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -174,8 +174,8 @@ export default function FilterModal({
                     key={opt.value}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer text-sm transition-colors ${
                       draft.stops === opt.value || (!draft.stops && opt.value === 'any')
-                        ? 'border-vuelos-black bg-vuelos-selected'
-                        : 'border-vuelos-border hover:border-[#aaa]'
+                        ? 'border-neutral-900 bg-neutral-50'
+                        : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <input
@@ -183,7 +183,7 @@ export default function FilterModal({
                       name="stops_modal"
                       checked={draft.stops === opt.value || (!draft.stops && opt.value === 'any')}
                       onChange={() => setDraft({ ...draft, stops: opt.value })}
-                      className="w-4 h-4 accent-vuelos-black"
+                      className="w-4 h-4 accent-neutral-900"
                     />
                     {opt.label}
                   </label>
@@ -193,8 +193,8 @@ export default function FilterModal({
 
             {/* Price */}
             <div id="filter-section-price" className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
-                <CreditCard className="w-4 h-4 text-vuelos-muted" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <CreditCard className="w-4 h-4 text-neutral-500" />
                 Precio maximo
               </label>
               <div className="flex items-center gap-2">
@@ -206,16 +206,16 @@ export default function FilterModal({
                   onBlur={commitPrice}
                   onKeyDown={(e) => e.key === 'Enter' && commitPrice()}
                   placeholder="Ej: 500"
-                  className="flex-1 px-3 py-2 border border-vuelos-border rounded-lg text-sm focus:outline-none focus:border-vuelos-black"
+                  className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-neutral-900"
                 />
-                <span className="text-sm text-vuelos-muted">EUR</span>
+                <span className="text-sm text-neutral-500">EUR</span>
               </div>
             </div>
 
             {/* Duration */}
             <div id="filter-section-duration" className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
-                <Clock className="w-4 h-4 text-vuelos-muted" />
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <Clock className="w-4 h-4 text-neutral-500" />
                 Duracion maxima: {formatDurationText(durationLocal)}
               </label>
               <input
@@ -229,9 +229,9 @@ export default function FilterModal({
                   setDurationLocal(val);
                   setDraft({ ...draft, max_duration_minutes: val < 1440 ? val : null });
                 }}
-                className="w-full h-2 bg-vuelos-border rounded-lg appearance-none cursor-pointer accent-vuelos-black"
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
               />
-              <div className="flex justify-between text-xs text-vuelos-muted">
+              <div className="flex justify-between text-xs text-neutral-400">
                 <span>1h</span>
                 <span>24h</span>
               </div>
@@ -239,7 +239,7 @@ export default function FilterModal({
 
             {/* Cabin class */}
             <div id="filter-section-cabin" className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-vuelos-black">
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
                 Clase
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -248,8 +248,8 @@ export default function FilterModal({
                     key={opt.value}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer text-sm transition-colors ${
                       draft.travel_class === opt.value
-                        ? 'border-vuelos-black bg-vuelos-selected'
-                        : 'border-vuelos-border hover:border-[#aaa]'
+                        ? 'border-neutral-900 bg-neutral-50'
+                        : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <input
@@ -257,7 +257,7 @@ export default function FilterModal({
                       name="cabin_modal"
                       checked={draft.travel_class === opt.value}
                       onChange={() => setDraft({ ...draft, travel_class: opt.value })}
-                      className="w-4 h-4 accent-vuelos-black"
+                      className="w-4 h-4 accent-neutral-900"
                     />
                     {opt.label}
                   </label>
@@ -267,16 +267,16 @@ export default function FilterModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center gap-3 px-5 py-4 border-t border-vuelos-border shrink-0">
+          <div className="flex items-center gap-3 px-5 py-4 border-t border-neutral-200 shrink-0">
             <button
               onClick={handleClear}
-              className="px-5 py-2.5 rounded-full text-sm font-medium text-vuelos-muted hover:text-vuelos-black hover:bg-vuelos-surface transition-colors"
+              className="px-5 py-2.5 rounded-full text-sm font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
             >
               Limpiar
             </button>
             <button
               onClick={handleApply}
-              className="flex-1 py-2.5 rounded-full bg-vuelos-black text-white text-sm font-semibold hover:bg-[#333] transition-colors"
+              className="flex-1 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-800 transition-colors"
             >
               Aplicar
             </button>

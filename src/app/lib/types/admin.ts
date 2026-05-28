@@ -62,6 +62,18 @@ export interface UserAdminDetail {
 export interface UserDetailResponse {
   user: UserAdminDetail;
   effective_permissions: string[];
+  documents: DocumentSummary[];
+}
+
+export interface DocumentSummary {
+  id: string;
+  file_name: string;
+  document_type: string | null;
+  ocr_status: string;
+  ocr_confidence: number | null;
+  verification_status: string;
+  file_size: number | null;
+  created_at: string;
 }
 
 // ==========================================

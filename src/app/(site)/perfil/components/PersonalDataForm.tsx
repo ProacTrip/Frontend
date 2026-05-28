@@ -76,9 +76,9 @@ export function PersonalDataForm({ profile }: Props) {
       }
     }
 
-    // Validación nacionalidad ISO 3166-1 alpha-2
-    if (form.nationality && !form.nationality.match(/^[A-Z]{2}$/)) {
-      setError('La nacionalidad debe ser un código ISO 3166-1 de 2 letras (ej: AR, ES, US)');
+    // Validación nacionalidad: código ISO 3166-1 alpha-2 (2 letras) o nombre completo (2-100 caracteres)
+    if (form.nationality && !form.nationality.match(/^[A-Za-z]{2}$/) && !form.nationality.match(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s\-\.]{2,100}$/)) {
+      setError('La nacionalidad debe ser un código ISO de 2 letras (ej: AR, ES) o el nombre completo del país (ej: Argentina)');
       return;
     }
 
@@ -87,16 +87,15 @@ export function PersonalDataForm({ profile }: Props) {
       Object.entries(form).forEach(([key, value]) => {
         let finalValue: unknown = value;
 
-        // Convert empty strings to null for ALL fields.
-        // Backend rejects "" for validated formats: date_of_birth (ISO 8601),
-        // nationality (ISO 3166-1), phone (E.164), and enums like gender.
-        // Explicit null signals "clear this field" correctly.
-        if (finalValue === '') {
+        // Validated fields (date_of_birth, nationality, phone, gender):
+        // empty → null because backend rejects "" for these formats.
+        // Text fields (first_name, last_name, bio, language_code, currency_code):
+        // empty → "" to explicitly clear the field.
+        const validatedFields = ['date_of_birth', 'nationality', 'phone', 'gender'];
+        if (finalValue === '' && validatedFields.includes(key)) {
           finalValue = null;
         }
 
-        // Only exclude undefined. null values are sent to explicitly clear fields.
-        // The backend treats null as "clear" and omitted fields as "no change".
         if (finalValue !== undefined) {
           (payload as Record<string, unknown>)[key] = finalValue;
         }

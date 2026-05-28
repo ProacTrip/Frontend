@@ -46,6 +46,11 @@ function OAuthCallbackContent() {
 
     // ── Error branch ──────────────────────────────────────────
     if (oauthStatus === "error") {
+      // Redirect to dedicated pages for terminal account states
+      if (errorCode === "ACCOUNT_DISABLED" || errorCode === "ACCOUNT_SUSPENDED") {
+        window.location.href = "/auth/account-disabled";
+        return;
+      }
       const message =
         errorCode && OAUTH_ERROR_MAP[errorCode]
           ? OAUTH_ERROR_MAP[errorCode]
@@ -69,6 +74,9 @@ function OAuthCallbackContent() {
     // /v1/auth/me imperative calls and localStorage/sessionStorage hacks.
     const bootstrap = async () => {
       try {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.user.me(),
+        });
         await queryClient.invalidateQueries({
           queryKey: queryKeys.profile.all,
         });

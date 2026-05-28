@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { User, UserCircle, LogOut, LogIn, FileText } from "lucide-react";
+import { User, UserCircle, LogOut, LogIn, FileText, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/hooks/useEnvironment";
@@ -124,6 +124,24 @@ export default function ProfileDropdown({
                 </button>
               )}
             </MenuItem>
+
+            {(user?.permissions?.includes('users:read') || user?.role_name === 'admin') && (
+              <MenuItem>
+                {({ focus }) => (
+                  <button
+                    onClick={() => router.push("/admin")}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                      focus ? "bg-[#FAFAFA]" : ""
+                    }`}
+                  >
+                    <LayoutDashboard className="w-[18px] h-[18px] text-[#6A7282]" />
+                    <span className="text-[14px] text-[#0A0A0A]">
+                      Panel de Administración
+                    </span>
+                  </button>
+                )}
+              </MenuItem>
+            )}
 
             <MenuItem>
               {({ focus }) => (

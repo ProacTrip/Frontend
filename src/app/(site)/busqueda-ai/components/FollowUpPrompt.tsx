@@ -33,15 +33,15 @@ export default function FollowUpPrompt({ missingFields, onSelect }: FollowUpProm
       <div className="w-8 h-8 flex-shrink-0 mt-1" />
 
       <div className="max-w-[80%] md:max-w-[70%]">
-        <p className="text-[10px] text-gray-400 mb-1.5 ml-1">Datos que faltan:</p>
+        <p className="text-[10px] text-[#6A7282] mb-1.5 ml-1">Datos que faltan:</p>
         <div className="flex flex-wrap gap-1.5">
           {missingFields.map((field) => (
             <button
               key={field}
               onClick={() => onSelect(field)}
               className="
-                px-3 py-1.5 text-xs rounded-full border border-gray-200
-                bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300
+                px-3 py-1.5 text-xs rounded-full border border-[#e8e8e8]
+                bg-white text-[#0A0A0A] hover:border-[#0A0A0A]
                 transition-colors cursor-pointer
               "
             >

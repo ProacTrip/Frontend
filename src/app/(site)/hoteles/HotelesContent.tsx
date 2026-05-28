@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X, MapIcon, List } from 'lucide-react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import HotelCard from './components/HotelCard';
@@ -107,6 +107,22 @@ export default function HotelesContent() {
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // ─── MOBILE MAP VIEW ─────────────────────────
+  const [mapView, setMapView] = useState(false);
+
+  // Reset map view when switching to desktop — avoids CSS conflicts
+  // between the mobile overlay (fixed inset-0) and desktop sticky layout.
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) setMapView(false);
+    };
+    // Check initial state
+    handler(mql);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   // ─── AUTO-SEARCH on URL param arrival ─────────
   useEffect(() => {
     if (initialParams) {
@@ -123,6 +139,19 @@ export default function HotelesContent() {
 
   // ─── RATE LIMIT ──────────────────────────────
   useRateLimit();
+
+  // ─── CURRENCY SYNC: keep URL in sync with active currency selection ──
+  // When the user changes currency in the navbar, update the URL so that
+  // the query refetches via React Query key change AND the URL is shareable.
+  useEffect(() => {
+    if (!lastSearchParams || !localeCurrency) return;
+    const currentCurrency = searchParams.get('currency');
+    if (currentCurrency === localeCurrency) return; // already in sync
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('currency', localeCurrency);
+    router.replace(`/hoteles?${params.toString()}`, { scroll: false });
+  }, [localeCurrency, lastSearchParams, searchParams, router]);
 
   // ─── FILTER VERSION (changes query key when ANY filter value changes) ──
   const filterVersion = useMemo(() => {
@@ -347,7 +376,7 @@ export default function HotelesContent() {
       />
 
       {/* ── RESULTS HEADING ── */}
-      <div className="pt-[72px]">
+      <div className="pt-[128px] lg:pt-[136px]">
         <div className="px-4 lg:px-8 pb-4">
           {hasSearched && !isLoading && (
             <h1 className="font-display text-xl lg:text-2xl font-bold text-[#0A0A0A] tracking-tight">
@@ -377,8 +406,8 @@ export default function HotelesContent() {
 
         {/* ── MAIN SPLIT LAYOUT ── */}
         <div className="lg:grid lg:grid-cols-[minmax(0,740px)_1fr] lg:min-h-[calc(100vh-200px)]">
-          {/* LEFT: Results */}
-          <div className="px-4 lg:px-8 pb-16">
+          {/* LEFT: Results — hidden on mobile when showing map */}
+          <div className={`px-4 lg:px-8 pb-16 ${mapView ? 'hidden lg:block' : ''}`}>
             {!hasSearched ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -498,10 +527,27 @@ export default function HotelesContent() {
             )}
           </div>
 
-          {/* RIGHT: Map */}
-          <div className="hidden lg:block sticky top-[136px] h-[calc(100vh-136px)]">
+          {/* RIGHT: Map — desktop inline (sticky), mobile overlay (fullscreen) */}
+          <div
+            className={`${
+              mapView
+                ? 'fixed inset-0 top-[128px] z-30 lg:hidden'
+                : 'hidden lg:block'
+            } lg:sticky lg:top-[136px] h-[calc(100vh-128px)] lg:h-[calc(100vh-136px)]`}
+          >
+            {/* Close overlay button (mobile only) */}
+            {mapView && (
+              <button
+                onClick={() => setMapView(false)}
+                className="lg:hidden absolute top-3 right-3 z-[31] w-9 h-9 rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.18)] flex items-center justify-center cursor-pointer"
+                aria-label="Cerrar mapa"
+              >
+                <X className="w-4 h-4" strokeWidth={2.5} />
+              </button>
+            )}
             {(hasSearched && displayedHotels.length > 0) || isLoading ? (
               <HotelMap
+                key={mapView ? 'overlay' : 'inline'}
                 hotels={isLoading ? [] : displayedHotels}
                 center={mapCenter}
               />
@@ -514,9 +560,31 @@ export default function HotelesContent() {
         </div>
       </div>
 
+      {/* ── MOBILE MAP/LIST TOGGLE ── */}
+      {(hasSearched && displayedHotels.length > 0) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[35] lg:hidden">
+          <button
+            onClick={() => setMapView(!mapView)}
+            className="flex items-center gap-2 px-5 py-3 rounded-full bg-[#111] text-white text-[14px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.22)] hover:bg-[#262626] transition-all cursor-pointer active:scale-95"
+          >
+            {mapView ? (
+              <>
+                <List className="w-[17px] h-[17px]" />
+                Mostrar lista
+              </>
+            ) : (
+              <>
+                <MapIcon className="w-[17px] h-[17px]" />
+                Mostrar mapa
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* ── FETCHING INDICATOR ── */}
       {isFetching && hasSearched && !isLoading && (
-        <div className="fixed top-[136px] left-0 right-0 z-30 flex justify-center">
+        <div className="fixed top-[128px] lg:top-[136px] left-0 right-0 z-30 flex justify-center">
           <div className="bg-white/80 backdrop-blur-sm px-4 py-1.5 rounded-full border border-[#e8e8e8] shadow-sm">
             <span className="text-xs text-[#6A7282] flex items-center gap-2">
               <span className="w-3 h-3 border-2 border-[#6A7282] border-t-transparent rounded-full animate-spin" />

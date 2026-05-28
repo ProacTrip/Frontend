@@ -12,6 +12,8 @@ interface HotelCardProps {
   hotel: FrontendHotel;
   nights?: number;
   currency?: string;
+  /** If provided, overrides the default navigation to /hoteles?hotel=id */
+  onSelect?: (hotelId: string) => void;
 }
 
 const TAG_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -37,7 +39,7 @@ const BADGE_COLORS: Record<string, string> = {
   'Popular': 'bg-white/90 text-[#0A0A0A]',
 };
 
-export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProps) {
+export default function HotelCard({ hotel, nights = 1, currency, onSelect }: HotelCardProps) {
   const [toggling, setToggling] = useState(false);
   const { toggleFavorite, isFavorite } = useFavorites('hotel');
   const [liked, setLiked] = useState(() => isFavorite(hotel.id));
@@ -73,6 +75,10 @@ export default function HotelCard({ hotel, nights = 1, currency }: HotelCardProp
   };
 
   const handleClick = () => {
+    if (onSelect) {
+      onSelect(hotel.id);
+      return;
+    }
     const merged = new URLSearchParams(searchParams.toString());
     merged.set('hotel', hotel.id);
     router.push(`/hoteles?${merged.toString()}`, { scroll: false });

@@ -112,6 +112,8 @@ const hotelKeys = {
 export const userKeys = {
   /** ['user'] — root */
   all: ['user'] as const,
+  /** ['user', 'me'] — identity from /v1/auth/me (all roles) */
+  me: () => [...userKeys.all, 'me'] as const,
   /** ['user', 'profile'] — user profile */
   profile: () => [...userKeys.all, 'profile'] as const,
   /** ['user', 'medical'] — medical profile */

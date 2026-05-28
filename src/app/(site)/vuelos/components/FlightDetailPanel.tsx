@@ -98,15 +98,15 @@ function BookingOptionsSection({ options, currency }: { options: BookingOption[]
   if (!options || options.length === 0) return null;
 
   return (
-    <div className="mt-5 pt-4 border-t border-vuelos-skeleton">
-      <h4 className="font-[family-name:var(--font-syne)] text-[13px] font-semibold text-vuelos-black mb-3">
+    <div className="mt-5 pt-4 border-t border-neutral-100">
+      <h4 className="font-[family-name:var(--font-syne)] text-[13px] font-semibold text-neutral-900 mb-3">
         Opciones de reserva
       </h4>
       <div className="space-y-2">
         {options.map((opt, idx) => (
           <div
             key={idx}
-            className="rounded-[10px] border border-vuelos-border bg-vuelos-subtle-bg p-3 flex items-center justify-between gap-3"
+            className="rounded-[10px] border border-neutral-200 bg-neutral-50 p-3 flex items-center justify-between gap-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
@@ -119,7 +119,7 @@ function BookingOptionsSection({ options, currency }: { options: BookingOption[]
                     className="object-contain shrink-0"
                   />
                 )}
-                <span className="text-[12.5px] font-medium text-vuelos-black">
+                <span className="text-[12.5px] font-medium text-neutral-900">
                   {opt.together.book_with}
                 </span>
                 {opt.together.airline && (
@@ -128,24 +128,24 @@ function BookingOptionsSection({ options, currency }: { options: BookingOption[]
                   </span>
                 )}
               </div>
-              <div className="text-[11.5px] text-vuelos-muted">
+              <div className="text-[11.5px] text-neutral-500">
                 {opt.together.option_title}
                 {opt.together.baggage_prices?.length > 0 && (
                   <span className="ml-2">· {opt.together.baggage_prices[0]}</span>
                 )}
               </div>
               {opt.separate_tickets && opt.departing && opt.returning && (
-                <div className="text-[10.5px] text-vuelos-muted mt-0.5">
+                <div className="text-[10.5px] text-neutral-400 mt-0.5">
                   Ida ({opt.departing.book_with}: {formatPrice(opt.departing.price, currency)}) +{' '}
                   Vuelta ({opt.returning.book_with}: {formatPrice(opt.returning.price, currency)})
                 </div>
               )}
             </div>
             <div className="text-right shrink-0">
-              <div className="font-[family-name:var(--font-syne)] text-[14px] font-bold text-vuelos-black">
+              <div className="font-[family-name:var(--font-syne)] text-[14px] font-bold text-neutral-900">
                 {formatPrice(opt.together.price, currency)}
               </div>
-              <span className="text-[10.5px] text-vuelos-muted">total</span>
+              <span className="text-[10.5px] text-neutral-400">total</span>
             </div>
           </div>
         ))}
@@ -158,18 +158,18 @@ function BookingOptionsSection({ options, currency }: { options: BookingOption[]
 
 function BookingOptionsSkeleton() {
   return (
-    <div className="mt-5 pt-4 border-t border-vuelos-skeleton animate-pulse">
-      <div className="h-4 w-36 bg-vuelos-border rounded mb-3" />
+    <div className="mt-5 pt-4 border-t border-neutral-100 animate-pulse">
+      <div className="h-4 w-36 bg-neutral-100 rounded mb-3" />
       <div className="space-y-2">
         {[1, 2].map((i) => (
-          <div key={i} className="rounded-[10px] border border-vuelos-border bg-vuelos-subtle-bg p-3 flex items-center justify-between gap-3">
+          <div key={i} className="rounded-[10px] border border-neutral-200 bg-neutral-50 p-3 flex items-center justify-between gap-3">
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-28 bg-vuelos-timeline rounded" />
-              <div className="h-3 w-40 bg-vuelos-border rounded" />
+              <div className="h-4 w-28 bg-neutral-200 rounded" />
+              <div className="h-3 w-40 bg-neutral-100 rounded" />
             </div>
             <div className="w-16">
-              <div className="h-4 w-full bg-vuelos-timeline rounded mb-1" />
-              <div className="h-3 w-8 bg-vuelos-border rounded ml-auto" />
+              <div className="h-4 w-full bg-neutral-200 rounded mb-1" />
+              <div className="h-3 w-8 bg-neutral-100 rounded ml-auto" />
             </div>
           </div>
         ))}
@@ -227,7 +227,7 @@ export default function FlightDetailPanel({
       }}
     >
       <div className="overflow-hidden">
-        <div className="px-5 pb-5 pt-3 border-t border-vuelos-border">
+        <div className="px-4 sm:px-5 pb-5 pt-3 border-t border-neutral-100">
           {/* ── Segments Timeline ── */}
           <div className="space-y-6">
             {legs.map((leg, i) => (
@@ -236,9 +236,9 @@ export default function FlightDetailPanel({
                   <div className="flex items-center gap-3 py-2 px-3">
                     {/* Dot connector */}
                     <div className="flex flex-col items-center shrink-0 w-4">
-                      <div className="h-6 border-l-2 border-dashed border-vuelos-timeline" />
+                      <div className="h-6 border-l-2 border-dashed border-neutral-200" />
                     </div>
-                    <div className="flex items-center gap-2 text-[12.5px] text-vuelos-muted">
+                    <div className="flex items-center gap-2 text-[12.5px] text-neutral-500">
                       <Clock className="w-3.5 h-3.5" />
                       <span>
                         {formatDurationMins(layovers[i - 1].duration_minutes)} en {layovers[i - 1].airport_code}
@@ -257,9 +257,9 @@ export default function FlightDetailPanel({
                 <div className="flex gap-4">
                   {/* Timeline column */}
                   <div className="flex flex-col items-center shrink-0 w-4 pt-1">
-                    <div className="w-2.5 h-2.5 rounded-full bg-vuelos-black" />
-                    <div className="flex-1 w-0.5 bg-vuelos-timeline min-h-[40px]" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-vuelos-black" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-neutral-900" />
+                    <div className="flex-1 w-0.5 bg-neutral-200 min-h-[40px]" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-neutral-900" />
                   </div>
 
                   {/* Leg details */}
@@ -267,13 +267,13 @@ export default function FlightDetailPanel({
                     {/* Departure */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="min-w-0">
-                        <div className="font-[family-name:var(--font-syne)] text-[14px] font-semibold text-vuelos-black">
+                        <div className="font-[family-name:var(--font-syne)] text-[14px] font-semibold text-neutral-900">
                           {formatTime(leg.departure?.datetime)}
                         </div>
-                        <div className="text-[12px] text-vuelos-muted mt-0.5">
+                        <div className="text-[12px] text-neutral-500 mt-0.5">
                           {leg.departure?.airport_code} &middot; {leg.departure?.airport_name}
                         </div>
-                        <div className="text-[11px] text-vuelos-muted">{formatDate(leg.departure?.datetime)}</div>
+                        <div className="text-[11px] text-neutral-400">{formatDate(leg.departure?.datetime)}</div>
                       </div>
                       {leg.airline_logo_url && (
                         <div className="flex items-center gap-2 shrink-0">
@@ -284,13 +284,13 @@ export default function FlightDetailPanel({
                             height={24}
                             className="object-contain"
                           />
-                          <span className="text-[12px] text-vuelos-muted">{leg.airline} &middot; {leg.flight_number}</span>
+                          <span className="text-[12px] text-neutral-500">{leg.airline} &middot; {leg.flight_number}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Mid info: duration, aircraft, class */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-0 text-[11.5px] text-vuelos-muted my-2">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-0 text-[11.5px] text-neutral-500 my-2">
                       <span>{formatDurationMins(leg.duration_minutes)}</span>
                       {leg.aircraft && <span>{leg.aircraft}</span>}
                       <span>{leg.travel_class}</span>
@@ -299,17 +299,17 @@ export default function FlightDetailPanel({
 
                     {/* Arrival */}
                     <div className="mt-1">
-                      <div className="font-[family-name:var(--font-syne)] text-[14px] font-semibold text-vuelos-black">
+                      <div className="font-[family-name:var(--font-syne)] text-[14px] font-semibold text-neutral-900">
                         {formatTime(leg.arrival?.datetime)}
                       </div>
-                      <div className="text-[12px] text-vuelos-muted mt-0.5">
+                      <div className="text-[12px] text-neutral-500 mt-0.5">
                         {leg.arrival?.airport_code} &middot; {leg.arrival?.airport_name}
                       </div>
-                      <div className="text-[11px] text-vuelos-muted">{formatDate(leg.arrival?.datetime)}</div>
+                      <div className="text-[11px] text-neutral-400">{formatDate(leg.arrival?.datetime)}</div>
                     </div>
 
                     {/* Features + Warnings */}
-                    <div className="flex flex-wrap items-center gap-3 mt-3 pt-2 border-t border-vuelos-skeleton text-[11.5px] text-vuelos-muted">
+                    <div className="flex flex-wrap items-center gap-3 mt-3 pt-2 border-t border-neutral-100 text-[11.5px] text-neutral-500">
                       {leg.features?.wifi && wifiIcon(leg.features.wifi)}
                       {leg.features?.power_outlets && (
                         <span className="flex items-center gap-1" title="Enchufes en el asiento">
@@ -339,10 +339,10 @@ export default function FlightDetailPanel({
                         </span>
                       )}
                       {leg.operated_by && (
-                        <span className="text-[11px] text-vuelos-muted truncate">Operado por: {leg.operated_by}</span>
+                        <span className="text-[11px] text-neutral-500 truncate">Operado por: {leg.operated_by}</span>
                       )}
                       {leg.also_sold_by && leg.also_sold_by.length > 0 && (
-                        <span className="text-[11px] text-vuelos-muted truncate">
+                        <span className="text-[11px] text-neutral-500 truncate">
                           También vendido por: {leg.also_sold_by.join(', ')}
                         </span>
                       )}
@@ -356,7 +356,7 @@ export default function FlightDetailPanel({
                           return (
                             <span
                               key={j}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-vuelos-surface text-[11px] text-vuelos-dim"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 text-[11px] text-neutral-500"
                             >
                               {match?.icon}
                               {txt}
@@ -373,7 +373,7 @@ export default function FlightDetailPanel({
 
           {/* ── Carbon emissions ── */}
           {offer.carbon_emissions && (
-            <div className="mt-5 pt-3 border-t border-vuelos-skeleton text-[11.5px] text-vuelos-muted">
+            <div className="mt-5 pt-3 border-t border-neutral-100 text-[11.5px] text-neutral-500">
               Avg CO2: {Math.round(offer.carbon_emissions.this_flight_grams / 1000)} kg
               {offer.carbon_emissions.difference_percent < 0 && (
                 <span className="ml-1 text-green-600 font-medium">
@@ -387,7 +387,7 @@ export default function FlightDetailPanel({
           {detailsLoading && <BookingOptionsSkeleton />}
 
           {!detailsLoading && detailsError && (
-            <div className="mt-4 pt-3 border-t border-vuelos-skeleton text-[11.5px] text-vuelos-muted">
+            <div className="mt-4 pt-3 border-t border-neutral-100 text-[11.5px] text-neutral-500">
               No se pudieron cargar las opciones de reserva
             </div>
           )}
@@ -398,11 +398,11 @@ export default function FlightDetailPanel({
 
           {/* ── Seleccionar button (outbound_selection phase) ── */}
           {showSelectButton && onSelect && (
-            <div className="mt-4 pt-3 border-t border-vuelos-skeleton">
+            <div className="mt-4 pt-3 border-t border-neutral-100">
               <button
                 type="button"
                 onClick={onSelect}
-                className="w-full py-3 bg-vuelos-black text-white font-bold rounded-full hover:bg-[#333] transition-all text-sm flex items-center justify-center gap-2"
+                className="w-full py-3 bg-neutral-900 text-white font-semibold rounded-full hover:bg-neutral-800 transition-all text-sm flex items-center justify-center gap-2"
               >
                 Seleccionar este vuelo
                 <ExternalLink className="w-4 h-4" />
